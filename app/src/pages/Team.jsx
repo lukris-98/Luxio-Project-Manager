@@ -54,6 +54,7 @@ export default function Team() {
   const openAddDiv = () => setModal({ type: 'add-div' })
   const openAddTeam = (divisionId) => setModal({ type: 'add-team', divisionId })
   const openAddMember = (teamId) => setModal({ type: 'add-member', teamId })
+  const openAddMemberAnywhere = () => setModal({ type: 'add-member', teamId: null })
   const openSetAdmin = (teamId) => setModal({ type: 'set-admin', teamId })
   const openRename = (kind, id, name) => setModal({ type: 'rename', kind, id, name })
 
@@ -109,8 +110,13 @@ export default function Team() {
               </button>
             )}
             {canManageTeams && selectedDivId && (
-              <button className="btn btn-primary" onClick={() => openAddTeam(selectedDivId)}>
+              <button className="btn btn-secondary" onClick={() => openAddTeam(selectedDivId)}>
                 <Plus size={16} /> Tambah Tim
+              </button>
+            )}
+            {canManageTeams && selectedDivId && (
+              <button className="btn btn-primary" onClick={openAddMemberAnywhere}>
+                <Plus size={16} /> Tambah Anggota
               </button>
             )}
           </div>
@@ -362,7 +368,8 @@ export default function Team() {
           memberById={memberById}
           onClose={() => setModal(null)}
           onCreateMember={(data) => {
-            createMemberAndAdd({ teamId: modal.teamId, ...data })
+            // teamId diambil dari dropdown "Tim Tujuan" di dalam form.
+            createMemberAndAdd(data)
             setModal(null)
           }}
           onAddExisting={(memberId) => {
@@ -454,7 +461,11 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
     education: '',
     notes: '',
   })
-  const [selectedTeamId, setSelectedTeamId] = useState(team?.id || '')
+  const [selectedTeamId, setSelectedTeamId] = useState(() => {
+    if (team?.id) return team.id
+    if (teams && teams.length > 0) return teams[0].id
+    return ''
+  })
   const [selectedId, setSelectedId] = useState('')
   const [error, setError] = useState('')
 
