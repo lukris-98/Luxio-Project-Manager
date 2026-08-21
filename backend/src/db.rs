@@ -68,6 +68,44 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Kolom profil lengkap user (Item 2: Settings profil). Ditambah bertahap
+    // agar tabel lama tetap kompatibel.
+    for (column, sql_type) in [
+        ("phone", "TEXT NOT NULL DEFAULT ''"),
+        ("gender", "TEXT NOT NULL DEFAULT ''"),
+        ("address", "TEXT NOT NULL DEFAULT ''"),
+        ("position", "TEXT NOT NULL DEFAULT ''"),
+        ("join_date", "TEXT NOT NULL DEFAULT ''"),
+        ("employment_status", "TEXT NOT NULL DEFAULT ''"),
+        ("birth_date", "TEXT NOT NULL DEFAULT ''"),
+        ("education", "TEXT NOT NULL DEFAULT ''"),
+        ("salary", "TEXT NOT NULL DEFAULT ''"),
+        // Counter edit profil bulanan (Item 2): 3x/user & 10x/admin per bulan.
+        ("edit_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("edit_count_month", "TEXT NOT NULL DEFAULT ''"),
+        ("admin_edit_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("admin_edit_month", "TEXT NOT NULL DEFAULT ''"),
+        // Kode pertemanan (Item 5: friend system via user code).
+        ("user_code", "TEXT"),
+        // AI Agent (Item 8): penyedia & API key milik owner.
+        ("ai_provider", "TEXT NOT NULL DEFAULT ''"),
+        ("ai_key", "TEXT NOT NULL DEFAULT ''"),
+        // Status upgrade (Item 4): tipe organisasi saat upgrade.
+        ("org_type", "TEXT NOT NULL DEFAULT ''"),
+        ("upgraded_at", "TIMESTAMPTZ"),
+    ] {
+        sqlx::query(&format!("ALTER TABLE users ADD COLUMN IF NOT EXISTS {column} {sql_type}"))
+            .execute(db)
+            .await?;
+    }
+
+    // Isi user_code unik (kode pertemanan) untuk akun yang belum punya.
+    sqlx::query(
+        "UPDATE users SET user_code = 'LUX' || id WHERE user_code IS NULL",
+    )
+    .execute(db)
+    .await?;
+
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS companies (
             id TEXT PRIMARY KEY,
@@ -227,6 +265,96 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
             expires_at TIMESTAMPTZ NOT NULL,
             used BOOLEAN NOT NULL DEFAULT FALSE,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // =====================================================================
+    // CHAT SYSTEM (Item 5 — gaya BBM/WhatsApp)
+    // =====================================================================
+
+    // Grup chat: divisi/tim otomatis + grup perusahaan. `kind`: 'company' |
+    // 'division' | 'team' | 'custom'.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS chat_groups (
+            id TEXT PRIMARY KEY,
+            company_id TEXT REFERENCES companies(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'custom',
+            owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+            ref_id TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Percakapan 1-1 antar pengguna (DM). `user_a < user_b` agar unik.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS conversations (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL DEFAULT 'dm',
+            group_id TEXT REFERENCES chat_groups(id) ON DELETE CASCADE,
+            user_a TEXT REFERENCES users(id) ON DELETE CASCADE,
+            user_b TEXT REFERENCES users(id) ON DELETE CASCADE,
+            company_id TEXT REFERENCES companies(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (kind, group_id),
+            UNIQUE (kind, user_a, user_b)
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Pesan dalam sebuah percakapan.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY,
+            conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+            sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            body TEXT NOT NULL,
+            is_system BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Pembaca pesan (read receipts).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS message_reads (
+            id TEXT PRIMARY KEY,
+            message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (message_id, user_id)
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Kontak pertemanan (friend system via user code).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS contacts (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            contact_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (user_id, contact_user_id)
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Keanggotaan grup chat (untuk grup custom/division).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS chat_group_members (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (group_id, user_id)
         )",
     )
     .execute(db)

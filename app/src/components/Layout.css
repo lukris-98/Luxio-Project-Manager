@@ -688,6 +688,61 @@
   overflow-x: hidden;
 }
 
+/* Modal PIN Akun (wajib setelah login) */
+.pin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.pin-modal {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.pin-modal-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--accent-muted);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-modal h2 {
+  font-size: 1.125rem;
+}
+
+.pin-modal p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pin-modal-error {
+  font-size: 0.8125rem;
+  color: var(--error);
+}
+
+.pin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .sidebar {

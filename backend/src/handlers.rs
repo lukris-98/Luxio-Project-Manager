@@ -1026,7 +1026,10 @@ pub async fn get_projects(
 
 // ---------- AUTHORIZATION HELPERS ----------
 
-/// Pastikan `user_id` adalah pemilik `company_id` (atau ada sesi yang valid).
+/// Pastikan `user_id` punya akses ke `company_id`:
+///   - pemilik perusahaan (owner_id), atau
+///   - user terdaftar di perusahaan itu (company_id user == company_id) dengan
+///     peran yang memiliki akses (admin/super_admin/manager).
 /// Tolak dengan 403 bila bukan miliknya.
 async fn check_company_access(
     state: &AppState,
@@ -1042,17 +1045,1139 @@ async fn check_company_access(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    match row {
-        Some(r) => {
-            let owner_id: String = r.get("owner_id");
-            if owner_id == user_id {
+    let (owner_id, company_exists) = match row {
+        Some(r) => (r.get::<String, _>("owner_id"), true),
+        None => (String::new(), false),
+    };
+    if !company_exists {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    if owner_id == user_id {
+        return Ok(());
+    }
+
+    // Cek keanggotaan: user punya company_id yang sama + peran yang diizinkan.
+    let member = sqlx::query(
+        "SELECT role, company_id FROM users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    match member {
+        Some(m) => {
+            let role: String = m.get("role");
+            let user_company: Option<String> = m.get("company_id");
+            let allowed = role == "admin" || role == "super_admin" || role == "manager";
+            if allowed && user_company.as_deref() == Some(company_id) {
                 Ok(())
             } else {
                 Err(StatusCode::FORBIDDEN)
             }
         }
-        None => Err(StatusCode::NOT_FOUND),
+        None => Err(StatusCode::FORBIDDEN),
     }
+}
+
+// ---------- PROFIL (Item 2: Settings lengkap + kuota edit) ----------
+
+/// Ambil profil lengkap user berikut kuota edit bulanan. Dipakai halaman
+/// Settings untuk menampilkan semua data pribadi & login.
+pub async fn get_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<ProfileResponse>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    profile_for_user(&state, &user_id, false).await
+}
+
+/// Bangun `ProfileResponse` untuk satu user. Bila `is_admin_action` true
+/// (admin mengedit data user lain), kuota memakai counter admin (10x/bulan);
+/// selain itu memakai kuota pribadi (3x/bulan).
+async fn profile_for_user(
+    state: &AppState,
+    user_id: &str,
+    is_admin_action: bool,
+) -> Result<Json<ProfileResponse>, StatusCode> {
+    let row = sqlx::query(
+        "SELECT id, email, name, company_id, role, plan, email_verified, user_code,
+                phone, gender, address, position, join_date, employment_status,
+                birth_date, education, salary,
+                edit_count, edit_count_month, admin_edit_count, admin_edit_month
+         FROM users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let row = row.ok_or(StatusCode::NOT_FOUND)?;
+
+    let limit = if is_admin_action { 10 } else { 3 };
+    let count: i32 = if is_admin_action {
+        row.get("admin_edit_count")
+    } else {
+        row.get("edit_count")
+    };
+    let month: String = if is_admin_action {
+        row.get("admin_edit_month")
+    } else {
+        row.get("edit_count_month")
+    };
+
+    Ok(Json(ProfileResponse {
+        id: row.get("id"),
+        email: row.get("email"),
+        name: row.get("name"),
+        company_id: row.get("company_id"),
+        role: row.get("role"),
+        plan: row.get("plan"),
+        email_verified: Some(row.get("email_verified")),
+        user_code: row.get("user_code"),
+        phone: row.get("phone"),
+        gender: row.get("gender"),
+        address: row.get("address"),
+        position: row.get("position"),
+        join_date: row.get("join_date"),
+        employment_status: row.get("employment_status"),
+        birth_date: row.get("birth_date"),
+        education: row.get("education"),
+        salary: row.get("salary"),
+        edit_count: count,
+        edit_limit: limit,
+        edit_count_month: month,
+        has_pin: false,
+    }))
+}
+
+/// Cek & reset counter edit bulanan. `month` berformat 'YYYY-MM'. Bila
+/// bulan tersimpan berbeda dari bulan sekarang, counter direset ke 0.
+fn check_and_reset_month(current: &str, now: chrono::DateTime<Utc>) -> String {
+    let this_month = now.format("%Y-%m").to_string();
+    if current != this_month {
+        this_month
+    } else {
+        current.to_string()
+    }
+}
+
+/// PUT /api/profile — perbarui profil user. Tanpa `user_id`: ubah profil
+/// sendiri (kuota 3x/bulan). Dengan `user_id` (oleh admin/super_admin/owner):
+/// ubah data user lain (kuota 10x/bulan per admin).
+pub async fn update_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<UpdateProfileRequest>,
+) -> Result<Json<ProfileResponse>, StatusCode> {
+    let actor_id = require_auth(&state, &headers).await?;
+
+    // Tentukan target & apakah ini aksi admin (mengubah user lain).
+    let is_admin_action = if let Some(target) = &payload.user_id {
+        if target == &actor_id {
+            false
+        } else {
+            let actor_role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+                .bind(&actor_id)
+                .fetch_optional(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?
+                .ok_or(StatusCode::UNAUTHORIZED)?
+                .get("role");
+            let allowed = actor_role == "owner" || actor_role == "super_admin" || actor_role == "admin";
+            if !allowed {
+                return Err(StatusCode::FORBIDDEN);
+            }
+            true
+        }
+    } else {
+        false
+    };
+
+    let target_id = payload.user_id.clone().unwrap_or_else(|| actor_id.clone());
+
+    let now = Utc::now();
+
+    // Ambil nilai lama (untuk mempertahankan field yang tidak dikirim).
+    let old = sqlx::query(
+        "SELECT name, email, edit_count, edit_count_month, admin_edit_count, admin_edit_month, role
+         FROM users WHERE id = $1",
+    )
+    .bind(&target_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    // Siapa yang kuotanya dipakai: untuk aksi admin, counter admin pada
+    // AKTOR (orang yang mengedit); untuk self-edit, counter pada target.
+    let counter_owner_id = if is_admin_action { actor_id.clone() } else { target_id.clone() };
+    let counter_row = sqlx::query(
+        "SELECT edit_count, edit_count_month, admin_edit_count, admin_edit_month FROM users WHERE id = $1",
+    )
+    .bind(&counter_owner_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let (col_count, col_month) = if is_admin_action {
+        ("admin_edit_count", "admin_edit_month")
+    } else {
+        ("edit_count", "edit_count_month")
+    };
+    let cur_count: i32 = counter_row.get(col_count);
+    let cur_month: String = counter_row.get(col_month);
+    let this_month = check_and_reset_month(&cur_month, now);
+    let limit = if is_admin_action { 10 } else { 3 };
+
+    // Blokir bila kuota bulan ini habis.
+    if this_month == cur_month && cur_count >= limit {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    // Hitung nilai field baru (hanya yang dikirim; lainnya dipertahankan).
+    let name = payload.name.clone().unwrap_or(old.get("name"));
+    let mut email = payload.email.clone().unwrap_or(old.get("email"));
+
+    // Email unik bila berubah.
+    if email != old.get::<String, _>("email") {
+        validate_email(&email)?;
+        let dup = sqlx::query("SELECT id FROM users WHERE email = $1 AND id != $2")
+            .bind(&email)
+            .bind(&target_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        if dup.is_some() {
+            return Err(StatusCode::CONFLICT);
+        }
+    } else {
+        email = old.get("email");
+    }
+
+    let fields = [
+        ("name", payload.name.as_deref().unwrap_or(name.as_str())),
+        ("email", email.as_str()),
+        ("phone", payload.phone.as_deref().unwrap_or("")),
+        ("gender", payload.gender.as_deref().unwrap_or("")),
+        ("address", payload.address.as_deref().unwrap_or("")),
+        ("position", payload.position.as_deref().unwrap_or("")),
+        ("join_date", payload.join_date.as_deref().unwrap_or("")),
+        ("employment_status", payload.employment_status.as_deref().unwrap_or("")),
+        ("birth_date", payload.birth_date.as_deref().unwrap_or("")),
+        ("education", payload.education.as_deref().unwrap_or("")),
+        ("salary", payload.salary.as_deref().unwrap_or("")),
+    ];
+
+    // Pertahankan field lama yang TIDAK dikirim (jangan timpa dengan '').
+    let mut set_clauses: Vec<String> = Vec::new();
+    let mut binds: Vec<String> = Vec::new();
+    for (col, val) in &fields {
+        let has_some = match *col {
+            "name" => payload.name.is_some(),
+            "email" => payload.email.is_some(),
+            "phone" => payload.phone.is_some(),
+            "gender" => payload.gender.is_some(),
+            "address" => payload.address.is_some(),
+            "position" => payload.position.is_some(),
+            "join_date" => payload.join_date.is_some(),
+            "employment_status" => payload.employment_status.is_some(),
+            "birth_date" => payload.birth_date.is_some(),
+            "education" => payload.education.is_some(),
+            "salary" => payload.salary.is_some(),
+            _ => false,
+        };
+        if has_some || *col == "name" || *col == "email" {
+            set_clauses.push(format!("{col} = ${}", binds.len() + 1));
+            binds.push(val.to_string());
+        }
+    }
+
+    let next_count = cur_count + 1;
+    set_clauses.push(format!("{col_count} = ${}", binds.len() + 1));
+    binds.push(next_count.to_string());
+    set_clauses.push(format!("{col_month} = ${}", binds.len() + 1));
+    binds.push(this_month.clone());
+
+    let sql = format!(
+        "UPDATE users SET {} WHERE id = ${}",
+        set_clauses.join(", "),
+        binds.len() + 1
+    );
+    let mut q = sqlx::query(&sql);
+    for b in &binds {
+        q = q.bind(b);
+    }
+    q = q.bind(&target_id);
+    q.execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    tracing::info!(
+        event = "profile_updated",
+        actor = %actor_id,
+        target = %target_id,
+        is_admin = is_admin_action,
+        "profil diperbarui"
+    );
+
+    profile_for_user(&state, &target_id, is_admin_action).await
+}
+
+// ---------- UPGRADE AKUN (Item 4) ----------
+
+/// POST /api/upgrade — akun self-register (role 'user') meng-upgrade ke plan
+/// berbayar: role berubah ke admin (grup) / super_admin (organisasi) dan data
+/// perusahaan disimpan (buat company bila belum punya).
+pub async fn upgrade_account(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<UpgradeRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+
+    let plan = payload.plan.trim();
+    if plan != "grup" && plan != "organisasi" {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    validate_len(&payload.org_type, "org_type", 50)?;
+
+    let role = role_for_plan(plan);
+    let now = Utc::now();
+
+    // Update role & plan user.
+    sqlx::query(
+        "UPDATE users SET plan = $1, role = $2, org_type = $3, upgraded_at = $4 WHERE id = $5",
+    )
+    .bind(plan)
+    .bind(role)
+    .bind(&payload.org_type)
+    .bind(now)
+    .bind(&user_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Data perusahaan: update bila sudah punya, buat bila belum.
+    let company_id: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+        .bind(&user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("company_id");
+
+    let org_name = payload.name.clone().unwrap_or_default();
+    let org_industry = payload.industry.clone().unwrap_or_else(|| {
+        match payload.org_type.as_str() {
+            "sekolah" => "Pendidikan".to_string(),
+            "yayasan" => "Yayasan".to_string(),
+            "komunitas" => "Komunitas".to_string(),
+            _ => "Organisasi".to_string(),
+        }
+    });
+    let org_size = payload.size.clone().unwrap_or_else(|| "1-10".to_string());
+
+    match company_id {
+        Some(cid) => {
+            if !org_name.is_empty() {
+                sqlx::query("UPDATE companies SET name = $1, industry = $2, size = $3 WHERE id = $4")
+                    .bind(&org_name)
+                    .bind(&org_industry)
+                    .bind(&org_size)
+                    .bind(&cid)
+                    .execute(&state.db)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("[DB ERROR] {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?;
+            }
+        }
+        None => {
+            if !org_name.is_empty() {
+                let new_id = Uuid::new_v4().to_string();
+                sqlx::query(
+                    "INSERT INTO companies (id, name, industry, size, owner_id, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6)",
+                )
+                .bind(&new_id)
+                .bind(&org_name)
+                .bind(&org_industry)
+                .bind(&org_size)
+                .bind(&user_id)
+                .bind(now)
+                .execute(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+                sqlx::query("UPDATE users SET company_id = $1 WHERE id = $2")
+                    .bind(&new_id)
+                    .bind(&user_id)
+                    .execute(&state.db)
+                    .await
+                    .ok();
+            }
+        }
+    }
+
+    tracing::info!(event = "account_upgraded", user_id = %user_id, plan = plan, org_type = %payload.org_type);
+
+    Ok(Json(json!({
+        "ok": true,
+        "plan": plan,
+        "role": role,
+        "org_type": payload.org_type,
+        "message": format!("Akun berhasil di-upgrade ke paket {} (role: {})", plan, role),
+    })))
+}
+
+// ---------- CHAT (Item 5) ----------
+
+/// Pastikan grup chat perusahaan + per divisi sudah dibuat (auto-create).
+/// Dipanggil setiap kali daftar percakapan dimuat dan saat divisi dibuat.
+async fn ensure_chat_groups(state: &AppState, user_id: &str, company_id: Option<&str>) -> Result<(), StatusCode> {
+    let cid = match company_id {
+        Some(c) => c.to_string(),
+        None => {
+            let row = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+                .bind(user_id)
+                .fetch_optional(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+            match row {
+                Some(r) => match r.get::<Option<String>, _>("company_id") {
+                    Some(c) => c,
+                    None => return Ok(()),
+                },
+                None => return Ok(()),
+            }
+        }
+    };
+
+    // Grup perusahaan (company-wide).
+    let group = sqlx::query(
+        "SELECT id FROM chat_groups WHERE company_id = $1 AND kind = 'company' LIMIT 1",
+    )
+    .bind(&cid)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    if group.is_none() {
+        let gid = Uuid::new_v4().to_string();
+        let company_name: String = sqlx::query("SELECT name FROM companies WHERE id = $1")
+            .bind(&cid)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+            .get("name");
+        sqlx::query(
+            "INSERT INTO chat_groups (id, company_id, name, kind, owner_id, ref_id, created_at)
+             VALUES ($1, $2, $3, 'company', $4, $5, $6)",
+        )
+        .bind(&gid)
+        .bind(&cid)
+        .bind(format!("{company_name} — Semua Anggota"))
+        .bind(user_id)
+        .bind(&cid)
+        .bind(Utc::now())
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    }
+
+    // Grup per divisi.
+    let divisions = sqlx::query("SELECT id, name FROM divisions WHERE company_id = $1")
+        .bind(&cid)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    for div in &divisions {
+        let div_id: String = div.get("id");
+        let existing = sqlx::query(
+            "SELECT id FROM chat_groups WHERE company_id = $1 AND kind = 'division' AND ref_id = $2 LIMIT 1",
+        )
+        .bind(&cid)
+        .bind(&div_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        if existing.is_none() {
+            let gid = Uuid::new_v4().to_string();
+            let div_name: String = div.get("name");
+            sqlx::query(
+                "INSERT INTO chat_groups (id, company_id, name, kind, owner_id, ref_id, created_at)
+                 VALUES ($1, $2, $3, 'division', $4, $5, $6)",
+            )
+            .bind(&gid)
+            .bind(&cid)
+            .bind(format!("Divisi {div_name}"))
+            .bind(user_id)
+            .bind(&div_id)
+            .bind(Utc::now())
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Cari / buat percakapan DM antara dua user. Dipakai helper `chat_send`.
+async fn ensure_dm_conversation(
+    state: &AppState,
+    user_a: &str,
+    user_b: &str,
+) -> Result<String, StatusCode> {
+    let (a, b) = if user_a < user_b {
+        (user_a.to_string(), user_b.to_string())
+    } else {
+        (user_b.to_string(), user_a.to_string())
+    };
+
+    let row = sqlx::query(
+        "SELECT id FROM conversations WHERE kind = 'dm' AND user_a = $1 AND user_b = $2",
+    )
+    .bind(&a)
+    .bind(&b)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    if let Some(r) = row {
+        return Ok(r.get("id"));
+    }
+
+    let cid = Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO conversations (id, kind, user_a, user_b, created_at) VALUES ($1, 'dm', $2, $3, $4)",
+    )
+    .bind(&cid)
+    .bind(&a)
+    .bind(&b)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    Ok(cid)
+}
+
+/// POST /api/chat/send — kirim pesan DM, ke grup, atau balas percakapan.
+pub async fn chat_send(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<ChatSendRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let body = payload.body.trim().to_string();
+    if body.is_empty() || body.len() > 4000 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Tentukan conversation_id.
+    let conv_id: String = if let Some(conv) = &payload.conversation_id {
+        conv.clone()
+    } else if let Some(to) = &payload.to_user_id {
+        if to == &user_id {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        // Cek target ada.
+        let exists = sqlx::query("SELECT id FROM users WHERE id = $1")
+            .bind(to)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        if exists.is_none() {
+            return Err(StatusCode::NOT_FOUND);
+        }
+        ensure_dm_conversation(&state, &user_id, to).await?
+    } else if let Some(gid) = &payload.group_id {
+        // Cek grup ada; untuk grup custom cek keanggotaan.
+        let g = sqlx::query("SELECT id, kind FROM chat_groups WHERE id = $1")
+            .bind(gid)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        match g {
+            Some(r) => {
+                let kind: String = r.get("kind");
+                if kind == "custom" {
+                    let is_member = sqlx::query(
+                        "SELECT id FROM chat_group_members WHERE group_id = $1 AND user_id = $2",
+                    )
+                    .bind(gid)
+                    .bind(&user_id)
+                    .fetch_optional(&state.db)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("[DB ERROR] {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?;
+                    if is_member.is_none() {
+                        return Err(StatusCode::FORBIDDEN);
+                    }
+                }
+            }
+            None => return Err(StatusCode::NOT_FOUND),
+        }
+        let conv = sqlx::query("SELECT id FROM conversations WHERE group_id = $1 LIMIT 1")
+            .bind(gid)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        match conv {
+            Some(c) => c.get("id"),
+            None => {
+                let cid = Uuid::new_v4().to_string();
+                sqlx::query(
+                    "INSERT INTO conversations (id, kind, group_id, created_at) VALUES ($1, 'group', $2, $3)",
+                )
+                .bind(&cid)
+                .bind(gid)
+                .bind(Utc::now())
+                .execute(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+                cid
+            }
+        }
+    } else {
+        return Err(StatusCode::BAD_REQUEST);
+    };
+
+    // Hak akses: pemilik percakapan atau anggota company yang sama.
+    let conv_info = sqlx::query(
+        "SELECT c.kind, c.group_id, c.user_a, c.user_b, g.company_id
+         FROM conversations c LEFT JOIN chat_groups g ON g.id = c.group_id
+         WHERE c.id = $1",
+    )
+    .bind(&conv_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    let kind: String = conv_info.get("kind");
+    let ok = if kind == "dm" {
+        let ua: String = conv_info.get("user_a");
+        let ub: String = conv_info.get("user_b");
+        ua == user_id || ub == user_id
+    } else {
+        // Grup perusahaan/divisi: semua anggota company bisa kirim.
+        let company_id: Option<String> = conv_info.get("company_id");
+        match company_id {
+            Some(cid) => {
+                let user_company: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+                    .bind(&user_id)
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("[DB ERROR] {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .get("company_id");
+                user_company.as_deref() == Some(cid.as_str())
+            }
+            None => false,
+        }
+    };
+    if !ok {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let mid = Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO messages (id, conversation_id, sender_id, body, is_system, created_at)
+         VALUES ($1, $2, $3, $4, FALSE, $5)",
+    )
+    .bind(&mid)
+    .bind(&conv_id)
+    .bind(&user_id)
+    .bind(&body)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(json!({
+        "ok": true,
+        "message_id": mid,
+        "conversation_id": conv_id,
+        "body": body,
+        "sender_id": user_id,
+        "created_at": Utc::now(),
+    })))
+}
+
+/// GET /api/chat/messages?conversation_id=... — daftar pesan satu percakapan.
+pub async fn chat_messages(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(payload): Query<ChatMessagesQuery>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+
+    let conv_info = sqlx::query(
+        "SELECT c.kind, c.group_id, c.user_a, c.user_b, g.company_id
+         FROM conversations c LEFT JOIN chat_groups g ON g.id = c.group_id
+         WHERE c.id = $1",
+    )
+    .bind(&payload.conversation_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    let kind: String = conv_info.get("kind");
+    let ok = if kind == "dm" {
+        let ua: String = conv_info.get("user_a");
+        let ub: String = conv_info.get("user_b");
+        ua == user_id || ub == user_id
+    } else {
+        let company_id: Option<String> = conv_info.get("company_id");
+        match company_id {
+            Some(cid) => {
+                // Admin company bisa melihat semua pesan company-nya.
+                let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+                    .bind(&user_id)
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("[DB ERROR] {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .get("role");
+                let user_company: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+                    .bind(&user_id)
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("[DB ERROR] {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .get("company_id");
+                let is_admin = role == "owner" || role == "super_admin" || role == "admin";
+                is_admin || user_company.as_deref() == Some(cid.as_str())
+            }
+            None => false,
+        }
+    };
+    if !ok {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let rows = sqlx::query(
+        "SELECT m.id, m.conversation_id, m.sender_id, m.body, m.is_system, m.created_at,
+                u.name AS sender_name, u.email AS sender_email
+         FROM messages m LEFT JOIN users u ON u.id = m.sender_id
+         WHERE m.conversation_id = $1 ORDER BY m.created_at ASC",
+    )
+    .bind(&payload.conversation_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let messages: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.get::<String, _>("id"),
+                "conversation_id": r.get::<String, _>("conversation_id"),
+                "sender_id": r.get::<String, _>("sender_id"),
+                "sender_name": r.get::<String, _>("sender_name"),
+                "sender_email": r.get::<String, _>("sender_email"),
+                "body": r.get::<String, _>("body"),
+                "is_system": r.get::<bool, _>("is_system"),
+                "created_at": r.get::<chrono::DateTime<Utc>, _>("created_at"),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({ "conversation_id": payload.conversation_id, "messages": messages })))
+}
+
+/// GET /api/chat/conversations — daftar percakapan user (DM + grup company).
+pub async fn chat_conversations(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+
+    // Pastikan grup perusahaan & divisi sudah dibuat (auto-create).
+    ensure_chat_groups(&state, &user_id, None).await?;
+
+    let user_company: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+        .bind(&user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("company_id");
+
+    // DM milik user.
+    let dms = sqlx::query(
+        "SELECT c.id, c.kind, c.group_id, c.user_a, c.user_b, c.created_at,
+                COALESCE(ua.name, '') AS user_a_name, COALESCE(ub.name, '') AS user_b_name
+         FROM conversations c
+         LEFT JOIN users ua ON ua.id = c.user_a
+         LEFT JOIN users ub ON ub.id = c.user_b
+         WHERE (c.user_a = $1 OR c.user_b = $1) AND c.kind = 'dm'
+         ORDER BY c.created_at DESC",
+    )
+    .bind(&user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let mut list: Vec<Value> = Vec::new();
+    for d in &dms {
+        let ua: String = d.get("user_a");
+        let ub: String = d.get("user_b");
+        let other_name: String = if ua == user_id {
+            d.get("user_b_name")
+        } else {
+            d.get("user_a_name")
+        };
+        let other_id: String = if ua == user_id { ub } else { ua };
+        list.push(json!({
+            "id": d.get::<String, _>("id"),
+            "kind": "dm",
+            "name": other_name,
+            "other_user_id": other_id,
+            "avatar_seed": other_name,
+            "created_at": d.get::<chrono::DateTime<Utc>, _>("created_at"),
+        }));
+    }
+
+    // Grup milik company user.
+    if let Some(cid) = &user_company {
+        let groups = sqlx::query(
+            "SELECT g.id, g.name, g.kind FROM chat_groups g WHERE g.company_id = $1 ORDER BY g.created_at",
+        )
+        .bind(cid)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        for g in &groups {
+            let gid: String = g.get("id");
+            let conv = sqlx::query("SELECT id FROM conversations WHERE group_id = $1 LIMIT 1")
+                .bind(&gid)
+                .fetch_optional(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+            list.push(json!({
+                "id": match conv { Some(c) => c.get::<String,_>("id"), None => gid.clone() },
+                "kind": "group",
+                "group_id": gid,
+                "name": g.get::<String, _>("name"),
+                "group_kind": g.get::<String, _>("kind"),
+                "avatar_seed": g.get::<String, _>("name"),
+                "created_at": Utc::now(),
+            }));
+        }
+    }
+
+    Ok(Json(json!({ "conversations": list })))
+}
+
+/// POST /api/chat/group/create — buat grup chat custom dengan anggota.
+pub async fn chat_group_create(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<ChatGroupCreateRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    validate_len(&payload.name, "name", 120)?;
+
+    let company_id = match &payload.company_id {
+        Some(cid) => {
+            check_company_access(&state, &user_id, cid).await?;
+            cid.clone()
+        }
+        None => {
+            let row = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+                .bind(&user_id)
+                .fetch_one(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+            match row.get::<Option<String>, _>("company_id") {
+                Some(c) => c,
+                None => return Err(StatusCode::BAD_REQUEST),
+            }
+        }
+    };
+
+    let gid = Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO chat_groups (id, company_id, name, kind, owner_id, created_at)
+         VALUES ($1, $2, $3, 'custom', $4, $5)",
+    )
+    .bind(&gid)
+    .bind(&company_id)
+    .bind(payload.name.trim())
+    .bind(&user_id)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Owner otomatis jadi member.
+    sqlx::query(
+        "INSERT INTO chat_group_members (id, group_id, user_id, created_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(Uuid::new_v4().to_string())
+    .bind(&gid)
+    .bind(&user_id)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await
+    .ok();
+
+    for uid in &payload.member_ids {
+        if uid == &user_id {
+            continue;
+        }
+        sqlx::query(
+            "INSERT INTO chat_group_members (id, group_id, user_id, created_at) VALUES ($1, $2, $3, $4)",
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind(&gid)
+        .bind(uid)
+        .bind(Utc::now())
+        .execute(&state.db)
+        .await
+        .ok();
+    }
+
+    Ok(Json(json!({ "ok": true, "group_id": gid, "name": payload.name.trim() })))
+}
+
+/// GET /api/chat/contacts — daftar kontak pertemanan user.
+pub async fn chat_contacts(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let rows = sqlx::query(
+        "SELECT u.id, u.name, u.email, u.user_code, u.phone, u.position
+         FROM contacts c JOIN users u ON u.id = c.contact_user_id
+         WHERE c.user_id = $1 ORDER BY u.name",
+    )
+    .bind(&user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let contacts: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.get::<String, _>("id"),
+                "name": r.get::<String, _>("name"),
+                "email": r.get::<String, _>("email"),
+                "user_code": r.get::<Option<String>, _>("user_code"),
+                "phone": r.get::<String, _>("phone"),
+                "position": r.get::<String, _>("position"),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({ "contacts": contacts })))
+}
+
+/// POST /api/chat/contacts — tambah kontak via user code.
+pub async fn chat_add_contact(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<ContactAddRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let code = payload.user_code.trim().to_string();
+    if code.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let target = sqlx::query("SELECT id, name, email, user_code FROM users WHERE user_code = $1")
+        .bind(&code)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    let target = match target {
+        Some(r) => r,
+        None => return Err(StatusCode::NOT_FOUND),
+    };
+    let target_id: String = target.get("id");
+    if target_id == user_id {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    sqlx::query(
+        "INSERT INTO contacts (id, user_id, contact_user_id, created_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(Uuid::new_v4().to_string())
+    .bind(&user_id)
+    .bind(&target_id)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(json!({
+        "ok": true,
+        "contact": {
+            "id": target_id,
+            "name": target.get::<String, _>("name"),
+            "email": target.get::<String, _>("email"),
+            "user_code": target.get::<Option<String>, _>("user_code"),
+        }
+    })))
+}
+
+// ---------- AI AGENT CONFIG (Item 8) ----------
+
+/// PUT /api/agent/config — simpan penyedia AI & API key (khusus owner).
+pub async fn agent_config(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<AgentConfigRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+        .bind(&user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("role");
+    if role != "owner" && role != "super_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    sqlx::query("UPDATE users SET ai_provider = $1, ai_key = $2 WHERE id = $3")
+        .bind(&payload.ai_provider)
+        .bind(&payload.ai_key)
+        .bind(&user_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    Ok(Json(json!({
+        "ok": true,
+        "ai_provider": payload.ai_provider,
+        "ai_key_set": !payload.ai_key.is_empty(),
+    })))
 }
 
 // ---------- OWNER / ADMIN ----------
@@ -1078,13 +2203,14 @@ fn owner_name() -> String {
 }
 
 /// Role otomatis dari paket/plan akun. Aturannya:
-///   Personal & Profesional => member, Grup => admin, Organisasi => super_admin.
-/// Role tidak bisa dipindah tangankan secara manual (hanya mengikuti paket).
+///   Personal & Profesional => user (akun self-register), Grup => admin,
+///   Organisasi => super_admin. Role tidak bisa dipindah tangankan secara
+///   manual (hanya mengikuti paket) — lihat Item 4 (upgrade akun).
 fn role_for_plan(plan: &str) -> &str {
     match plan {
         "grup" => "admin",
         "organisasi" => "super_admin",
-        _ => "member",
+        _ => "user",
     }
 }
 
@@ -1095,7 +2221,7 @@ pub async fn normalize_user_roles(db: &PgPool) {
         "UPDATE users SET role = CASE plan
             WHEN 'grup' THEN 'admin'
             WHEN 'organisasi' THEN 'super_admin'
-            ELSE 'member'
+            ELSE 'user'
         END
         WHERE role != 'owner'",
     )

@@ -27,8 +27,10 @@ export default function Layout({ children }) {
     currentPage, setCurrentPage, logout, currentUser, companyInfo, appState, setAppState,
     notifications, markAllNotificationsRead, clearNotifications,
     theme, setTheme, activeRole, setActiveRole,
+    userPin, setUserPin, isAuthenticated,
   } = useStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pinModalOpen, setPinModalOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [roleOpen, setRoleOpen] = useState(false)
@@ -102,6 +104,13 @@ export default function Layout({ children }) {
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length
+
+  // PIN akun wajib di-set setelah login (untuk catatan pribadi).
+  useEffect(() => {
+    if (isAuthenticated && !userPin) {
+      setPinModalOpen(true)
+    }
+  }, [isAuthenticated, userPin])
 
   return (
     <div className={`app-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -323,6 +332,75 @@ export default function Layout({ children }) {
           </button>
         </div>
       )}
+
+      {/* Modal wajib: set PIN akun (muncul setelah login bila belum di-set) */}
+      {pinModalOpen && (
+        <PinSetupModal
+          onClose={() => { if (userPin) setPinModalOpen(false) }}
+          onSet={(pin) => { setUserPin(pin); setPinModalOpen(false); setToast({ title: 'PIN tersimpan', body: 'PIN akun kamu sudah diatur', type: 'create' }) }}
+          closable={Boolean(userPin)}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ---------- Modal PIN Akun ---------- */
+
+function PinSetupModal({ onClose, onSet, closable }) {
+  const [pin, setPin] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState('')
+
+  const handleSet = () => {
+    if (!pin.trim()) return setError('PIN tidak boleh kosong.')
+    if (!/^\d{4,6}$/.test(pin.trim())) return setError('PIN harus 4–6 digit angka.')
+    if (pin !== confirm) return setError('PIN tidak sama dengan konfirmasi.')
+    onSet(pin.trim())
+  }
+
+  return (
+    <div className="pin-modal-overlay">
+      <div className="pin-modal">
+        <div className="pin-modal-icon">
+          <Lock size={24} />
+        </div>
+        <h2>Atur PIN Akun</h2>
+        <p>
+          PIN dipakai untuk mengunci Catatan Pribadi kamu. Wajib di-set sebelum
+          memakai aplikasi. Kamu bisa mengubahnya nanti di Pengaturan.
+        </p>
+        <div className="input-group">
+          <label className="input-label">PIN (4–6 digit)</label>
+          <input
+            type="password"
+            className="input"
+            inputMode="numeric"
+            placeholder="cth: 1234"
+            value={pin}
+            onChange={(e) => { setPin(e.target.value); setError('') }}
+          />
+        </div>
+        <div className="input-group">
+          <label className="input-label">Ulangi PIN</label>
+          <input
+            type="password"
+            className="input"
+            inputMode="numeric"
+            placeholder="Ulangi PIN"
+            value={confirm}
+            onChange={(e) => { setConfirm(e.target.value); setError('') }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSet() }}
+          />
+        </div>
+        {error && <span className="pin-modal-error">{error}</span>}
+        <div className="pin-modal-actions">
+          {closable && <button className="btn btn-ghost" onClick={onClose}>Nanti</button>}
+          <button className="btn btn-primary" disabled={!pin.trim() || !confirm.trim()} onClick={handleSet}>
+            <Check size={16} /> Simpan PIN
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

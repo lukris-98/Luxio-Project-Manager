@@ -316,3 +316,157 @@ pub struct AdminDeleteUser {
     pub actor_id: String,
     pub user_id: String,
 }
+
+// ---------- PROFIL (Item 2: Settings) ----------
+
+/// Body request untuk endpoint PUT /api/profile — perbarui profil.
+/// Bila `user_id` diisi oleh admin/super_admin/owner, targetnya user lain;
+/// tanpa `user_id` (atau sama dengan diri sendiri) maka mengubah profil sendiri.
+#[derive(Debug, Deserialize)]
+pub struct UpdateProfileRequest {
+    #[serde(default)]
+    pub user_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub phone: Option<String>,
+    #[serde(default)]
+    pub gender: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub position: Option<String>,
+    #[serde(default)]
+    pub join_date: Option<String>,
+    #[serde(default)]
+    pub employment_status: Option<String>,
+    #[serde(default)]
+    pub birth_date: Option<String>,
+    #[serde(default)]
+    pub education: Option<String>,
+    #[serde(default)]
+    pub salary: Option<String>,
+}
+
+/// Profil lengkap user (dengan field profil + kuota edit bulanan).
+#[derive(Debug, Serialize)]
+pub struct ProfileResponse {
+    pub id: String,
+    pub email: String,
+    pub name: String,
+    pub company_id: Option<String>,
+    pub role: String,
+    pub plan: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_code: Option<String>,
+    #[serde(default)]
+    pub phone: String,
+    #[serde(default)]
+    pub gender: String,
+    #[serde(default)]
+    pub address: String,
+    #[serde(default)]
+    pub position: String,
+    #[serde(default)]
+    pub join_date: String,
+    #[serde(default)]
+    pub employment_status: String,
+    #[serde(default)]
+    pub birth_date: String,
+    #[serde(default)]
+    pub education: String,
+    #[serde(default)]
+    pub salary: String,
+    #[serde(default)]
+    pub edit_count: i32,
+    #[serde(default)]
+    pub edit_limit: i32,
+    #[serde(default)]
+    pub edit_count_month: String,
+    #[serde(default)]
+    pub has_pin: bool,
+}
+
+// ---------- UPGRADE AKUN (Item 4) ----------
+
+/// Body request untuk endpoint POST /api/upgrade — upgrade akun dari role
+/// 'user' ke admin/super_admin sesuai plan, sekaligus menyimpan data
+/// organisasi/company.
+#[derive(Debug, Deserialize)]
+pub struct UpgradeRequest {
+    pub plan: String,
+    pub org_type: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub industry: Option<String>,
+    #[serde(default)]
+    pub size: Option<String>,
+    #[serde(default)]
+    pub legal_number: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+}
+
+// ---------- CHAT (Item 5) ----------
+
+/// Body request POST /api/chat/send.
+#[derive(Debug, Deserialize)]
+pub struct ChatSendRequest {
+    #[serde(default)]
+    pub conversation_id: Option<String>,
+    #[serde(default)]
+    pub to_user_id: Option<String>,
+    #[serde(default)]
+    pub group_id: Option<String>,
+    pub body: String,
+}
+
+/// Body request POST /api/chat/group/create.
+#[derive(Debug, Deserialize)]
+pub struct ChatGroupCreateRequest {
+    pub name: String,
+    #[serde(default)]
+    pub company_id: Option<String>,
+    #[serde(default)]
+    pub member_ids: Vec<String>,
+}
+
+/// Body request POST /api/chat/contacts — tambah kontak via user code.
+#[derive(Debug, Deserialize)]
+pub struct ContactAddRequest {
+    pub user_code: String,
+}
+
+/// Body request GET /api/chat/messages — query param percakapan.
+#[derive(Debug, Deserialize)]
+pub struct ChatMessagesQuery {
+    pub conversation_id: String,
+}
+
+/// Body request GET /api/chat/conversations — query param company (opsional).
+#[derive(Debug, Deserialize)]
+pub struct ChatConversationsQuery {
+    pub company_id: Option<String>,
+}
+
+// ---------- AI AGENT (Item 8) ----------
+
+/// Body request POST /api/agent/chat — kirim pesan ke agent.
+#[derive(Debug, Deserialize)]
+pub struct AgentChatRequest {
+    pub message: String,
+    #[serde(default)]
+    pub conversation_id: Option<String>,
+}
+
+/// Body request PUT /api/agent/config — simpan penyedia AI (owner).
+#[derive(Debug, Deserialize)]
+pub struct AgentConfigRequest {
+    pub ai_provider: String,
+    pub ai_key: String,
+}

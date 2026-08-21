@@ -149,6 +149,12 @@ export const useStore = create(
   // privateNotes[userId] = [ { id, title, content, pin, locked, createdAt, updatedAt } ]
   privateNotes: {},
 
+  // ---------- PIN AKUN (global, per user, tersimpan di localStorage) ----------
+  // PIN dipakai untuk mengunci catatan pribadi (PrivateNote) dan wajib
+  // di-set setelah login pertama kali. Bisa diubah di Settings.
+  userPin: '',
+  setUserPin: (pin) => set({ userPin: pin }),
+
   // =====================================================================
   // ACTIONS — NAVIGASI
   // =====================================================================

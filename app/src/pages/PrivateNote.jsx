@@ -27,7 +27,7 @@ const stripHtml = (html) => {
 export default function PrivateNote() {
   const {
     currentUser, privateNotes, addPrivateNote, updatePrivateNote, deletePrivateNote,
-    closePrivateNote, openPrivateNote,
+    closePrivateNote, openPrivateNote, userPin,
   } = useStore()
   const userId = currentUser?.id
 
@@ -287,7 +287,7 @@ export default function PrivateNote() {
   const openPinModal = () => {
     if (!active) return
     setModalNoteId(active.id)
-    setPin('')
+    setPin(active.pin ? '' : (userPin || ''))
     setPinConfirm('')
     setPinError('')
     setModal(active.pin ? MODAL.manage : MODAL.set)
@@ -295,7 +295,7 @@ export default function PrivateNote() {
 
   const goAskToSet = () => {
     setModalNoteId(activeId)
-    setPin('')
+    setPin(userPin || '')
     setPinConfirm('')
     setPinError('')
     setModal(MODAL.set)

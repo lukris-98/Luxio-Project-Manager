@@ -11,6 +11,7 @@ use sha2::Digest;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
+use crate::models::AgentChatRequest;
 use crate::AppState;
 
 // =====================================================================
@@ -1206,4 +1207,277 @@ pub async fn execute_tool(
     } else {
         Err((StatusCode::UNPROCESSABLE_ENTITY, Json(response)))
     }
+}
+
+// ---------------------------------------------------------------------
+// AI AGENT (Item 8)
+// ---------------------------------------------------------------------
+// Agent TIDAK punya akses langsung ke database. Semua operasi lewat
+// tool/action layer resmi (`dispatch`). Endpoint ini:
+//   1. membaca pesan user
+//   2. membangun konteks (user, perusahaan, daftar tool + schema)
+//   3. menafsirkan intent pesan ke tool + argumen
+//   4. memanggil dispatch (authz + validasi + audit log)
+//   5. mengembalikan hasil sebagai jawaban chat
+// =====================================================================
+
+/// Cari company_id milik user (dari akun / tabel members).
+async fn agent_company_id(db: &PgPool, user_id: &str) -> Option<String> {
+    let row = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(db)
+        .await
+        .ok()?;
+    row?.get("company_id")
+}
+
+/// Ambil info user (nama & role) untuk konteks agent.
+async fn agent_user_info(db: &PgPool, user_id: &str) -> (String, String) {
+    let row = sqlx::query("SELECT name, role FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(db)
+        .await
+        .ok()
+        .flatten();
+    match row {
+        Some(r) => (r.get::<String, _>("name"), r.get::<String, _>("role")),
+        None => (String::new(), String::new()),
+    }
+}
+
+/// Ambil id divisi pertama milik company (untuk tool yang butuh division_id).
+async fn agent_first_division(db: &PgPool, company_id: &str) -> Option<String> {
+    let row = sqlx::query("SELECT id FROM divisions WHERE company_id = $1 ORDER BY created_at LIMIT 1")
+        .bind(company_id)
+        .fetch_optional(db)
+        .await
+        .ok()
+        .flatten()?;
+    Some(row.get("id"))
+}
+
+/// Daftar tool yang tersedia (ringkas) untuk konteks agent.
+fn agent_tool_summary() -> Vec<Value> {
+    TOOLS
+        .iter()
+        .map(|t| {
+            json!({
+                "name": t.name,
+                "description": t.description,
+                "required": t.required,
+                "optional": t.optional,
+            })
+        })
+        .collect()
+}
+
+/// Coba tafsirkan intent pesan natural language ke (tool, args).
+async fn agent_parse_intent(
+    db: &PgPool,
+    user_id: &str,
+    message: &str,
+) -> Option<(String, Value)> {
+    let msg = message.to_lowercase();
+    let company_id = agent_company_id(db, user_id).await;
+
+    // --- list target ---
+    if msg.contains("daftar target") || msg.contains("list target") || msg.contains("apa saja target") {
+        let cid = company_id.clone()?;
+        return Some(("list_targets".to_string(), json!({ "company_id": cid })));
+    }
+
+    // --- list divisi ---
+    if msg.contains("daftar divisi") || msg.contains("list divisi") || msg.contains("apa saja divisi") {
+        let cid = company_id.clone()?;
+        return Some(("list_divisions".to_string(), json!({ "company_id": cid })));
+    }
+
+    // --- list member ---
+    if msg.contains("daftar anggota") || msg.contains("list member") || msg.contains("apa saja anggota")
+        || msg.contains("list anggota") {
+        let cid = company_id.clone()?;
+        return Some(("list_members".to_string(), json!({ "company_id": cid })));
+    }
+
+    // --- buat target ---
+    if msg.starts_with("buat target") || msg.starts_with("bikin target") || msg.starts_with("buatkan target") {
+        let name = msg.replace("buatkan target", "").replace("buat target", "").replace("bikin target", "").trim().to_string();
+        let cid = company_id.clone()?;
+        let did = agent_first_division(db, &cid).await.unwrap_or_default();
+        return Some(("create_target".to_string(), json!({
+            "name": name,
+            "company_id": cid,
+            "division_id": did,
+        })));
+    }
+
+    // --- buat divisi ---
+    if msg.starts_with("buat divisi") || msg.starts_with("bikin divisi") || msg.starts_with("tambah divisi") {
+        let name = msg
+            .replace("buatkan divisi", "")
+            .replace("buat divisi", "")
+            .replace("bikin divisi", "")
+            .replace("tambah divisi", "")
+            .trim()
+            .to_string();
+        let cid = company_id.clone()?;
+        return Some(("create_division".to_string(), json!({
+            "name": name,
+            "company_id": cid,
+        })));
+    }
+
+    // --- buat perusahaan / upgrade company ---
+    if msg.starts_with("buat perusahaan") || msg.starts_with("buat company") {
+        let name = msg
+            .replace("buatkan perusahaan", "")
+            .replace("buat perusahaan", "")
+            .replace("buat company", "")
+            .replace("buatkan company", "")
+            .trim()
+            .to_string();
+        return Some(("create_company".to_string(), json!({
+            "name": name,
+            "industry": "Organisasi",
+            "size": "1-10",
+        })));
+    }
+
+    // --- buat anggota ---
+    if msg.starts_with("tambah anggota") || msg.starts_with("buat anggota") || msg.starts_with("daftarkan anggota") {
+        let rest = msg
+            .replace("daftarkan anggota", "")
+            .replace("tambah anggota", "")
+            .replace("buat anggota", "")
+            .replace("buatkan anggota", "");
+        let email = rest.split_whitespace().find(|w| w.contains('@')).unwrap_or("").to_string();
+        let name = rest.replace(&email, "").trim().to_string();
+        let cid = company_id.clone()?;
+        let did = agent_first_division(db, &cid).await.unwrap_or_default();
+        return Some(("create_member".to_string(), json!({
+            "name": name,
+            "email": email,
+            "company_id": cid,
+            "division_id": did,
+            "role": "member",
+        })));
+    }
+
+    None
+}
+
+/// POST /api/agent/chat — pesan masuk, konteks dibangun, tool di-dispatch.
+pub async fn agent_chat(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<AgentChatRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = match user_from_headers(&state.db, &headers).await {
+        Ok(Some(uid)) => uid,
+        Ok(None) => {
+            return Err((StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "error": "Unauthorized" }))))
+        }
+        Err(_) => {
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": "DB error" }))))
+        }
+    };
+
+    let message = payload.message.trim().to_string();
+    if message.is_empty() || message.len() > 4000 {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": "Pesan kosong atau terlalu panjang" }))));
+    }
+
+    // Konteks agent: siapa user, perusahaan, dan tool yang tersedia.
+    let (user_name, user_role) = agent_user_info(&state.db, &user_id).await;
+    let company_id = agent_company_id(&state.db, &user_id).await;
+    let company_name: String = match &company_id {
+        Some(cid) => sqlx::query("SELECT name FROM companies WHERE id = $1")
+            .bind(cid)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten()
+            .map(|r| r.get("name"))
+            .unwrap_or_default(),
+        None => String::new(),
+    };
+
+    // Tafsirkan intent -> tool + args.
+    let parsed = agent_parse_intent(&state.db, &user_id, &message).await;
+
+    let reply = match parsed {
+        Some((tool_name, args)) => {
+            // Tool berisiko medium/high dijalankan dengan konfirmasi otomatis
+            // (agent sudah melewati interpretasi intent yang jelas).
+            let result = dispatch(&state.db, &user_id, &tool_name, &args).await;
+            match result {
+                Ok(value) => {
+                    record_audit(
+                        &state.db,
+                        "ai_agent",
+                        &user_id,
+                        &tool_name,
+                        "agent_chat",
+                        None,
+                        "success",
+                        Some(&message),
+                    )
+                    .await;
+                    json!({
+                        "ok": true,
+                        "kind": "tool_result",
+                        "tool": tool_name,
+                        "result": value,
+                        "text": format!(
+                            "{} — tool `{}` berhasil dijalankan untuk kamu ({}).",
+                            if user_name.is_empty() { "Kamu" } else { &user_name },
+                            tool_name,
+                            user_role
+                        ),
+                    })
+                }
+                Err(err) => {
+                    record_audit(
+                        &state.db,
+                        "ai_agent",
+                        &user_id,
+                        &tool_name,
+                        "agent_chat",
+                        None,
+                        "blocked",
+                        Some(&err.message),
+                    )
+                    .await;
+                    json!({
+                        "ok": true,
+                        "kind": "tool_error",
+                        "tool": tool_name,
+                        "error": err.message,
+                        "text": format!("Tool `{}` ditolak: {}", tool_name, err.message),
+                    })
+                }
+            }
+        }
+        None => {
+            // Tidak bisa menafsirkan -> hanya tool resmi yang boleh dijalankan.
+            let tools = agent_tool_summary();
+            json!({
+                "ok": true,
+                "kind": "no_tool",
+                "text": format!(
+                    "Halo {}{} 👋\n\nAku Agent Luxio. Aku hanya bisa menjalankan TOOL resmi yang terdaftar \
+                     (tool/action layer), bukan akses database langsung.\n\nKamu bisa minta, misalnya:\n\
+                     - \"daftar target\"\n- \"daftar divisi\"\n- \"daftar anggota\"\n\
+                     - \"buat divisi Marketing\"\n- \"buat target Nama Target\"\n\
+                     - \"tambah anggota Nama email@kantor.com\"\n\nTool yang tersedia ({}):\n{}",
+                    user_name,
+                    if company_name.is_empty() { String::new() } else { format!(" dari {}", company_name) },
+                    tools.len(),
+                    tools.iter().map(|t| format!("- `{}`: {}", t["name"].as_str().unwrap_or(""), t["description"].as_str().unwrap_or(""))).collect::<Vec<_>>().join("\n")
+                ),
+            })
+        }
+    };
+
+    Ok(Json(reply))
 }
