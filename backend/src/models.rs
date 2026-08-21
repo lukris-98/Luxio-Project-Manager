@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 // =====================================================================
 // MODELS / TYPES
@@ -517,4 +518,34 @@ pub struct AgentConfigRequest {
     pub model: String,
     #[serde(default)]
     pub enabled: bool,
+}
+
+// ---------- OWNER DASHBOARD (analytics, db, storage, logs) ----------
+
+/// Body request PUT /api/owner/config — simpan konfigurasi owner.
+#[derive(Debug, Deserialize)]
+pub struct OwnerConfigRequest {
+    pub key: String,
+    pub value: Value,
+}
+
+/// Body request POST /api/attendance — absen masuk kerja.
+#[derive(Debug, Deserialize)]
+pub struct AttendanceRequest {
+    #[serde(default)]
+    pub photo_url: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    #[serde(default)]
+    pub distance_m: f64,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub note: String,
+}
+
+/// Query param GET /api/attendance — `?company_id=...` opsional.
+#[derive(Debug, Deserialize)]
+pub struct AttendanceQuery {
+    pub company_id: Option<String>,
 }

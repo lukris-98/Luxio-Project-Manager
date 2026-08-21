@@ -192,8 +192,18 @@ export const api = {
   searchUsers: (q) => get('/api/users/search', { q }),
   getPublicProfile: (userId) => get(`/api/users/${userId}`),
 
-  // ---- AI Agent (Item 8) ----
-  agentChat: (message, conversationId) =>
-    post('/api/agent/chat', { message, ...(conversationId ? { conversation_id: conversationId } : {}) }),
-  agentConfig: (data) => put('/api/agent/config', data),
+  // ---- Owner Dashboard ----
+  ownerGetConfig: () => get('/api/owner/config'),
+  ownerSetConfig: (key, value) => put('/api/owner/config', { key, value }),
+  ownerLogs: () => get('/api/owner/logs'),
+  neonStatus: () => get('/api/owner/neon/status'),
+  b2Status: () => get('/api/owner/b2/status'),
+
+  // ---- Profil views (TikTok-style) ----
+  recordProfileView: (userId) => post(`/api/profile/${userId}/view`, {}),
+  getProfileViews: (userId) => get(`/api/profile/${userId}/views`),
+
+  // ---- Absensi ----
+  createAttendance: (data) => post('/api/attendance', data),
+  getAttendance: (companyId) => get('/api/attendance', companyId ? { company_id: companyId } : {}),
 }

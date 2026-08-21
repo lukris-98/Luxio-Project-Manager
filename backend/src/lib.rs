@@ -2,6 +2,7 @@ pub mod db;
 pub mod handlers;
 pub mod mail;
 pub mod models;
+pub mod owner;
 pub mod tools;
 
 use axum::{
@@ -118,6 +119,18 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/chat/contacts", post(handlers::chat_add_contact))
         .route("/api/users/search", get(handlers::search_users))
         .route("/api/users/{id}", get(handlers::get_public_profile))
+        // Owner dashboard (analytics, db, storage, logs)
+        .route("/api/owner/config", put(owner::owner_config))
+        .route("/api/owner/config", get(owner::owner_get_config))
+        .route("/api/owner/logs", get(owner::owner_logs))
+        .route("/api/owner/neon/status", get(owner::neon_status))
+        .route("/api/owner/b2/status", get(owner::b2_status))
+        // Profil views (TikTok-style)
+        .route("/api/profile/{id}/view", post(owner::record_profile_view))
+        .route("/api/profile/{id}/views", get(owner::profile_views))
+        // Absensi
+        .route("/api/attendance", post(owner::create_attendance))
+        .route("/api/attendance", get(owner::list_attendance))
         // AI Agent (Item 8)
         .route("/api/agent/config", put(handlers::agent_config))
         .route("/api/agent/chat", post(crate::tools::agent_chat))

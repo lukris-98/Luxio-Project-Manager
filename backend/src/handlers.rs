@@ -227,7 +227,7 @@ fn sha256(input: &str) -> String {
 
 /// Extractor untuk memaksa autentikasi. Gagal dengan 401 bila tidak ada
 /// sesi valid pada header Authorization.
-async fn require_auth(state: &AppState, headers: &HeaderMap) -> Result<String, StatusCode> {
+pub async fn require_auth(state: &AppState, headers: &HeaderMap) -> Result<String, StatusCode> {
     match user_from_headers(&state.db, headers).await? {
         Some(user_id) => Ok(user_id),
         None => Err(StatusCode::UNAUTHORIZED),

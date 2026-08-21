@@ -364,5 +364,48 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Konfigurasi owner: Umami analytics, Neon DB monitoring, Backblaze B2.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS owner_config (
+            key TEXT PRIMARY KEY,
+            value JSONB NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Riwayat tampilan profil (TikTok-style: jumlah & siapa yang melihat).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS profile_views (
+            id TEXT PRIMARY KEY,
+            profile_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            viewer_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (profile_user_id, viewer_user_id, created_at)
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Absensi masuk kerja (selfie + GPS + lokasi kantor).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS attendance (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            company_id TEXT REFERENCES companies(id) ON DELETE CASCADE,
+            type TEXT NOT NULL DEFAULT 'checkin',
+            photo_url TEXT NOT NULL DEFAULT '',
+            latitude DOUBLE PRECISION NOT NULL DEFAULT 0,
+            longitude DOUBLE PRECISION NOT NULL DEFAULT 0,
+            distance_m DOUBLE PRECISION NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'present',
+            note TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }
