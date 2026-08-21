@@ -614,7 +614,8 @@ pub async fn create_member(
     let now = Utc::now();
 
     sqlx::query(
-        "INSERT INTO members (id, company_id, division_id, name, email, role, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO members (id, company_id, division_id, name, email, role, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
     )
     .bind(&id)
     .bind(&payload.company_id)
@@ -622,6 +623,17 @@ pub async fn create_member(
     .bind(payload.name.trim())
     .bind(payload.email.trim())
     .bind(payload.role.trim())
+    .bind(payload.position.as_deref().unwrap_or("").trim())
+    .bind(payload.phone.as_deref().unwrap_or("").trim())
+    .bind(payload.gender.as_deref().unwrap_or("").trim())
+    .bind(payload.birth_date.as_deref().unwrap_or("").trim())
+    .bind(payload.address.as_deref().unwrap_or("").trim())
+    .bind(payload.employment_status.as_deref().unwrap_or("").trim())
+    .bind(payload.join_date.as_deref().unwrap_or("").trim())
+    .bind(payload.salary.as_deref().unwrap_or("").trim())
+    .bind(payload.skills.as_deref().unwrap_or("").trim())
+    .bind(payload.education.as_deref().unwrap_or("").trim())
+    .bind(payload.notes.as_deref().unwrap_or("").trim())
     .bind(&now)
     .execute(&state.db)
     .await
@@ -643,6 +655,17 @@ pub async fn create_member(
         name: payload.name.trim().to_string(),
         email: payload.email.trim().to_string(),
         role: payload.role.trim().to_string(),
+        position: payload.position.as_deref().unwrap_or("").trim().to_string(),
+        phone: payload.phone.as_deref().unwrap_or("").trim().to_string(),
+        gender: payload.gender.as_deref().unwrap_or("").trim().to_string(),
+        birth_date: payload.birth_date.as_deref().unwrap_or("").trim().to_string(),
+        address: payload.address.as_deref().unwrap_or("").trim().to_string(),
+        employment_status: payload.employment_status.as_deref().unwrap_or("").trim().to_string(),
+        join_date: payload.join_date.as_deref().unwrap_or("").trim().to_string(),
+        salary: payload.salary.as_deref().unwrap_or("").trim().to_string(),
+        skills: payload.skills.as_deref().unwrap_or("").trim().to_string(),
+        education: payload.education.as_deref().unwrap_or("").trim().to_string(),
+        notes: payload.notes.as_deref().unwrap_or("").trim().to_string(),
         created_at: now,
     }))
 }
@@ -657,7 +680,8 @@ pub async fn get_members(
     check_company_access(&state, &user_id, &payload.company_id).await?;
 
     let rows = sqlx::query(
-        "SELECT id, company_id, division_id, name, email, role, created_at FROM members WHERE company_id = $1",
+        "SELECT id, company_id, division_id, name, email, role, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at
+         FROM members WHERE company_id = $1",
     )
     .bind(&payload.company_id)
     .fetch_all(&state.db)
@@ -676,6 +700,17 @@ pub async fn get_members(
             name: row.get("name"),
             email: row.get("email"),
             role: row.get("role"),
+            position: row.get("position"),
+            phone: row.get("phone"),
+            gender: row.get("gender"),
+            birth_date: row.get("birth_date"),
+            address: row.get("address"),
+            employment_status: row.get("employment_status"),
+            join_date: row.get("join_date"),
+            salary: row.get("salary"),
+            skills: row.get("skills"),
+            education: row.get("education"),
+            notes: row.get("notes"),
             created_at: row.get("created_at"),
         })
         .collect();

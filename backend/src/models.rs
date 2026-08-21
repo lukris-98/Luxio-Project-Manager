@@ -57,6 +57,17 @@ pub struct Member {
     pub name: String,
     pub email: String,
     pub role: String,
+    pub position: String,
+    pub phone: String,
+    pub gender: String,
+    pub birth_date: String,
+    pub address: String,
+    pub employment_status: String,
+    pub join_date: String,
+    pub salary: String,
+    pub skills: String,
+    pub education: String,
+    pub notes: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -157,6 +168,28 @@ pub struct CreateMember {
     pub name: String,
     pub email: String,
     pub role: String,
+    #[serde(default)]
+    pub position: Option<String>,
+    #[serde(default)]
+    pub phone: Option<String>,
+    #[serde(default)]
+    pub gender: Option<String>,
+    #[serde(default)]
+    pub birth_date: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub employment_status: Option<String>,
+    #[serde(default)]
+    pub join_date: Option<String>,
+    #[serde(default)]
+    pub salary: Option<String>,
+    #[serde(default)]
+    pub skills: Option<String>,
+    #[serde(default)]
+    pub education: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
 }
 
 // ---------- ADMIN (khusus role 'owner') ----------

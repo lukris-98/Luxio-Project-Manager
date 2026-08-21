@@ -66,9 +66,24 @@ const TOOLS: &[ToolSchema] = &[
     // ---------- Member ----------
     ToolSchema {
         name: "create_member",
-        description: "Menambahkan anggota ke divisi sebuah perusahaan",
+        description: "Menambahkan anggota ke divisi sebuah perusahaan (form lengkap pendaftaran)",
         risk: RiskLevel::Low,
         required: &["company_id", "division_id", "name", "email", "role"],
+        optional: &["position", "phone", "gender", "birth_date", "address",
+                     "employment_status", "join_date", "salary", "skills", "education", "notes"],
+    },
+    ToolSchema {
+        name: "list_members",
+        description: "Daftar anggota sebuah perusahaan",
+        risk: RiskLevel::Low,
+        required: &["company_id"],
+        optional: &[],
+    },
+    ToolSchema {
+        name: "list_divisions",
+        description: "Daftar divisi sebuah perusahaan",
+        risk: RiskLevel::Low,
+        required: &["company_id"],
         optional: &[],
     },
     // ---------- Target (mapping: tabel `projects`) ----------
@@ -489,8 +504,8 @@ async fn tool_create_member(
 
     let id = Uuid::new_v4().to_string();
     sqlx::query(
-        "INSERT INTO members (id, company_id, division_id, name, email, role, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO members (id, company_id, division_id, name, email, role, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
     )
     .bind(&id)
     .bind(&company_id)
@@ -498,6 +513,17 @@ async fn tool_create_member(
     .bind(&name)
     .bind(&email)
     .bind(&role)
+    .bind(get_str_optional(args, "position").unwrap_or_default())
+    .bind(get_str_optional(args, "phone").unwrap_or_default())
+    .bind(get_str_optional(args, "gender").unwrap_or_default())
+    .bind(get_str_optional(args, "birth_date").unwrap_or_default())
+    .bind(get_str_optional(args, "address").unwrap_or_default())
+    .bind(get_str_optional(args, "employment_status").unwrap_or_default())
+    .bind(get_str_optional(args, "join_date").unwrap_or_default())
+    .bind(get_str_optional(args, "salary").unwrap_or_default())
+    .bind(get_str_optional(args, "skills").unwrap_or_default())
+    .bind(get_str_optional(args, "education").unwrap_or_default())
+    .bind(get_str_optional(args, "notes").unwrap_or_default())
     .bind(Utc::now())
     .execute(db)
     .await
@@ -891,6 +917,80 @@ async fn tool_delete_task(
     Ok(json!({ "deleted_task_id": task_id }))
 }
 
+async fn tool_list_members(
+    db: &PgPool,
+    user_id: &str,
+    args: &Value,
+) -> Result<Value, ToolError> {
+    let company_id = get_str_required(args, "company_id")?;
+    check_company_owned(db, user_id, &company_id).await?;
+
+    let rows = sqlx::query(
+        "SELECT id, division_id, name, email, role, position, phone, gender, employment_status, join_date, skills, created_at
+         FROM members WHERE company_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(&company_id)
+    .fetch_all(db)
+    .await
+    .map_err(|e| ToolError::new(StatusCode::INTERNAL_SERVER_ERROR, format!("DB: {e}")))?;
+
+    let members: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.get::<String, _>("id"),
+                "division_id": r.get::<String, _>("division_id"),
+                "name": r.get::<String, _>("name"),
+                "email": r.get::<String, _>("email"),
+                "role": r.get::<String, _>("role"),
+                "position": r.get::<String, _>("position"),
+                "phone": r.get::<String, _>("phone"),
+                "gender": r.get::<String, _>("gender"),
+                "employment_status": r.get::<String, _>("employment_status"),
+                "join_date": r.get::<String, _>("join_date"),
+                "skills": r.get::<String, _>("skills"),
+                "created_at": r.get::<chrono::DateTime<Utc>, _>("created_at"),
+            })
+        })
+        .collect();
+
+    Ok(json!({ "members": members, "count": members.len() }))
+}
+
+async fn tool_list_divisions(
+    db: &PgPool,
+    user_id: &str,
+    args: &Value,
+) -> Result<Value, ToolError> {
+    let company_id = get_str_required(args, "company_id")?;
+    check_company_owned(db, user_id, &company_id).await?;
+
+    let rows = sqlx::query(
+        "SELECT id, company_id, name, head_id, member_count, created_at
+         FROM divisions WHERE company_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(&company_id)
+    .fetch_all(db)
+    .await
+    .map_err(|e| ToolError::new(StatusCode::INTERNAL_SERVER_ERROR, format!("DB: {e}")))?;
+
+    let divisions: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.get::<String, _>("id"),
+                "company_id": r.get::<String, _>("company_id"),
+                "name": r.get::<String, _>("name"),
+                "head_id": r.get::<Option<String>, _>("head_id"),
+                "member_count": r.get::<i32, _>("member_count"),
+                "created_at": r.get::<chrono::DateTime<Utc>, _>("created_at"),
+            })
+        })
+        .collect();
+
+    Ok(json!({ "divisions": divisions, "count": divisions.len() }))
+}
+
 // ---------------------------------------------------------------------
 // Dispatcher
 // ---------------------------------------------------------------------
@@ -907,6 +1007,8 @@ async fn dispatch(
         "create_company" => tool_create_company(db, user_id, args).await,
         "create_division" => tool_create_division(db, user_id, args).await,
         "create_member" => tool_create_member(db, user_id, args).await,
+        "list_members" => tool_list_members(db, user_id, args).await,
+        "list_divisions" => tool_list_divisions(db, user_id, args).await,
         "create_target" | "create_project" => tool_create_target(db, user_id, args).await,
         "get_target" => tool_get_target(db, user_id, args).await,
         "list_targets" => tool_list_targets(db, user_id, args).await,

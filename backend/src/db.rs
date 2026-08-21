@@ -82,6 +82,26 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Kolom tambahan anggota (form pendaftaran lengkap ala lamaran kerja).
+    // Ditambah bertahap agar tabel lama tetap kompatibel.
+    for (column, sql_type) in [
+        ("position", "TEXT NOT NULL DEFAULT ''"),
+        ("phone", "TEXT NOT NULL DEFAULT ''"),
+        ("gender", "TEXT NOT NULL DEFAULT ''"),
+        ("birth_date", "TEXT NOT NULL DEFAULT ''"),
+        ("address", "TEXT NOT NULL DEFAULT ''"),
+        ("employment_status", "TEXT NOT NULL DEFAULT ''"),
+        ("join_date", "TEXT NOT NULL DEFAULT ''"),
+        ("salary", "TEXT NOT NULL DEFAULT ''"),
+        ("skills", "TEXT NOT NULL DEFAULT ''"),
+        ("education", "TEXT NOT NULL DEFAULT ''"),
+        ("notes", "TEXT NOT NULL DEFAULT ''"),
+    ] {
+        sqlx::query(&format!("ALTER TABLE members ADD COLUMN IF NOT EXISTS {column} {sql_type}"))
+            .execute(db)
+            .await?;
+    }
+
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS projects (
             id TEXT PRIMARY KEY,

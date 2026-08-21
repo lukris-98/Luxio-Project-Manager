@@ -357,7 +357,11 @@ export const useStore = create(
     }),
 
   // Buat akun/anggota baru lalu langsung masukkan ke sebuah tim.
-  createMemberAndAdd: ({ name, email, role = 'member', teamId, divisionId }) => {
+  createMemberAndAdd: ({
+    name, email, role = 'member', teamId, divisionId,
+    position = '', phone = '', gender = '', address = '',
+    joinDate = '', employmentStatus = '', skills = '', notes = '',
+  }) => {
     const id = Date.now()
     const divId =
       divisionId ||
@@ -370,6 +374,14 @@ export const useStore = create(
         email: email.trim(),
         divisionId: divId,
         role,
+        position: position.trim(),
+        phone: phone.trim(),
+        gender: gender.trim(),
+        address: address.trim(),
+        joinDate: joinDate.trim(),
+        employmentStatus: employmentStatus.trim(),
+        skills: skills.trim(),
+        notes: notes.trim(),
       }],
       teams: get().teams.map((t) =>
         t.id === teamId ? { ...t, memberIds: [...t.memberIds, id] } : t
@@ -387,6 +399,14 @@ export const useStore = create(
         email: member.email,
         divisionId: member.divisionId,
         role: member.role || 'member', // member, admin, super_admin
+        position: member.position || '',
+        phone: member.phone || '',
+        gender: member.gender || '',
+        address: member.address || '',
+        joinDate: member.joinDate || '',
+        employmentStatus: member.employmentStatus || '',
+        skills: member.skills || '',
+        notes: member.notes || '',
       }],
     }),
 
