@@ -192,6 +192,52 @@ pub struct CreateMember {
     pub notes: Option<String>,
 }
 
+/// Body request untuk endpoint POST /api/members/register — mendaftarkan
+/// anggota sekaligus membuat akun login (email + password) dan mengirim
+/// email sambutan.
+#[derive(Debug, Deserialize)]
+pub struct RegisterMember {
+    pub company_id: String,
+    pub division_id: String,
+    pub name: String,
+    pub email: String,
+    pub password: String,
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub position: Option<String>,
+    #[serde(default)]
+    pub phone: Option<String>,
+    #[serde(default)]
+    pub gender: Option<String>,
+    #[serde(default)]
+    pub birth_date: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub employment_status: Option<String>,
+    #[serde(default)]
+    pub join_date: Option<String>,
+    #[serde(default)]
+    pub salary: Option<String>,
+    #[serde(default)]
+    pub skills: Option<String>,
+    #[serde(default)]
+    pub education: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// Body request untuk endpoint POST /api/members/notify — kirim email
+/// notifikasi ke email anggota dari aplikasi.
+#[derive(Debug, Deserialize)]
+pub struct NotifyMember {
+    pub email: String,
+    #[serde(default)]
+    pub subject: String,
+    pub body: String,
+}
+
 // ---------- ADMIN (khusus role 'owner') ----------
 
 /// Query param untuk GET /api/admin/users — `?actor_id=...`.

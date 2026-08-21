@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useStore, useEffectiveRole } from '../store/useStore'
+import { api } from '../services/api'
 import Layout from '../components/Layout'
+import Select from '../components/Select'
 import { motion } from 'framer-motion'
-import { Users, Building2, Mail, Plus, Trash2, Pencil, Crown, X, Shield, Check, Phone, Briefcase, Calendar, MapPin, BadgeCheck } from 'lucide-react'
+import { Users, Building2, Mail, Plus, Trash2, Pencil, Crown, X, Shield, Check, Phone, Briefcase, Calendar, MapPin, BadgeCheck, Send, Lock, Eye, EyeOff } from 'lucide-react'
 import './Team.css'
 
 const getInitials = (name) =>
@@ -10,7 +12,7 @@ const getInitials = (name) =>
 
 export default function Team() {
   const {
-    divisions, members, teams,
+    divisions, members, teams, currentUser, companyInfo,
     addDivision, renameDivision, removeDivision,
     addTeam, renameTeam, removeTeam,
     addMemberToTeam, removeMemberFromTeam, createMemberAndAdd, setTeamAdmin,
@@ -50,6 +52,50 @@ export default function Team() {
   const memberById = (id) => members.find((m) => m.id === id)
   const teamMembers = (team) => (team.memberIds || []).map(memberById).filter(Boolean)
 
+  // Daftarkan anggota ke backend (buat akun login + kirim email sambutan).
+  // Best-effort: bila backend offline, anggota tetap tersimpan lokal.
+  const registerMemberBackend = async (data) => {
+    const currentUser = useStore.getState().currentUser
+    const companyId = currentUser?.company_id || companyInfo.company_id
+    const team = teams.find((t) => t.id === data.teamId)
+    const divisionId = team?.divisionId || selectedDivId
+    if (!companyId || !divisionId) return
+
+    try {
+      await api.registerMember({
+        company_id: companyId,
+        division_id: divisionId,
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: 'member',
+        position: data.position,
+        phone: data.phone,
+        gender: data.gender,
+        birth_date: data.birthDate,
+        address: data.address,
+        employment_status: data.employmentStatus,
+        join_date: data.joinDate,
+        salary: data.salary,
+        skills: data.skills,
+        education: data.education,
+        notes: data.notes,
+      })
+    } catch (e) {
+      console.warn('[Team] Gagal daftarkan anggota ke backend (offline?)', e)
+    }
+  }
+
+  const sendMemberEmail = async (member, subject, body) => {
+    try {
+      await api.notifyMember({ email: member.email, subject, body })
+      return true
+    } catch (e) {
+      console.warn('[Team] Gagal kirim email notifikasi', e)
+      return false
+    }
+  }
+
   // ---------- MODAL HELPERS ----------
   const openAddDiv = () => setModal({ type: 'add-div' })
   const openAddTeam = (divisionId) => setModal({ type: 'add-team', divisionId })
@@ -57,6 +103,7 @@ export default function Team() {
   const openAddMemberAnywhere = () => setModal({ type: 'add-member', teamId: null })
   const openSetAdmin = (teamId) => setModal({ type: 'set-admin', teamId })
   const openRename = (kind, id, name) => setModal({ type: 'rename', kind, id, name })
+  const openNotify = (memberId) => setModal({ type: 'notify-member', memberId })
 
   const handleAddDivision = (name) => {
     if (!name.trim()) return
@@ -249,6 +296,7 @@ export default function Team() {
                             <span className="member-name">
                               {m.name}
                               {m.id === team.adminId && <span className="team-admin-tag">Admin</span>}
+                              {m.hasAccount && <span className="member-account-badge"><Lock size={9} /> Akun</span>}
                             </span>
                             <span className="member-email">
                               <Mail size={12} /> {m.email}
@@ -267,6 +315,11 @@ export default function Team() {
                               {isDivisiMode && (
                                 <button title="Edit anggota" onClick={() => setModal({ type: 'edit-member', memberId: m.id })}>
                                   <Pencil size={14} />
+                                </button>
+                              )}
+                              {isDivisiMode && (
+                                <button title="Kirim email ke anggota" onClick={() => openNotify(m.id)}>
+                                  <Send size={14} />
                                 </button>
                               )}
                               {isDivisiMode && m.id !== team.adminId && (
@@ -370,6 +423,7 @@ export default function Team() {
           onCreateMember={(data) => {
             // teamId diambil dari dropdown "Tim Tujuan" di dalam form.
             createMemberAndAdd(data)
+            registerMemberBackend(data)
             setModal(null)
           }}
           onAddExisting={(memberId) => {
@@ -387,6 +441,18 @@ export default function Team() {
           onSelect={(memberId) => {
             setTeamAdmin(modal.teamId, memberId)
             setModal(null)
+          }}
+        />
+      )}
+
+      {modal?.type === 'notify-member' && (
+        <NotifyMemberModal
+          member={memberById(modal.memberId)}
+          onClose={() => setModal(null)}
+          onSend={async (subject, body) => {
+            const ok = await sendMemberEmail(memberById(modal.memberId), subject, body)
+            if (ok) setModal(null)
+            return ok
           }}
         />
       )}
@@ -413,6 +479,9 @@ function ModalShell({ title, onClose, children, className = '' }) {
       <div className={`modal ${className}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>
+          <button className="modal-close-btn" onClick={onClose} title="Tutup (Esc)" aria-label="Tutup">
+            <X size={18} />
+          </button>
         </div>
         <div className="modal-body">{children}</div>
       </div>
@@ -449,6 +518,8 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
   const [form, setForm] = useState({
     name: '',
     email: '',
+    password: '',
+    showPassword: false,
     phone: '',
     gender: '',
     birthDate: '',
@@ -480,10 +551,13 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
   }
 
   const handleCreate = () => {
-    const { name, email, position } = form
+    const { name, email, password, position } = form
     if (!name.trim()) return setError('Nama lengkap wajib diisi.')
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return setError('Email tidak valid.')
+    }
+    if (!password || password.length < 8) {
+      return setError('Password minimal 8 karakter (untuk login anggota).')
     }
     if (!position.trim()) return setError('Posisi/jabatan yang dilamar wajib diisi.')
     if (!selectedTeamId) return setError('Pilih tim tujuan anggota.')
@@ -491,6 +565,7 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
     onCreateMember({
       name: form.name,
       email: form.email,
+      password: form.password,
       teamId: selectedTeamId,
       phone: form.phone,
       gender: form.gender,
@@ -508,6 +583,25 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
 
   const field = (key) => form[key] || ''
 
+  const genderOptions = [
+    { value: 'Laki-laki', label: 'Laki-laki' },
+    { value: 'Perempuan', label: 'Perempuan' },
+  ]
+  const statusOptions = [
+    { value: 'Full-time', label: 'Full-time' },
+    { value: 'Part-time', label: 'Part-time' },
+    { value: 'Kontrak', label: 'Kontrak' },
+    { value: 'Magang', label: 'Magang' },
+    { value: 'Freelance', label: 'Freelance' },
+  ]
+  const eduOptions = [
+    { value: 'SMA/SMK', label: 'SMA/SMK' },
+    { value: 'D3', label: 'D3' },
+    { value: 'S1', label: 'S1' },
+    { value: 'S2', label: 'S2' },
+    { value: 'S3', label: 'S3' },
+  ]
+
   return (
     <ModalShell title={`Form Pendaftaran Anggota — ${team?.name || ''}`} className="member-form-modal" onClose={onClose}>
       <div className="member-mode-tabs">
@@ -520,12 +614,47 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
           {/* Pilih tim tujuan */}
           <div className="input-group">
             <label className="input-label">Tim Tujuan <span className="req-star">*</span></label>
-            <select className="input" value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value)}>
-              <option value="">— Pilih tim —</option>
-              {availableTeams.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
+            <Select
+              value={selectedTeamId}
+              onChange={setSelectedTeamId}
+              options={availableTeams.map((t) => ({ value: t.id, label: t.name }))}
+              placeholder="— Pilih tim —"
+              allowReset={false}
+            />
+          </div>
+
+          <div className="member-form-section">
+            <div className="member-form-section-title"><UserIcon /> Data Akun Login</div>
+            <div className="member-form-row">
+              <div className="input-group">
+                <label className="input-label">Email Login <span className="req-star">*</span></label>
+                <input type="email" name="email" className="input" placeholder="nama@email.com" value={field('email')} onChange={handleChange} autoComplete="off" />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Password Login <span className="req-star">*</span></label>
+                <div className="password-input-wrap">
+                  <input
+                    type={form.showPassword ? 'text' : 'password'}
+                    name="password"
+                    className="input"
+                    placeholder="Min. 8 karakter"
+                    value={field('password')}
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setForm({ ...form, showPassword: !form.showPassword })}
+                    title={form.showPassword ? 'Sembunyikan' : 'Tampilkan'}
+                    aria-label={form.showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                  >
+                    {form.showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="field-hint">Anggota bisa login dengan email & password ini. Email sambutan berisi kredensial dikirim otomatis ke email tersebut.</p>
           </div>
 
           <div className="member-form-section">
@@ -536,26 +665,22 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
             </div>
             <div className="member-form-row">
               <div className="input-group">
-                <label className="input-label">Email <span className="req-star">*</span></label>
-                <input type="email" name="email" className="input" placeholder="nama@email.com" value={field('email')} onChange={handleChange} />
-              </div>
-              <div className="input-group">
                 <label className="input-label">No. HP / WhatsApp</label>
                 <input type="tel" name="phone" className="input" placeholder="08xxxxxxxxxx" value={field('phone')} onChange={handleChange} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Jenis Kelamin</label>
+                <Select value={field('gender')} onChange={(v) => setForm({ ...form, gender: v })} options={genderOptions} placeholder="— Pilih —" />
               </div>
             </div>
             <div className="member-form-row">
               <div className="input-group">
-                <label className="input-label">Jenis Kelamin</label>
-                <select name="gender" className="input" value={field('gender')} onChange={handleChange}>
-                  <option value="">— Pilih —</option>
-                  <option value="Laki-laki">Laki-laki</option>
-                  <option value="Perempuan">Perempuan</option>
-                </select>
-              </div>
-              <div className="input-group">
                 <label className="input-label">Tanggal Lahir</label>
                 <input type="date" name="birthDate" className="input" value={field('birthDate')} onChange={handleChange} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Pendidikan Terakhir</label>
+                <Select value={field('education')} onChange={(v) => setForm({ ...form, education: v })} options={eduOptions} placeholder="— Pilih —" />
               </div>
             </div>
             <div className="input-group">
@@ -573,38 +698,22 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
             <div className="member-form-row">
               <div className="input-group">
                 <label className="input-label">Status Kepegawaian</label>
-                <select name="employmentStatus" className="input" value={field('employmentStatus')} onChange={handleChange}>
-                  <option value="">— Pilih —</option>
-                  <option value="Full-time">Full-time</option>
-                  <option value="Part-time">Part-time</option>
-                  <option value="Kontrak">Kontrak</option>
-                  <option value="Magang">Magang</option>
-                  <option value="Freelance">Freelance</option>
-                </select>
+                <Select value={field('employmentStatus')} onChange={(v) => setForm({ ...form, employmentStatus: v })} options={statusOptions} placeholder="— Pilih —" />
               </div>
               <div className="input-group">
                 <label className="input-label">Tanggal Mulai Bergabung</label>
                 <input type="date" name="joinDate" className="input" value={field('joinDate')} onChange={handleChange} />
               </div>
             </div>
-            <div className="input-group">
-              <label className="input-label">Gaji / Upah (opsional)</label>
-              <input type="number" name="salary" className="input" placeholder="mis. 5000000" value={field('salary')} onChange={handleChange} />
-            </div>
-            <div className="input-group">
-              <label className="input-label">Keahlian / Skill (pisahkan dengan koma)</label>
-              <input type="text" name="skills" className="input" placeholder="mis. React, Figma, Komunikasi" value={field('skills')} onChange={handleChange} />
-            </div>
-            <div className="input-group">
-              <label className="input-label">Pendidikan Terakhir</label>
-              <select name="education" className="input" value={field('education')} onChange={handleChange}>
-                <option value="">— Pilih —</option>
-                <option value="SMA/SMK">SMA/SMK</option>
-                <option value="D3">D3</option>
-                <option value="S1">S1</option>
-                <option value="S2">S2</option>
-                <option value="S3">S3</option>
-              </select>
+            <div className="member-form-row">
+              <div className="input-group">
+                <label className="input-label">Gaji / Upah (opsional)</label>
+                <input type="number" name="salary" className="input" placeholder="mis. 5000000" value={field('salary')} onChange={handleChange} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Keahlian / Skill</label>
+                <input type="text" name="skills" className="input" placeholder="mis. React, Figma" value={field('skills')} onChange={handleChange} />
+              </div>
             </div>
             <div className="input-group">
               <label className="input-label">Catatan Tambahan</label>
@@ -613,7 +722,7 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
           </div>
 
           {error && <p className="member-form-error">{error}</p>}
-          <p className="field-hint">Form seperti pendaftaran lamaran kerja. Field bertanda * wajib diisi; sisanya dapat dilengkapi oleh anggota atau admin kemudian.</p>
+          <p className="field-hint">Form seperti pendaftaran lamaran kerja. Field bertanda * wajib diisi; email sambutan berisi kredensial login dikirim otomatis.</p>
           <div className="modal-footer">
             <button className="btn btn-primary" onClick={handleCreate}>
               <Plus size={16} /> Daftarkan Anggota
@@ -647,6 +756,47 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
 
 function UserIcon() {
   return <Users size={15} />
+}
+
+function NotifyMemberModal({ member, onClose, onSend }) {
+  const [subject, setSubject] = useState('Notifikasi dari Luxio')
+  const [body, setBody] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  if (!member) return null
+
+  const handleSend = async () => {
+    if (!body.trim()) return setError('Pesan tidak boleh kosong.')
+    setSending(true)
+    setError('')
+    const ok = await onSend(subject.trim(), body.trim())
+    if (!ok) setError('Gagal mengirim email. Cek konfigurasi SMTP di backend.')
+    setSending(false)
+  }
+
+  return (
+    <ModalShell title={`Kirim Email — ${member.name}`} className="member-form-modal" onClose={onClose}>
+      <p className="field-hint">
+        Email akan dikirim ke <strong>{member.email}</strong> melalui SMTP yang sudah dikonfigurasi.
+        Penerima melihat email ini di kotak masuk (Gmail/dll).
+      </p>
+      <div className="input-group">
+        <label className="input-label">Subjek</label>
+        <input type="text" className="input" value={subject} onChange={(e) => setSubject(e.target.value)} />
+      </div>
+      <div className="input-group">
+        <label className="input-label">Pesan <span className="req-star">*</span></label>
+        <textarea className="input input-textarea" rows={6} value={body} onChange={(e) => { setBody(e.target.value); setError('') }} placeholder="Tulis pesan notifikasi untuk anggota…" />
+      </div>
+      {error && <p className="member-form-error">{error}</p>}
+      <div className="modal-footer">
+        <button className="btn btn-secondary" onClick={onClose}>Batal</button>
+        <button className="btn btn-primary" disabled={sending || !body.trim()} onClick={handleSend}>
+          <Send size={16} /> {sending ? 'Mengirim…' : 'Kirim Email'}
+        </button>
+      </div>
+    </ModalShell>
+  )
 }
 
 function SetAdminModal({ team, teamMembers, onSelect, onClose }) {

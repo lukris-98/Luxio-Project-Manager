@@ -1,5 +1,6 @@
 pub mod db;
 pub mod handlers;
+pub mod mail;
 pub mod models;
 pub mod tools;
 
@@ -109,6 +110,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Members
         .route("/api/members", post(handlers::create_member))
         .route("/api/members", get(handlers::get_members))
+        .route("/api/members/register", post(handlers::register_member))
+        .route("/api/members/notify", post(handlers::notify_member))
         // Projects
         .route("/api/projects", get(handlers::get_projects))
         // Tools / Actions (AI Agent layer)

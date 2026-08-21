@@ -136,6 +136,10 @@ export const api = {
   // ---- Members ----
   createMember: (data) => post('/api/members', data),
   getMembers: (companyId) => get('/api/members', { company_id: companyId }),
+  // Daftarkan anggota baru + buat akun login (email/password) + kirim email sambutan.
+  registerMember: (data) => post('/api/members/register', data),
+  // Kirim email notifikasi ke anggota (admin/super admin).
+  notifyMember: (data) => post('/api/members/notify', data),
 
   // ---- Projects ----
   getProjects: (companyId) => get('/api/projects', { company_id: companyId }),

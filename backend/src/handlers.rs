@@ -8,6 +8,7 @@ use argon2::{
     Argon2,
 };
 use chrono::{Duration, Utc};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use sqlx::{Row, PgPool};
 use std::collections::hash_map::DefaultHasher;
@@ -1304,6 +1305,177 @@ pub async fn admin_delete_user(
 }
 
 // ---------- UTILITAS LAIN ----------
+
+/// POST /api/members/register — daftarkan anggota baru dengan akun login.
+/// Membuat user (email + password) + member, lalu kirim email sambutan.
+pub async fn register_member(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<RegisterMember>,
+) -> Result<Json<Member>, StatusCode> {
+    let actor_id = require_auth(&state, &headers).await?;
+    validate_len(&payload.name, "name", 100)?;
+    validate_email(&payload.email)?;
+    validate_password(&payload.password)?;
+    check_company_access(&state, &actor_id, &payload.company_id).await?;
+
+    // Cek email belum dipakai di users.
+    let dup = sqlx::query("SELECT id FROM users WHERE email = $1")
+        .bind(payload.email.trim())
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    if dup.is_some() {
+        return Err(StatusCode::CONFLICT);
+    }
+
+    // 1. Buat user account
+    let user_id = Uuid::new_v4().to_string();
+    let password_hash = hash_password(&payload.password)?;
+    let now = Utc::now();
+    let role = payload.role.clone().unwrap_or_else(|| "member".to_string());
+
+    sqlx::query(
+        "INSERT INTO users (id, email, password_hash, name, role, plan, company_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    )
+    .bind(&user_id)
+    .bind(payload.email.trim())
+    .bind(&password_hash)
+    .bind(payload.name.trim())
+    .bind(&role)
+    .bind("personal")
+    .bind(&payload.company_id)
+    .bind(&now)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // 2. Buat member
+    let member_id = Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO members (id, company_id, division_id, name, email, role, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+    )
+    .bind(&member_id)
+    .bind(&payload.company_id)
+    .bind(&payload.division_id)
+    .bind(payload.name.trim())
+    .bind(payload.email.trim())
+    .bind(&role)
+    .bind(payload.position.as_deref().unwrap_or("").trim())
+    .bind(payload.phone.as_deref().unwrap_or("").trim())
+    .bind(payload.gender.as_deref().unwrap_or("").trim())
+    .bind(payload.birth_date.as_deref().unwrap_or("").trim())
+    .bind(payload.address.as_deref().unwrap_or("").trim())
+    .bind(payload.employment_status.as_deref().unwrap_or("").trim())
+    .bind(payload.join_date.as_deref().unwrap_or("").trim())
+    .bind(payload.salary.as_deref().unwrap_or("").trim())
+    .bind(payload.skills.as_deref().unwrap_or("").trim())
+    .bind(payload.education.as_deref().unwrap_or("").trim())
+    .bind(payload.notes.as_deref().unwrap_or("").trim())
+    .bind(&now)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    sqlx::query("UPDATE divisions SET member_count = member_count + 1 WHERE id = $1")
+        .bind(&payload.division_id)
+        .execute(&state.db)
+        .await
+        .ok();
+
+    // 3. Kirim email sambutan (best-effort)
+    tokio::spawn({
+        let to = payload.email.trim().to_string();
+        let name = payload.name.trim().to_string();
+        let email = payload.email.trim().to_string();
+        let password = payload.password.to_string();
+        async move {
+            match crate::mail::send_welcome(&to, &name, &email, &password).await {
+                Ok(true) => tracing::info!(event = "welcome_email_sent", to = %to),
+                _ => tracing::warn!(event = "welcome_email_skipped", to = %to),
+            }
+        }
+    });
+
+    tracing::info!(event = "member_registered", user_id = %user_id, member_id = %member_id, email = %payload.email.trim());
+
+    Ok(Json(Member {
+        id: member_id,
+        company_id: payload.company_id,
+        division_id: payload.division_id,
+        name: payload.name.trim().to_string(),
+        email: payload.email.trim().to_string(),
+        role: role.to_string(),
+        position: payload.position.as_deref().unwrap_or("").trim().to_string(),
+        phone: payload.phone.as_deref().unwrap_or("").trim().to_string(),
+        gender: payload.gender.as_deref().unwrap_or("").trim().to_string(),
+        birth_date: payload.birth_date.as_deref().unwrap_or("").trim().to_string(),
+        address: payload.address.as_deref().unwrap_or("").trim().to_string(),
+        employment_status: payload.employment_status.as_deref().unwrap_or("").trim().to_string(),
+        join_date: payload.join_date.as_deref().unwrap_or("").trim().to_string(),
+        salary: payload.salary.as_deref().unwrap_or("").trim().to_string(),
+        skills: payload.skills.as_deref().unwrap_or("").trim().to_string(),
+        education: payload.education.as_deref().unwrap_or("").trim().to_string(),
+        notes: payload.notes.as_deref().unwrap_or("").trim().to_string(),
+        created_at: now,
+    }))
+}
+
+/// POST /api/members/notify — kirim email notifikasi ke anggota (admin/super admin).
+pub async fn notify_member(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<NotifyMember>,
+) -> Result<Json<Value>, StatusCode> {
+    let actor_id = require_auth(&state, &headers).await?;
+    // Hanya owner, super_admin, admin yang boleh kirim notif.
+    let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+        .bind(&actor_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .ok_or(StatusCode::UNAUTHORIZED)?
+        .get("role");
+    let allowed = role == "owner" || role == "super_admin" || role == "admin";
+    if !allowed {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let subject = if payload.subject.is_empty() {
+        "Notifikasi Luxio".to_string()
+    } else {
+        payload.subject
+    };
+
+    // Kirim email (best-effort)
+    tokio::spawn({
+        let to = payload.email.to_string();
+        let subj = subject.clone();
+        let body = payload.body.to_string();
+        async move {
+            match crate::mail::send_notification(&to, &subj, &body).await {
+                Ok(true) => tracing::info!(event = "notify_email_sent", to = %to, subject = %subj),
+                _ => tracing::warn!(event = "notify_email_skipped", to = %to),
+            }
+        }
+    });
+
+    Ok(Json(json!({ "ok": true, "message": "Email notifikasi sedang dikirim" })))
+}
 
 /// GET /health — pengecekan server hidup atau tidak.
 pub async fn health_check() -> &'static str {
