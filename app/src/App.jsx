@@ -29,6 +29,7 @@ import Team from './pages/Team'
 import Settings from './pages/Settings'
 import AdminUsers from './pages/AdminUsers'
 import UpgradeAkun from './pages/UpgradeAkun'
+import ChatPage from './pages/ChatPage'
 
 function App() {
   const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
@@ -77,6 +78,8 @@ function App() {
         return <AdminUsers />
       case 'upgrade':
         return <UpgradeAkun />
+      case 'chat':
+        return <ChatPage />
       default:
         return <Dashboard />
     }
