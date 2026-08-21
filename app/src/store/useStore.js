@@ -562,15 +562,16 @@ export const useStore = create(
       const res = await api.verify2FA(email, code)
       if (!res.success) throw new Error(res.message)
       setToken(res.token)
-      // Akun OWNER (pemilik website) langsung masuk ke area app,
-      // tidak perlu lewat alur setup (tidak punya workspace sendiri).
+      // Akun OWNER langsung masuk app; akun dengan company_id (sudah punya
+      // workspace, mis. dibuat admin) juga langsung ke dashboard.
       const isOwner = res.user.role === 'owner'
+      const hasCompany = Boolean(res.user.company_id)
       set({
         currentUser: res.user,
         token: res.token || null,
         isAuthenticated: true,
-        hasCompletedSetup: isOwner ? true : get().hasCompletedSetup,
-        appState: isOwner || get().hasCompletedSetup ? 'app' : 'setup',
+        hasCompletedSetup: isOwner || hasCompany ? true : get().hasCompletedSetup,
+        appState: isOwner || hasCompany || get().hasCompletedSetup ? 'app' : 'setup',
         setupStep: 0,
         currentPage: isOwner ? 'admin-users' : 'dashboard',
         activeRole: res.user.role,
@@ -592,12 +593,13 @@ export const useStore = create(
       if (!res.success) throw new Error(res.message)
       setToken(res.token)
       const isOwner = res.user.role === 'owner'
+      const hasCompany = Boolean(res.user.company_id)
       set({
         currentUser: res.user,
         token: res.token || null,
         isAuthenticated: true,
-        hasCompletedSetup: isOwner ? true : get().hasCompletedSetup,
-        appState: isOwner || get().hasCompletedSetup ? 'app' : 'setup',
+        hasCompletedSetup: isOwner || hasCompany ? true : get().hasCompletedSetup,
+        appState: isOwner || hasCompany || get().hasCompletedSetup ? 'app' : 'setup',
         setupStep: 0,
         currentPage: isOwner ? 'admin-users' : 'dashboard',
         activeRole: res.user.role,
