@@ -22,7 +22,10 @@ export default function AgentChat() {
   const [busy, setBusy] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
   const [aiProvider, setAiProvider] = useState('')
+  const [aiBaseUrl, setAiBaseUrl] = useState('')
   const [aiKey, setAiKey] = useState('')
+  const [aiModel, setAiModel] = useState('')
+  const [aiEnabled, setAiEnabled] = useState(true)
   const [configMsg, setConfigMsg] = useState('')
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -52,19 +55,30 @@ export default function AgentChat() {
   }
 
   const handleLoadConfig = () => {
-    // Load from currentUser (simpan dari backend)
+    // Load dari currentUser (disimpan di akun owner, ikut response me).
     setAiProvider(currentUser?.ai_provider || '')
+    setAiBaseUrl(currentUser?.ai_base_url || '')
     setAiKey(currentUser?.ai_key || '')
+    setAiModel(currentUser?.ai_model || '')
+    setAiEnabled(currentUser?.ai_enabled !== false)
+    setConfigMsg('')
     setShowConfig(true)
   }
 
   const handleSaveConfig = async () => {
     setConfigMsg('')
+    if (!aiProvider.trim()) {
+      setConfigMsg('Nama penyedia wajib diisi.')
+      return
+    }
     try {
       const { api } = await import('../services/api')
       const res = await api.agentConfig({
-        ai_provider: aiProvider,
-        ai_key: aiKey,
+        provider_name: aiProvider.trim(),
+        base_url: aiBaseUrl.trim(),
+        api_key: aiKey.trim(),
+        model: aiModel.trim(),
+        enabled: aiEnabled,
       })
       if (res.ok) {
         setConfigMsg('Konfigurasi AI tersimpan.')
@@ -190,19 +204,30 @@ export default function AgentChat() {
                 <h3>Konfigurasi AI Provider</h3>
               </div>
               <p className="agent-config-desc">
-                Masukkan API key dari penyedia AI (OpenAI, dll.) untuk mengaktifkan
-                percakapan cerdas. Agent tetap mematuhi tool/action layer.
+                Hubungkan penyedia AI. Agent tetap mematuhi tool/action layer
+                (authz + audit log) dan tidak punya akses database langsung.
               </p>
               <div className="input-group">
-                <label className="input-label">Penyedia AI</label>
-                <select className="input" value={aiProvider} onChange={(e) => setAiProvider(e.target.value)}>
-                  <option value="">— Pilih penyedia —</option>
-                  <option value="openai">OpenAI (GPT-4o, GPT-4o-mini)</option>
-                  <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
-                  <option value="google">Google Gemini</option>
-                  <option value="deepseek">DeepSeek</option>
-                  <option value="local">Local (LLaMA, Mistral, dll.)</option>
-                </select>
+                <label className="input-label">Nama Provider <span style={{ color: 'var(--error)' }}>*</span></label>
+                <input
+                  className="input"
+                  placeholder="mis. OpenAI, Anthropic, Groq, Ollama"
+                  value={aiProvider}
+                  onChange={(e) => setAiProvider(e.target.value)}
+                />
+                <p className="field-hint">Nama bebas untuk mengidentifikasi penyedia.</p>
+              </div>
+              <div className="input-group">
+                <label className="input-label">Base URL</label>
+                <input
+                  className="input"
+                  placeholder="mis. https://api.openai.com/v1"
+                  value={aiBaseUrl}
+                  onChange={(e) => setAiBaseUrl(e.target.value)}
+                />
+                <p className="field-hint">
+                  Kosongkan untuk URL default penyedia populer. Untuk Ollama: http://localhost:11434/v1
+                </p>
               </div>
               <div className="input-group">
                 <label className="input-label">API Key</label>
@@ -213,6 +238,26 @@ export default function AgentChat() {
                   value={aiKey}
                   onChange={(e) => setAiKey(e.target.value)}
                 />
+                <p className="field-hint">Kosongkan bila memakai model lokal (Ollama).</p>
+              </div>
+              <div className="input-group">
+                <label className="input-label">Nama Model</label>
+                <input
+                  className="input"
+                  placeholder="mis. gpt-4o, claude-sonnet-4, llama3.1"
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                />
+              </div>
+              <div className="input-group">
+                <label className="agent-config-toggle">
+                  <input
+                    type="checkbox"
+                    checked={aiEnabled}
+                    onChange={(e) => setAiEnabled(e.target.checked)}
+                  />
+                  <span>Aktifkan AI Agent</span>
+                </label>
               </div>
               {configMsg && <p className="agent-config-msg">{configMsg}</p>}
               <div className="agent-config-actions">

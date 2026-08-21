@@ -188,6 +188,9 @@ export const api = {
   chatGroupCreate: (data) => post('/api/chat/group/create', data),
   chatContacts: () => get('/api/chat/contacts'),
   chatAddContact: (userCode) => post('/api/chat/contacts', { user_code: userCode }),
+  // Cari user global (lintas perusahaan) + lihat profil publik orang lain.
+  searchUsers: (q) => get('/api/users/search', { q }),
+  getPublicProfile: (userId) => get(`/api/users/${userId}`),
 
   // ---- AI Agent (Item 8) ----
   agentChat: (message, conversationId) =>

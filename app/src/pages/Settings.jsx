@@ -42,7 +42,10 @@ export default function Settings() {
   const [pinError, setPinError] = useState('')
   const [aiModalOpen, setAiModalOpen] = useState(false)
   const [aiProvider, setAiProvider] = useState('')
+  const [aiBaseUrl, setAiBaseUrl] = useState('')
   const [aiKey, setAiKey] = useState('')
+  const [aiModel, setAiModel] = useState('')
+  const [aiEnabled, setAiEnabled] = useState(true)
   const [aiConfigMsg, setAiConfigMsg] = useState('')
   const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
@@ -350,7 +353,15 @@ export default function Settings() {
                     <span className="item-label">Penyedia AI</span>
                     <p className="item-desc">API key untuk AI Agent (OpenAI, dll.)</p>
                   </div>
-                  <button className="btn btn-secondary btn-sm" onClick={() => setAiModalOpen(true)}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => {
+                    setAiProvider(profile?.ai_provider || currentUser?.ai_provider || '')
+                    setAiBaseUrl(profile?.ai_base_url || currentUser?.ai_base_url || '')
+                    setAiKey(profile?.ai_key || currentUser?.ai_key || '')
+                    setAiModel(profile?.ai_model || currentUser?.ai_model || '')
+                    setAiEnabled(profile?.ai_enabled !== false && currentUser?.ai_enabled !== false)
+                    setAiConfigMsg('')
+                    setAiModalOpen(true)
+                  }}>
                     <KeyRound size={14} /> Konfigurasi
                   </button>
                 </div>
@@ -471,19 +482,27 @@ export default function Settings() {
               <h3>Konfigurasi AI Agent</h3>
             </div>
             <p className="settings-modal-desc">
-              Masukkan API key penyedia AI (OpenAI, dll). Agent hanya menjalankan tool resmi
-              yang terdaftar di sistem (tool/action layer).
+              Hubungkan penyedia AI. Agent hanya menjalankan tool resmi yang
+              terdaftar di sistem (tool/action layer).
             </p>
             <div className="input-group">
-              <label className="input-label">Penyedia AI</label>
-              <select className="input" value={aiProvider} onChange={(e) => setAiProvider(e.target.value)}>
-                <option value="">— Pilih penyedia —</option>
-                <option value="openai">OpenAI (GPT-4o, GPT-4o-mini)</option>
-                <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
-                <option value="google">Google Gemini</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="local">Local (LLaMA, Mistral, dll.)</option>
-              </select>
+              <label className="input-label">Nama Provider <span style={{ color: 'var(--error)' }}>*</span></label>
+              <input
+                className="input"
+                placeholder="mis. OpenAI, Anthropic, Groq, Ollama"
+                value={aiProvider}
+                onChange={(e) => setAiProvider(e.target.value)}
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Base URL</label>
+              <input
+                className="input"
+                placeholder="mis. https://api.openai.com/v1"
+                value={aiBaseUrl}
+                onChange={(e) => setAiBaseUrl(e.target.value)}
+              />
+              <p className="field-hint">Kosongkan untuk URL default. Ollama: http://localhost:11434/v1</p>
             </div>
             <div className="input-group">
               <label className="input-label">API Key</label>
@@ -494,6 +513,22 @@ export default function Settings() {
                 value={aiKey}
                 onChange={(e) => setAiKey(e.target.value)}
               />
+              <p className="field-hint">Kosongkan bila memakai model lokal (Ollama).</p>
+            </div>
+            <div className="input-group">
+              <label className="input-label">Nama Model</label>
+              <input
+                className="input"
+                placeholder="mis. gpt-4o, claude-sonnet-4, llama3.1"
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+              />
+            </div>
+            <div className="input-group">
+              <label className="settings-modal-toggle">
+                <input type="checkbox" checked={aiEnabled} onChange={(e) => setAiEnabled(e.target.checked)} />
+                <span>Aktifkan AI Agent</span>
+              </label>
             </div>
             {aiConfigMsg && <p className="settings-modal-success">{aiConfigMsg}</p>}
             <div className="settings-modal-actions">
@@ -502,8 +537,18 @@ export default function Settings() {
                 className="btn btn-primary"
                 onClick={async () => {
                   setAiConfigMsg('')
+                  if (!aiProvider.trim()) {
+                    setAiConfigMsg('Nama provider wajib diisi.')
+                    return
+                  }
                   try {
-                    const res = await api.agentConfig({ ai_provider: aiProvider, ai_key: aiKey })
+                    const res = await api.agentConfig({
+                      provider_name: aiProvider.trim(),
+                      base_url: aiBaseUrl.trim(),
+                      api_key: aiKey.trim(),
+                      model: aiModel.trim(),
+                      enabled: aiEnabled,
+                    })
                     setAiConfigMsg(res.ok ? 'Konfigurasi AI tersimpan.' : 'Gagal menyimpan.')
                     setTimeout(() => setAiModalOpen(false), 1400)
                   } catch (e) {

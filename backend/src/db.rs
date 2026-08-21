@@ -90,6 +90,9 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
         // AI Agent (Item 8): penyedia & API key milik owner.
         ("ai_provider", "TEXT NOT NULL DEFAULT ''"),
         ("ai_key", "TEXT NOT NULL DEFAULT ''"),
+        ("ai_base_url", "TEXT NOT NULL DEFAULT ''"),
+        ("ai_model", "TEXT NOT NULL DEFAULT ''"),
+        ("ai_enabled", "BOOLEAN NOT NULL DEFAULT FALSE"),
         // Status upgrade (Item 4): tipe organisasi saat upgrade.
         ("org_type", "TEXT NOT NULL DEFAULT ''"),
         ("upgraded_at", "TIMESTAMPTZ"),

@@ -46,6 +46,153 @@
   flex-direction: column;
 }
 
+/* ---------- Pencarian user global ---------- */
+.chat-search {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  background: var(--bg-secondary);
+}
+
+.chat-search-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.chat-search-box:focus-within {
+  border-color: var(--accent);
+}
+
+.chat-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+}
+
+.chat-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.chat-search-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.chat-search-clear:hover {
+  color: var(--text-primary);
+}
+
+.chat-search-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: var(--space-2) 0 0;
+  margin: 0;
+}
+
+.chat-search-error {
+  font-size: 0.75rem;
+  color: var(--error);
+  padding: var(--space-2) 0 0;
+  margin: 0;
+}
+
+.chat-search-results {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  top: calc(100% - 4px);
+  z-index: 50;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hover);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.chat-search-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-search-item:last-child {
+  border-bottom: none;
+}
+
+.chat-search-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* ---------- Profil publik ---------- */
+.chat-profile-avatar {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--accent-muted);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-profile-name {
+  text-align: center;
+  font-size: 1.125rem;
+  margin: var(--space-2) 0 0;
+}
+
+.chat-profile-detail {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0 0 var(--space-3);
+}
+
+.chat-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.chat-profile-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.chat-profile-label {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.chat-profile-value {
+  color: var(--text-primary);
+  text-align: right;
+}
+
 .chat-conv-item {
   display: flex;
   align-items: center;

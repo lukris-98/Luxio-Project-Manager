@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
+import { api } from '../services/api'
 import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
-import { MessageSquare, Send, Plus, Users, UserPlus, X, Search, User, ArrowLeft, ChevronDown, Globe, Hash } from 'lucide-react'
+import { MessageSquare, Send, Plus, Users, UserPlus, X, Search, User, ArrowLeft, ChevronDown, Globe, Hash, Eye, Building2 } from 'lucide-react'
 import './Chat.css'
 
 export default function ChatPage() {
@@ -23,6 +24,13 @@ export default function ChatPage() {
   const [mobilePanel, setMobilePanel] = useState('list') // 'list' | 'chat'
   const messagesEndRef = useRef(null)
 
+  // Pencarian user global + profil publik
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [viewProfile, setViewProfile] = useState(null) // { user, conv } | null
+
   const role = currentUser?.role || 'user'
   const isAdmin = role === 'owner' || role === 'super_admin' || role === 'admin'
 
@@ -34,6 +42,46 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages, selectedConv])
+
+  const handleSearch = async (q) => {
+    setSearchQuery(q)
+    if (!q.trim()) {
+      setSearchResults([])
+      return
+    }
+    setSearching(true)
+    setSearchError('')
+    try {
+      const res = await api.searchUsers(q.trim())
+      setSearchResults(res.results || [])
+    } catch (e) {
+      setSearchError('Gagal mencari. Pastikan backend online.')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleViewProfile = async (userId) => {
+    try {
+      const profile = await api.getPublicProfile(userId)
+      setViewProfile({ user: profile })
+    } catch (e) {
+      setSearchError('Gagal memuat profil.')
+    }
+  }
+
+  const handleStartDmFromSearch = async (u) => {
+    setSearchQuery('')
+    setSearchResults([])
+    setViewProfile(null)
+    handleSelectConv({
+      kind: 'dm',
+      other_user_id: u.id,
+      name: u.name,
+      id: null,
+      avatar_seed: u.name,
+    })
+  }
 
   const handleSelectConv = async (conv) => {
     setSelectedConv(conv)
@@ -119,6 +167,64 @@ export default function ChatPage() {
                 <Plus size={16} />
               </button>
             </div>
+          </div>
+
+          {/* Pencarian user global (nama/email/kode) */}
+          <div className="chat-search">
+            <div className="chat-search-box">
+              <Search size={15} />
+              <input
+                className="chat-search-input"
+                placeholder="Cari orang / kode user…"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
+              {searchQuery && (
+                <button className="chat-search-clear" onClick={() => { setSearchQuery(''); setSearchResults([]) }} title="Bersihkan">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {searching && <p className="chat-search-hint">Mencari…</p>}
+            {searchError && <p className="chat-search-error">{searchError}</p>}
+
+            {searchQuery && !searching && searchResults.length > 0 && (
+              <div className="chat-search-results">
+                {searchResults.map((u) => (
+                  <div key={u.id} className="chat-search-item">
+                    <div className="chat-conv-avatar"><User size={14} /></div>
+                    <div className="chat-conv-info">
+                      <span className="chat-conv-name">{u.name}</span>
+                      <span className="chat-conv-preview">
+                        {u.position || u.role}
+                        {u.company_name ? ` • ${u.company_name}` : ''}
+                      </span>
+                    </div>
+                    <div className="chat-search-actions">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        title="Lihat profil"
+                        onClick={() => handleViewProfile(u.id)}
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        title="Chat"
+                        onClick={() => handleStartDmFromSearch(u)}
+                      >
+                        <MessageSquare size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {searchQuery && !searching && searchResults.length === 0 && !searchError && (
+              <p className="chat-search-hint">Tidak ada hasil untuk "{searchQuery}"</p>
+            )}
           </div>
 
           <div className="chat-conv-list">
@@ -297,6 +403,66 @@ export default function ChatPage() {
           )}
         </div>
       </div>
+
+      {/* Modal profil publik */}
+      {viewProfile && viewProfile.user && (
+        <div className="modal-overlay" onClick={() => setViewProfile(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Profil {viewProfile.user.name}</h2>
+              <button className="modal-close-btn" onClick={() => setViewProfile(null)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="chat-profile-avatar">
+                <User size={32} />
+              </div>
+              <h3 className="chat-profile-name">{viewProfile.user.name}</h3>
+              {viewProfile.user.position && <p className="chat-profile-detail">{viewProfile.user.position}</p>}
+              <div className="chat-profile-info">
+                {viewProfile.user.user_code && (
+                  <div className="chat-profile-row">
+                    <span className="chat-profile-label">Kode User</span>
+                    <span className="chat-profile-value">{viewProfile.user.user_code}</span>
+                  </div>
+                )}
+                {viewProfile.user.company_name && (
+                  <div className="chat-profile-row">
+                    <span className="chat-profile-label">Perusahaan</span>
+                    <span className="chat-profile-value">{viewProfile.user.company_name}{viewProfile.user.company_industry ? ` (${viewProfile.user.company_industry})` : ''}</span>
+                  </div>
+                )}
+                {viewProfile.user.email_visible && viewProfile.user.email && (
+                  <div className="chat-profile-row">
+                    <span className="chat-profile-label">Email</span>
+                    <span className="chat-profile-value">{viewProfile.user.email}</span>
+                  </div>
+                )}
+                <div className="chat-profile-row">
+                  <span className="chat-profile-label">Role</span>
+                  <span className="chat-profile-value">{viewProfile.user.role}</span>
+                </div>
+                <div className="chat-profile-row">
+                  <span className="chat-profile-label">Paket</span>
+                  <span className="chat-profile-value">{viewProfile.user.plan}</span>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setViewProfile(null)}>Tutup</button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const u = viewProfile.user
+                    setViewProfile(null)
+                    handleStartDmFromSearch(u)
+                  }}
+                >
+                  <MessageSquare size={16} /> Chat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

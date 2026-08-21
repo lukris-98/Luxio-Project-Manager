@@ -167,6 +167,14 @@ pub struct UserResponse {
     pub plan: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_enabled: Option<bool>,
 }
 
 /// Body request untuk endpoint POST /api/companies.
@@ -398,12 +406,28 @@ pub struct ProfileResponse {
     pub edit_count_month: String,
     #[serde(default)]
     pub has_pin: bool,
+    #[serde(default)]
+    pub ai_provider: String,
+    #[serde(default)]
+    pub ai_base_url: String,
+    #[serde(default)]
+    pub ai_key: String,
+    #[serde(default)]
+    pub ai_model: String,
+    #[serde(default)]
+    pub ai_enabled: bool,
 }
 
 /// Query param opsional untuk GET /api/profile — `?user_id=...` (admin).
 #[derive(Debug, Deserialize)]
 pub struct ProfileQuery {
     pub user_id: Option<String>,
+}
+
+/// Query param untuk GET /api/users/search — `?q=...`.
+#[derive(Debug, Deserialize)]
+pub struct UserSearchQuery {
+    pub q: String,
 }
 
 // ---------- UPGRADE AKUN (Item 4) ----------
@@ -479,9 +503,18 @@ pub struct AgentChatRequest {
     pub conversation_id: Option<String>,
 }
 
-/// Body request PUT /api/agent/config — simpan penyedia AI (owner).
+/// Body request PUT /api/agent/config — simpan penyedia AI (owner/super_admin).
 #[derive(Debug, Deserialize)]
 pub struct AgentConfigRequest {
-    pub ai_provider: String,
-    pub ai_key: String,
+    /// Nama penyedia, mis. "OpenAI", "Anthropic", "Groq", "Ollama", "Kilo Code"
+    pub provider_name: String,
+    /// Base URL API, mis. https://api.openai.com/v1
+    pub base_url: String,
+    /// API key penyedia
+    pub api_key: String,
+    /// Nama model, mis. gpt-4o, claude-sonnet-4, llama-3.3-70b
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub enabled: bool,
 }

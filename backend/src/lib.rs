@@ -116,6 +116,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/chat/group/create", post(handlers::chat_group_create))
         .route("/api/chat/contacts", get(handlers::chat_contacts))
         .route("/api/chat/contacts", post(handlers::chat_add_contact))
+        .route("/api/users/search", get(handlers::search_users))
+        .route("/api/users/{id}", get(handlers::get_public_profile))
         // AI Agent (Item 8)
         .route("/api/agent/config", put(handlers::agent_config))
         .route("/api/agent/chat", post(crate::tools::agent_chat))

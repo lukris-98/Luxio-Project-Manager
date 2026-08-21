@@ -398,6 +398,10 @@ pub async fn verify_email(
             role: row.get("role"),
             plan: row.get("plan"),
             email_verified: Some(true),
+            ai_provider: None,
+            ai_base_url: None,
+            ai_model: None,
+            ai_enabled: None,
         }),
         token: Some(token_session),
         requires_confirmation: None,
@@ -532,6 +536,10 @@ pub async fn login(
             role: row.get("role"),
             plan: row.get("plan"),
             email_verified: Some(true),
+            ai_provider: None,
+            ai_base_url: None,
+            ai_model: None,
+            ai_enabled: None,
         }),
         token: None,
         requires_confirmation: None,
@@ -627,6 +635,10 @@ pub async fn verify_2fa(
                     role: user.get("role"),
                     plan: user.get("plan"),
                     email_verified: Some(true),
+                    ai_provider: None,
+                    ai_base_url: None,
+                    ai_model: None,
+                    ai_enabled: None,
                 }),
                 token: Some(session_token),
                 requires_confirmation: None,
@@ -679,7 +691,7 @@ pub async fn get_me(
 ) -> Result<Json<UserResponse>, StatusCode> {
     let user_id = require_auth(&state, &headers).await?;
 
-    let row = sqlx::query("SELECT id, email, name, company_id, role, plan, email_verified FROM users WHERE id = $1")
+    let row = sqlx::query("SELECT id, email, name, company_id, role, plan, email_verified, ai_provider, ai_base_url, ai_model, ai_enabled FROM users WHERE id = $1")
         .bind(&user_id)
         .fetch_optional(&state.db)
         .await
@@ -697,6 +709,10 @@ pub async fn get_me(
             role: row.get("role"),
             plan: row.get("plan"),
             email_verified: Some(row.get("email_verified")),
+            ai_provider: Some(row.get("ai_provider")),
+            ai_base_url: Some(row.get("ai_base_url")),
+            ai_model: Some(row.get("ai_model")),
+            ai_enabled: Some(row.get("ai_enabled")),
         })),
         None => Err(StatusCode::NOT_FOUND),
     }
@@ -1137,7 +1153,8 @@ async fn profile_for_user(
         "SELECT id, email, name, company_id, role, plan, email_verified, user_code,
                 phone, gender, address, position, join_date, employment_status,
                 birth_date, education, salary,
-                edit_count, edit_count_month, admin_edit_count, admin_edit_month
+                edit_count, edit_count_month, admin_edit_count, admin_edit_month,
+                ai_provider, ai_base_url, ai_key, ai_model, ai_enabled
          FROM users WHERE id = $1",
     )
     .bind(user_id)
@@ -1184,6 +1201,11 @@ async fn profile_for_user(
         edit_limit: limit,
         edit_count_month: month,
         has_pin: false,
+        ai_provider: row.get("ai_provider"),
+        ai_base_url: row.get("ai_base_url"),
+        ai_key: row.get("ai_key"),
+        ai_model: row.get("ai_model"),
+        ai_enabled: row.get("ai_enabled"),
     }))
 }
 
@@ -2138,6 +2160,112 @@ pub async fn chat_group_create(
     Ok(Json(json!({ "ok": true, "group_id": gid, "name": payload.name.trim() })))
 }
 
+/// GET /api/users/search?q=... — cari user global (lintas perusahaan) untuk
+/// ditambah sebagai kontak / dilihat profilnya. Hanya data publik ringkas.
+pub async fn search_users(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<UserSearchQuery>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let q = query.q.trim().to_lowercase();
+    if q.is_empty() {
+        return Ok(Json(json!({ "results": [] })));
+    }
+
+    let pattern = format!("%{}%", q);
+    let rows = sqlx::query(
+        "SELECT u.id, u.name, u.email, u.user_code, u.position,
+                c.name AS company_name, u.role
+         FROM users u
+         LEFT JOIN companies c ON c.id = u.company_id
+         WHERE u.id != $1
+           AND (LOWER(u.name) LIKE $2 OR LOWER(u.email) LIKE $2 OR u.user_code ILIKE $2)
+         ORDER BY u.name
+         LIMIT 20",
+    )
+    .bind(&user_id)
+    .bind(&pattern)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let results: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.get::<String, _>("id"),
+                "name": r.get::<String, _>("name"),
+                "email": r.get::<String, _>("email"),
+                "user_code": r.get::<Option<String>, _>("user_code"),
+                "position": r.get::<String, _>("position"),
+                "company_name": r.get::<Option<String>, _>("company_name"),
+                "role": r.get::<String, _>("role"),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({ "results": results })))
+}
+
+/// GET /api/users/:id — profil publik user lain (lintas perusahaan).
+/// Hanya data yang aman dibagikan; email hanya tampil untuk sesama perusahaan.
+pub async fn get_public_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(user_id): axum::extract::Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    let actor_id = require_auth(&state, &headers).await?;
+
+    let row = sqlx::query(
+        "SELECT u.id, u.name, u.email, u.user_code, u.position, u.role, u.plan,
+                c.name AS company_name, c.industry AS company_industry
+         FROM users u
+         LEFT JOIN companies c ON c.id = u.company_id
+         WHERE u.id = $1",
+    )
+    .bind(&user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let row = row.ok_or(StatusCode::NOT_FOUND)?;
+
+    let same_company: bool = {
+        let my_company: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+            .bind(&actor_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+            .get("company_id");
+        let target_company: Option<String> = row.get("company_id");
+        my_company.is_some() && my_company == target_company
+    };
+
+    let email: String = row.get("email");
+    Ok(Json(json!({
+        "id": row.get::<String, _>("id"),
+        "name": row.get::<String, _>("name"),
+        "user_code": row.get::<Option<String>, _>("user_code"),
+        "position": row.get::<String, _>("position"),
+        "role": row.get::<String, _>("role"),
+        "plan": row.get::<String, _>("plan"),
+        "company_name": row.get::<Option<String>, _>("company_name"),
+        "company_industry": row.get::<Option<String>, _>("company_industry"),
+        "email_visible": same_company,
+        "email": if same_company { email } else { String::new() },
+    })))
+}
+
 /// GET /api/chat/contacts — daftar kontak pertemanan user.
 pub async fn chat_contacts(
     State(state): State<AppState>,
@@ -2231,7 +2359,7 @@ pub async fn chat_add_contact(
 
 // ---------- AI AGENT CONFIG (Item 8) ----------
 
-/// PUT /api/agent/config — simpan penyedia AI & API key (khusus owner).
+/// PUT /api/agent/config — simpan penyedia AI & API key (khusus owner/super_admin).
 pub async fn agent_config(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -2251,21 +2379,54 @@ pub async fn agent_config(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    sqlx::query("UPDATE users SET ai_provider = $1, ai_key = $2 WHERE id = $3")
-        .bind(&payload.ai_provider)
-        .bind(&payload.ai_key)
-        .bind(&user_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            eprintln!("[DB ERROR] {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    if payload.provider_name.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Konfigurasi AI disimpan di akun OWNER (bukan akun super_admin biasa),
+    // sehingga ada satu sumber konfigurasi global untuk agent.
+    let target_id = if role == "owner" {
+        user_id
+    } else {
+        // super_admin: simpan ke akun owner (pemilik website).
+        let owner_row = sqlx::query("SELECT id FROM users WHERE role = 'owner' LIMIT 1")
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        match owner_row {
+            Some(r) => r.get::<String, _>("id"),
+            None => return Err(StatusCode::NOT_FOUND),
+        }
+    };
+
+    let enabled = if payload.api_key.trim().is_empty() { false } else { payload.enabled };
+
+    sqlx::query(
+        "UPDATE users SET ai_provider = $1, ai_key = $2, ai_base_url = $3, ai_model = $4, ai_enabled = $5 WHERE id = $6",
+    )
+    .bind(payload.provider_name.trim())
+    .bind(payload.api_key.trim())
+    .bind(payload.base_url.trim())
+    .bind(payload.model.trim())
+    .bind(enabled)
+    .bind(&target_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     Ok(Json(json!({
         "ok": true,
-        "ai_provider": payload.ai_provider,
-        "ai_key_set": !payload.ai_key.is_empty(),
+        "provider_name": payload.provider_name.trim(),
+        "base_url": payload.base_url.trim(),
+        "model": payload.model.trim(),
+        "api_key_set": !payload.api_key.trim().is_empty(),
+        "enabled": enabled,
     })))
 }
 
@@ -2438,6 +2599,10 @@ pub async fn admin_list_users(
             role: row.get("role"),
             plan: row.get("plan"),
             email_verified: Some(row.get("email_verified")),
+            ai_provider: None,
+            ai_base_url: None,
+            ai_model: None,
+            ai_enabled: None,
         })
         .collect();
 
@@ -2511,6 +2676,10 @@ pub async fn admin_create_user(
         role: role.to_string(),
         plan,
         email_verified: Some(false),
+        ai_provider: None,
+        ai_base_url: None,
+        ai_model: None,
+        ai_enabled: None,
     }))
 }
 
@@ -2639,6 +2808,10 @@ pub async fn admin_update_user(
         role,
         plan,
         email_verified: Some(row.get("email_verified")),
+        ai_provider: None,
+        ai_base_url: None,
+        ai_model: None,
+        ai_enabled: None,
     }))
 }
 
