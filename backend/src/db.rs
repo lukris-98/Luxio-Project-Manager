@@ -136,5 +136,40 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Audit log untuk aksi penting (user maupun AI Agent). Mencatat siapa
+    // pelaku, tool/aksi apa, resource target, dan hasilnya. Lihat
+    // ai-agent-security-architecture.md S16.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS audit_logs (
+            id TEXT PRIMARY KEY,
+            actor_type TEXT NOT NULL DEFAULT 'user',
+            user_id TEXT NOT NULL REFERENCES users(id),
+            tool_name TEXT,
+            action TEXT,
+            target_resource TEXT,
+            result TEXT NOT NULL,
+            detail TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Kunci idempotensi untuk aksi yang bisa terulang (S17). Mencegah
+    // duplikasi saat request yang sama dikirim dua kali (mis. agent retry).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS idempotency_keys (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id),
+            idempotency_key TEXT NOT NULL,
+            tool_name TEXT NOT NULL,
+            response JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (user_id, idempotency_key)
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }

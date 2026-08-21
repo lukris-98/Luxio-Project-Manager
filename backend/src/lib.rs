@@ -1,6 +1,7 @@
 pub mod db;
 pub mod handlers;
 pub mod models;
+pub mod tools;
 
 use axum::{
     http::HeaderValue,
@@ -110,6 +111,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/members", get(handlers::get_members))
         // Projects
         .route("/api/projects", get(handlers::get_projects))
+        // Tools / Actions (AI Agent layer)
+        .route("/api/tools", get(tools::list_tools))
+        .route("/api/tools/execute", post(tools::execute_tool))
         // Admin (khusus OWNER)
         .route("/api/admin/users", get(handlers::admin_list_users))
         .route("/api/admin/users", post(handlers::admin_create_user))

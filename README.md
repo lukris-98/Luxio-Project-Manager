@@ -114,6 +114,7 @@ Frontend berjalan di `http://localhost:5173` saat `npm run dev`.
 | `src/models.rs` | Tipe data: model database & request/response API. |
 | `src/db.rs` | Koneksi pool Postgres + migrasi pembuatan tabel. |
 | `src/handlers.rs` | Implementasi semua endpoint REST + logika hash. |
+| `src/tools.rs` | **Tool/Action layer** untuk AI Agent & UI: registri tool, schema, risk level, audit log, idempotency. |
 | `Cargo.toml` | Dependensi & target (lib + bin). |
 | `.env` / `.env.example` | Konfigurasi `DATABASE_URL` & `PORT`. |
 
@@ -137,8 +138,12 @@ Semua endpoint mengembalikan JSON. Base URL: `http://localhost:3000`.
 | POST | `/api/members` | Tambah member | `{ company_id, division_id, name, email, role }` | Bearer token |
 | GET | `/api/members` | Daftar member | `?company_id=...` | Bearer token |
 | GET | `/api/projects` | Daftar project aktif | `?company_id=...` | Bearer token |
+| GET | `/api/tools` | Daftar tool + schema (kontrak agent) | — | Bearer token |
+| POST | `/api/tools/execute` | Jalankan satu tool (action layer) | `{ tool, args, confirm?, idempotency_key?, actor_type? }` | Bearer token |
 
 > **Auth**: Setiap endpoint (kecuali `/health`, `/api/auth/register`, `/api/auth/login`) memerlukan header `Authorization: Bearer <token>`. Token diperoleh dari response login/register. Token disimpan di `localStorage` dengan kunci `luxio-token`.
+
+> **AI Agent / Tools**: Agent (dan UI) menjalankan operasi lewat **tool resmi** di `/api/tools/execute`, bukan akses database langsung. Setiap tool: auth (token) → risk check (medium/high wajib `confirm:true`) → validasi → authorization ownership → business logic → audit log (`audit_logs`) → idempotency opsional (`idempotency_key`). Daftar tool & schema: `GET /api/tools`. Referensi: [`ai-agent-security-architecture.md`](./ai-agent-security-architecture.md).
 
 ---
 

@@ -39,8 +39,35 @@ Neon PostgreSQL
 | Binary | `src/main.rs` | Panggil `luxio_backend::run()` |
 | Root/router | `src/lib.rs` | Rakit router, CORS, security headers, body limit, jalankan server |
 | Models | `src/models.rs` | Tipe database + request/response |
-| Database | `src/db.rs` | Pool koneksi + migrasi tabel (users, companies, divisions, members, projects, stages, checklist_items, sessions) |
+| Database | `src/db.rs` | Pool koneksi + migrasi tabel (users, companies, divisions, members, projects, stages, checklist_items, sessions, audit_logs, idempotency_keys) |
 | Handlers | `src/handlers.rs` | Implementasi endpoint, hashing Argon2id, session token, validasi, rate limit, authorization |
+| Tools | `src/tools.rs` | **Action layer**: registri tool + schema, risk level, validasi, ownership, audit log, idempotency |
+
+## Lapisan Action / Tools (AI Agent)
+
+UI manusia dan AI Agent memakai **business logic backend yang sama**
+melalui tool resmi (lihat `ai-agent-security-architecture.md`):
+
+```
+UI / Agent
+    ↓
+POST /api/tools/execute  { tool, args, confirm?, idempotency_key?, actor_type? }
+    ↓
+Auth (token) → Risk check (medium/high wajib confirm)
+    ↓
+Validasi → Authorization (ownership) → Business logic
+    ↓
+Audit log (audit_logs) → Idempotency (opsional) → Neon DB
+```
+
+- Daftar tool + schema: `GET /api/tools` (kontrak untuk agent).
+- Agent **tidak** punya akses SQL langsung; hanya bisa menjalankan tool
+  yang terdaftar di `tools.rs`.
+- Tool berisiko medium/high (contoh `delete_target`) menolak eksekusi
+  tanpa `confirm: true`.
+- Setiap aksi dicatat ke `audit_logs` (actor_type, user_id, tool,
+  target_resource, result, timestamp).
+- `idempotency_key` mencegah eksekusi ganda pada request yang sama.
 
 ## Alur autentikasi (session token)
 

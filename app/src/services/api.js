@@ -140,6 +140,19 @@ export const api = {
   // ---- Projects ----
   getProjects: (companyId) => get('/api/projects', { company_id: companyId }),
 
+  // ---- Tools / AI Agent actions ----
+  // Daftar tool + schema yang tersedia (kontrak agent).
+  listTools: () => get('/api/tools'),
+  // Jalankan satu tool. actorType: 'user' | 'ai_agent'.
+  executeTool: ({ tool, args, confirm = false, idempotencyKey, actorType = 'user' }) =>
+    post('/api/tools/execute', {
+      tool,
+      args,
+      confirm,
+      ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+      actor_type: actorType,
+    }),
+
   // ---- Admin (khusus OWNER) ----
   // List semua akun di sistem. actor_id = id user OWNER yang memanggil.
   getAdminUsers: (actorId) => get('/api/admin/users', { actor_id: actorId }),
