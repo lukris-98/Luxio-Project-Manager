@@ -1,0 +1,41 @@
+/* Deadline Picker — pilih tipe deadline (Deadline / Setiap Hari / Kustom) */
+
+.deadline-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.deadline-picker-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.deadline-picker-row .select {
+  width: 140px;
+  flex-shrink: 0;
+}
+
+.deadline-date-wrap {
+  flex: 1;
+}
+
+.deadline-custom-wrap {
+  width: 100%;
+}
+
+.deadline-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 480px) {
+  .deadline-picker-row {
+    flex-direction: column;
+  }
+
+  .deadline-picker-row .select {
+    width: 100%;
+  }
+}

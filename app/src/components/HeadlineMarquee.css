@@ -1,0 +1,42 @@
+/* Headline Marquee — berita berjalan kanan → kiri, 3 putaran lalu hilang */
+
+.headline-marquee {
+  overflow: hidden;
+  white-space: nowrap;
+  background: linear-gradient(90deg, var(--accent), var(--accent3));
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 49;
+}
+
+.headline-marquee-track {
+  display: inline-block;
+  padding: 6px 0;
+  padding-left: 100%;
+  animation-name: headline-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: 3;
+  animation-fill-mode: forwards;
+  will-change: transform;
+}
+
+@keyframes headline-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .headline-marquee-track {
+    animation: none;
+    padding-left: 0;
+  }
+}

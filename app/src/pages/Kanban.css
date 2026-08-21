@@ -1,0 +1,413 @@
+/* Kanban Page */
+
+.kanban-page {
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+}
+
+.kanban-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+  flex-shrink: 0;
+}
+
+.kanban-page .page-header-left h1 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.kanban-page .page-header-left p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* Board Tabs */
+.board-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.board-tab {
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.board-tab:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.board-tab-wrap {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.board-tab-wrap .board-tab {
+  border-right: none;
+}
+
+.board-tab-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-left: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.board-tab-delete:hover {
+  color: var(--error);
+  background: var(--bg-tertiary);
+}
+
+.board-tab.active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Kanban Board */
+.kanban-board {
+  display: flex;
+  gap: var(--space-4);
+  flex: 1;
+  overflow-x: auto;
+  padding-bottom: var(--space-4);
+}
+
+.kanban-column {
+  min-width: 280px;
+  max-width: 280px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.column-header h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.task-count {
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.column-tasks {
+  flex: 1;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-y: auto;
+  min-height: 100px;
+}
+
+.kanban-task {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  cursor: grab;
+  transition: all 0.15s;
+}
+
+.kanban-task:hover {
+  border-color: var(--border-hover);
+}
+
+.kanban-task:active {
+  cursor: grabbing;
+}
+
+.drag-handle {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.task-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.add-task-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.add-task-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.new-task-form {
+  padding: var(--space-3);
+  border-top: 1px solid var(--border);
+  background: var(--bg-tertiary);
+}
+
+.new-task-form .input-group {
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.new-task-form .input-label {
+  font-size: 0.75rem;
+}
+
+.new-task-form .input {
+  font-size: 0.875rem;
+  margin-bottom: 0;
+}
+
+.new-task-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.new-task-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Kartu task — meta prioritas & deadline */
+.kanban-task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.task-priority {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+}
+
+.task-priority.high {
+  background: rgba(248, 113, 113, 0.18);
+  color: var(--error);
+}
+
+.task-priority.medium {
+  background: rgba(251, 191, 36, 0.18);
+  color: var(--warning);
+}
+
+.task-priority.low {
+  background: rgba(74, 222, 128, 0.18);
+  color: var(--success);
+}
+
+.task-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+/* Modal Board Baru — form lengkap (sama dengan editor tahapan TargetForm) */
+.board-modal {
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.board-modal .field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-1);
+  line-height: 1.5;
+}
+
+.board-modal .kanban-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.board-modal .stage-row {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.board-modal .stage-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.board-modal .stage-name {
+  flex: 1;
+}
+
+.board-modal .stage-todos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+}
+
+.board-modal .todo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.board-modal .todo-input {
+  flex: 1;
+}
+
+.board-modal .stage-todos .btn {
+  align-self: flex-start;
+}
+
+.board-modal .kanban-flow > .btn-secondary {
+  align-self: stretch;
+  width: 100%;
+}
+
+.board-modal .input-with-icon {
+  position: relative;
+}
+
+.board-modal .input-with-icon svg {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.board-modal .input-with-icon .input {
+  padding-left: 36px;
+}
+
+/* Empty State */
+.kanban-page .empty-state {
+  text-align: center;
+  padding: var(--space-12);
+}
+
+.kanban-page .empty-state h3 {
+  font-size: 0.9375rem;
+  margin-bottom: var(--space-2);
+}
+
+.kanban-page .empty-state p {
+  color: var(--text-muted);
+  margin-bottom: var(--space-5);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 400px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  font-size: 1.0625rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-1);
+}
+
+.close-btn:hover {
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--space-5);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+}

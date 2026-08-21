@@ -1,0 +1,126 @@
+/* My Tasks Page */
+
+.my-tasks-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.my-tasks-page .page-header {
+  margin-bottom: var(--space-6);
+}
+
+.my-tasks-page .page-header-left h1 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.my-tasks-page .page-header-left p {
+  color: var(--text-muted);
+}
+
+/* Tasks List */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all 0.15s;
+}
+
+.task-item:hover {
+  border-color: var(--border-hover);
+}
+
+.task-item.completed {
+  opacity: 0.6;
+}
+
+.task-item.completed .task-title {
+  text-decoration: line-through;
+}
+
+.task-status-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.task-item.completed .task-status-icon {
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--success);
+}
+
+.task-item.in_progress .task-status-icon {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.task-title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-meta {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.task-due {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Empty */
+.empty-state {
+  text-align: center;
+  padding: var(--space-12);
+}
+
+.empty-state svg {
+  color: var(--text-muted);
+  opacity: 0.5;
+  margin-bottom: var(--space-4);
+}
+
+.empty-state h3 {
+  font-size: 0.9375rem;
+  margin-bottom: var(--space-2);
+}
+
+.empty-state p {
+  color: var(--text-muted);
+}

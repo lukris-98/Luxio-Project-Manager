@@ -1,0 +1,543 @@
+/* Team Page */
+
+.team-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Header */
+.team-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.team-page .page-header-left h1 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.team-page .page-header-left p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* Role Notice */
+.role-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid var(--purple);
+  margin-bottom: var(--space-5);
+  font-size: 0.875rem;
+  color: var(--purple);
+}
+
+/* Section */
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  color: var(--text-muted);
+}
+
+.section-header h2 {
+  font-size: 1rem;
+}
+
+/* Badge Purple */
+.badge-purple {
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--purple);
+}
+
+/* Role Select */
+.role-select {
+  width: auto;
+  flex-shrink: 0;
+}
+
+.role-select .select-trigger {
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-tertiary);
+  font-size: 0.75rem;
+  gap: var(--space-2);
+}
+
+.role-select .select-menu {
+  min-width: 140px;
+}
+
+/* Member Delete */
+.member-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-2);
+  transition: all 0.15s;
+}
+
+.member-delete:hover {
+  color: var(--error);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 400px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  font-size: 1.125rem;
+}
+
+.modal-body {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+/* Divisions Grid */
+.divisions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+.division-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.division-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--accent-muted);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.division-info h3 {
+  font-size: 0.9375rem;
+  margin-bottom: 2px;
+}
+
+.division-info p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Members List */
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.member-avatar {
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #000;
+}
+
+.member-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.member-name {
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+
+.member-email {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Empty */
+.empty-card {
+  padding: var(--space-6);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Header actions */
+.team-header-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Role notice variants */
+.role-notice.admin-notice {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.role-notice.user-notice {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: var(--border-hover);
+  color: var(--text-muted);
+}
+
+/* Division card selectable + actions */
+.division-card {
+  cursor: pointer;
+}
+
+.division-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.division-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.division-actions button,
+.team-card-actions button,
+.team-member-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.division-actions button:hover,
+.team-card-actions button:hover,
+.team-member-actions button:hover {
+  color: var(--accent);
+  background: var(--bg-tertiary);
+}
+
+.division-actions button.danger:hover,
+.team-card-actions button.danger:hover,
+.team-member-actions button.danger:hover {
+  color: var(--error);
+}
+
+/* Division tabs (untuk Admin / User) */
+.division-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.division-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.division-tab:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.division-tab.active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.division-tab-count {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.division-tab.active .division-tab-count {
+  background: var(--accent);
+  color: #000;
+}
+
+/* Teams list */
+.teams-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.team-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.team-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.team-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.team-card-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.team-card-title h3 {
+  font-size: 0.9375rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-admin-badge {
+  flex-shrink: 0;
+}
+
+.team-card-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.team-card-members {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.team-member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.team-member-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.team-admin-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-2);
+  padding: 1px 6px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--yellow);
+}
+
+.team-add-member {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: none;
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.team-add-member:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.team-empty {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  padding: var(--space-2) 0;
+  text-align: center;
+}
+
+.legacy-row {
+  background: var(--bg-secondary);
+}
+
+/* Field hint di modal */
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Member mode tabs (Akun Baru / Akun yang Sudah Ada) */
+.member-mode-tabs {
+  display: flex;
+  border: 1px solid var(--border);
+}
+
+.member-mode-tabs button {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-tertiary);
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.member-mode-tabs button.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+/* Pilih admin tim */
+.admin-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.admin-pick:hover {
+  border-color: var(--accent);
+}
+
+.admin-pick.active {
+  border-color: var(--yellow);
+}
+
+.admin-crown {
+  color: var(--yellow);
+  flex-shrink: 0;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .team-page .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+
+  .divisions-grid {
+    grid-template-columns: 1fr;
+  }
+}
