@@ -48,6 +48,7 @@ export default function ChatPage() {
     if (!text || !selectedConv) return
     setMessageText('')
 
+    const isNewDm = selectedConv.kind === 'dm' && !selectedConv.id
     const payload = {
       body: text,
       ...(selectedConv.kind === 'dm'
@@ -57,9 +58,16 @@ export default function ChatPage() {
     if (selectedConv.id) {
       payload.conversation_id = selectedConv.id
     }
-    await sendChatMessage(payload)
-    // Reload messages after send.
-    if (selectedConv.id) {
+    const res = await sendChatMessage(payload)
+    if (isNewDm && res.success && res.res?.conversation_id) {
+      // Percakapan DM baru: muat ulang daftar lalu pilih percakapan itu.
+      const convs = await loadConversations()
+      const created = convs.find((c) => c.kind === 'dm' && c.other_user_id === selectedConv.other_user_id)
+      if (created) {
+        setSelectedConv(created)
+        await loadChatMessages(created.id)
+      }
+    } else if (selectedConv.id) {
       await loadChatMessages(selectedConv.id)
     }
   }
