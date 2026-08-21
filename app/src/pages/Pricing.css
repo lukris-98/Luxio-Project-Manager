@@ -67,6 +67,38 @@
   box-shadow: 0 0 40px var(--accent-muted);
 }
 
+/* Item 7 — trial 1 bulan */
+.trial-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid var(--success);
+  color: var(--success);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.trial-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 10px;
+  background: rgba(74, 222, 128, 0.15);
+  border: 1px solid var(--success);
+  color: var(--success);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pricing-card.popular .trial-badge {
+  top: 40px;
+}
+
 .popular-badge {
   position: absolute;
   top: -12px;
