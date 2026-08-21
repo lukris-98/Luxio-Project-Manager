@@ -122,5 +122,19 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Tabel sesi login. Hanya hash token (SHA-256) yang disimpan — token
+    // mentah tidak pernah masuk database (lihat handlers::create_session).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token_hash TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            expires_at TIMESTAMPTZ NOT NULL
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }

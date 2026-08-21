@@ -111,11 +111,14 @@ pub struct LoginRequest {
 }
 
 /// Response standar untuk endpoint auth. `success=false` menandakan gagal.
+/// `token` berisi session token (Bearer) yang wajib dikirim client pada
+/// header `Authorization` untuk request berikutnya.
 #[derive(Debug, Serialize)]
 pub struct AuthResponse {
     pub success: bool,
     pub message: String,
     pub user: Option<UserResponse>,
+    pub token: Option<String>,
 }
 
 /// Bentuk user yang aman dikirim ke client (tanpa password_hash).
@@ -158,17 +161,26 @@ pub struct CreateMember {
 
 // ---------- ADMIN (khusus role 'owner') ----------
 
-/// Body untuk endpoint admin yang hanya butuh identitas pemanggil
-/// (pola body user_id/actor_id, sama seperti endpoint lain di proyek ini).
-#[derive(Debug, Deserialize)]
-pub struct AdminActor {
-    pub actor_id: String,
-}
-
-/// Query param untuk GET /api/admin/users — `?actor_id=...`
+/// Query param untuk GET /api/admin/users — `?actor_id=...`.
+/// `actor_id` hanya dipertahankan untuk kompatibilitas; identitas asli
+/// diambil dari header Authorization (token sesi).
 #[derive(Debug, Deserialize)]
 pub struct AdminActorQuery {
-    pub actor_id: String,
+    pub actor_id: Option<String>,
+}
+
+/// Query param generik untuk endpoint GET yang dulu menerima `user_id`
+/// di query string. Kini diabaikan (identitas dari token), hanya agar
+/// request lama tetap bisa ter-parse.
+#[derive(Debug, Deserialize)]
+pub struct ActorQuery {
+    pub user_id: Option<String>,
+}
+
+/// Query param untuk endpoint GET yang memakai `company_id` di query string.
+#[derive(Debug, Deserialize)]
+pub struct CompanyQuery {
+    pub company_id: String,
 }
 
 /// Body request untuk endpoint POST /api/admin/users — buat akun baru.

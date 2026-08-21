@@ -12,7 +12,8 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { api } from '../services/api'
+import { api, setToken } from '../services/api'
+import { track } from '../utils/analytics'
 
 // Hitung ulang progress target dengan cara kelola 'kanban':
 // persentase task di kolom Done terhadap seluruh task board.
@@ -121,6 +122,11 @@ export const useStore = create(
   // Role yang sedang dipakai. Untuk akun OWNER bisa diubah-ubah (act-as),
   // untuk akun lain = role aslinya.
   activeRole: null,
+  // Session token (Bearer) — disimpan di localStorage juga agar survive
+  // refresh tanpa perlu login ulang. Token tidak pernah masuk ke state
+  // zustand persist (ada di api.js localStorage), tapi perlu disimpan
+  // di sini agar bisa diakses store.
+  token: null,
 
   // ---------- STRUKTUR ORGANISASI ----------
   // Tim di dalam divisi: { id, divisionId, name, adminId, memberIds: [] }.
@@ -500,11 +506,13 @@ export const useStore = create(
     try {
       const res = await api.login(email, password)
       if (!res.success) throw new Error(res.message)
+      setToken(res.token)
       // Akun OWNER (pemilik website) langsung masuk ke area app,
       // tidak perlu lewat alur setup (tidak punya workspace sendiri).
       const isOwner = res.user.role === 'owner'
       set({
         currentUser: res.user,
+        token: res.token || null,
         isAuthenticated: true,
         hasCompletedSetup: isOwner ? true : get().hasCompletedSetup,
         // Kalau user sudah setup, langsung ke app; kalau belum, ke setup.
@@ -514,6 +522,7 @@ export const useStore = create(
         currentPage: isOwner ? 'admin-users' : 'dashboard',
         activeRole: res.user.role,
       })
+      track('login', { role: res.user.role })
       return { success: true }
     } catch (err) {
       return { success: false, message: err.message }
@@ -527,8 +536,10 @@ export const useStore = create(
     try {
       const res = await api.register(name, email, password)
       if (!res.success) throw new Error(res.message)
+      setToken(res.token)
       set({
         currentUser: res.user,
+        token: res.token || null,
         isAuthenticated: true,
         hasCompletedSetup: false,
         currentPlan: 'personal',
@@ -537,20 +548,26 @@ export const useStore = create(
         currentPage: 'dashboard',
         activeRole: res.user.role,
       })
+      track('signup', { role: res.user.role })
       return { success: true }
     } catch (err) {
       return { success: false, message: err.message }
     }
   },
 
-  logout: () =>
+  logout: async () => {
+    // Cabut sesi di backend (best-effort) lalu bersihkan state lokal.
+    try { await api.logout() } catch (e) { /* abaikan bila backend offline */ }
+    setToken(null)
     set({
       currentUser: null,
+      token: null,
       isAuthenticated: false,
       appState: 'landing',
       currentPage: 'dashboard',
       activeRole: null,
-    }),
+    })
+  },
 
   // =====================================================================
   // ACTIONS — KANBAN (MOCK)
@@ -652,6 +669,7 @@ export const useStore = create(
         projects: get().projects.map((p) => (p.id === id ? { ...p, stages } : p)),
       })
     }
+    track('create_target', { viewType: data.viewType || 'todo' })
     return id
   },
 
@@ -665,7 +683,8 @@ export const useStore = create(
     }),
 
   // Toggle status task (pending <-> completed).
-  toggleTaskStatus: (taskId) =>
+  toggleTaskStatus: (taskId) => {
+    const prev = get().tasks.find((t) => t.id === taskId)
     set({
       tasks: get().tasks.map((t) =>
         t.id === taskId
@@ -673,7 +692,9 @@ export const useStore = create(
           : t
       ),
       projects: recalcTodoProgress(get()),
-    }),
+    })
+    if (prev && prev.status !== 'completed') track('complete_task')
+  },
 
   deleteTask: (taskId) =>
     set({

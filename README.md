@@ -18,7 +18,7 @@ Alur data: **Browser → `app` (React) → `app/src/services/api.js` → HTTP �
 
 Frontend menyimpan state global di Zustand (`app/src/store/useStore.js`). Komponen halaman tinggal membaca/memanggil action dari store — tidak menyentuh API langsung.
 
-> ⚠️ **Status integrasi**: Auth (login/register) sudah terhubung ke backend. Fitur project/task/kanban **masih mock** (data di memori, hilang saat reload). Lihat [Roadmap](#7-roadmap) untuk langkah berikutnya.
+> ⚠️ **Status integrasi**: Auth (login/register) sudah terhubung ke backend dengan **session token** (Argon2id + hash token). Fitur project/task/kanban **masih mock** (data di memori, hilang saat reload). Lihat [Roadmap](#7-roadmap) untuk langkah berikutnya.
 
 ---
 
@@ -43,6 +43,7 @@ cd backend
 # 1. Siapkan env (salin dulu dari contoh)
 cp .env.example .env
 #   lalu isi DATABASE_URL dengan koneksi Postgres kamu
+#   (untuk produksi wajib isi juga OWNER_EMAIL & OWNER_PASSWORD)
 
 # 2. Jalankan server (akan konek DB + buat tabel otomatis)
 cargo run
@@ -122,21 +123,22 @@ Frontend berjalan di `http://localhost:5173` saat `npm run dev`.
 
 Semua endpoint mengembalikan JSON. Base URL: `http://localhost:3000`.
 
-| Method | Path | Fungsi | Body / Query |
-|--------|------|--------|--------------|
-| GET | `/health` | Cek server hidup | — |
-| POST | `/api/auth/register` | Daftar akun | `{ email, password, name }` |
-| POST | `/api/auth/login` | Login | `{ email, password }` |
-| POST | `/api/auth/me` | Data user by id | body: `"user_id"` (raw string) |
-| POST | `/api/companies` | Buat perusahaan | `{ name, industry, size, user_id }` |
-| GET | `/api/companies` | Daftar company by user | query: `user_id` |
-| POST | `/api/divisions` | Buat divisi | `{ company_id, name, head_id? }` |
-| GET | `/api/divisions` | Daftar divisi | query: `company_id` |
-| POST | `/api/members` | Tambah member | `{ company_id, division_id, name, email, role }` |
-| GET | `/api/members` | Daftar member | query: `company_id` |
-| GET | `/api/projects` | Daftar project aktif | query: `company_id` |
+| Method | Path | Fungsi | Body / Query | Auth |
+|--------|------|--------|--------------|------|
+| GET | `/health` | Cek server hidup | — | — |
+| POST | `/api/auth/register` | Daftar akun | `{ email, password, name }` | — |
+| POST | `/api/auth/login` | Login | `{ email, password }` | — |
+| POST | `/api/auth/logout` | Hapus sesi (logout) | — | Bearer token |
+| GET | `/api/auth/me` | Data user sesi aktif | — | Bearer token |
+| POST | `/api/companies` | Buat perusahaan | `{ name, industry, size }` | Bearer token |
+| GET | `/api/companies` | Daftar perusahaan user | — | Bearer token |
+| POST | `/api/divisions` | Buat divisi | `{ company_id, name }` | Bearer token |
+| GET | `/api/divisions` | Daftar divisi | `?company_id=...` | Bearer token |
+| POST | `/api/members` | Tambah member | `{ company_id, division_id, name, email, role }` | Bearer token |
+| GET | `/api/members` | Daftar member | `?company_id=...` | Bearer token |
+| GET | `/api/projects` | Daftar project aktif | `?company_id=...` | Bearer token |
 
-> Catatan: endpoint `POST /api/auth/me`, `GET /api/companies`, dsb. memakai **body/query** untuk mengirim parameter. Ini desain awal yang bisa di-refactor ke path param (`/api/auth/me/:id`) atau header auth token di masa depan.
+> **Auth**: Setiap endpoint (kecuali `/health`, `/api/auth/register`, `/api/auth/login`) memerlukan header `Authorization: Bearer <token>`. Token diperoleh dari response login/register. Token disimpan di `localStorage` dengan kunci `luxio-token`.
 
 ---
 
@@ -155,10 +157,10 @@ Semua endpoint mengembalikan JSON. Base URL: `http://localhost:3000`.
 
 - [ ] Migrasi routing manual (`App.jsx`) → `react-router-dom` (sudah ada di dependency).
 - [ ] Hubungkan project/task/kanban ke backend (saat ini mock).
-- [ ] Ganti `simple_hash` (DefaultHasher) dengan **bcrypt/argon2** — keamanan produksi.
+- [x] Ganti `simple_hash` (DefaultHasher) dengan **Argon2id** — keamanan produksi.
 - [ ] Pindahkan pembuatan tabel dari `db.rs` ke tool migrasi (`sqlx-cli` / `refinery`).
 - [ ] Tambah unit test backend (`cargo test`) & frontend (vitest).
-- [ ] Token/session auth (`/api/auth/me/:id` + header token) alih-alih body user_id.
+- [x] Token/session auth (header `Authorization`) alih-alih body user_id.
 
 ---
 

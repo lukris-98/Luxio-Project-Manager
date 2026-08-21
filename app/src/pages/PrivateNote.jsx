@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store/useStore'
+import DOMPurify from 'dompurify'
 import Layout from '../components/Layout'
 import { Plus, X, Lock, LockOpen, Save, Trash2, KeyRound, FileText, Check, Bold, Italic, Underline, Highlighter, List, ListOrdered, History } from 'lucide-react'
 import './PrivateNote.css'
@@ -7,9 +8,19 @@ import './PrivateNote.css'
 const MODAL = { none: 0, ask: 1, set: 2, unlock: 3, manage: 4, delete: 5 }
 const MARK_COLOR = '#FDE047'
 
+// Sanitasi HTML user-generated sebelum dirender ke editor / preview.
+// Mencegah XSS dari konten catatan yang di-paste atau diedit.
+const sanitizeHtml = (html) => DOMPurify.sanitize(html || '', {
+  ALLOWED_TAGS: [
+    'p', 'div', 'br', 'strong', 'b', 'em', 'i', 'u', 'mark',
+    'ul', 'ol', 'li', 'span', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'a',
+  ],
+  ALLOWED_ATTR: ['href', 'target', 'rel'],
+})
+
 const stripHtml = (html) => {
   const el = document.createElement('div')
-  el.innerHTML = html || ''
+  el.innerHTML = sanitizeHtml(html)
   return el.textContent || ''
 }
 
@@ -71,8 +82,8 @@ export default function PrivateNote() {
     setContentHtml(n?.content || '')
     if (contentRef.current) {
       const html = n?.content || ''
-      if (html && html.includes('<')) contentRef.current.innerHTML = html
-      else contentRef.current.textContent = html
+      // Selalu sanitasi sebelum disuntikkan ke DOM (cegah XSS).
+      contentRef.current.innerHTML = sanitizeHtml(html)
     }
   }, [activeId, notes])
 
@@ -106,7 +117,26 @@ export default function PrivateNote() {
   }, [activeId, isLocked, refreshFmt])
 
   const syncContent = () => {
-    if (contentRef.current) setContentHtml(contentRef.current.innerHTML)
+    if (contentRef.current) setContentHtml(sanitizeHtml(contentRef.current.innerHTML))
+  }
+
+  // Cegah XSS lewat paste: baca clipboard HTML, sanitasi, lalu sisipkan
+  // sebagai teks (format editor lama via execCommand, isi aman).
+  const handlePaste = (e) => {
+    e.preventDefault()
+    const html = e.clipboardData?.getData('text/html') || ''
+    const text = e.clipboardData?.getData('text/plain') || ''
+    const safe = sanitizeHtml(html) || text
+    const el = contentRef.current
+    if (!el) return
+    const selection = window.getSelection()
+    if (selection && selection.rangeCount > 0) {
+      selection.deleteFromDocument()
+      el.focus()
+    }
+    document.execCommand('insertText', false, DOMPurify.sanitize(safe))
+    syncContent()
+    refreshFmt()
   }
 
   const exec = (cmd, val) => {
@@ -374,6 +404,7 @@ export default function PrivateNote() {
               contentEditable
               suppressContentEditableWarning
               onInput={syncContent}
+              onPaste={handlePaste}
               data-placeholder="Tulis catatan pribadi kamu di sini…"
             />
             <div className="note-toolbar">

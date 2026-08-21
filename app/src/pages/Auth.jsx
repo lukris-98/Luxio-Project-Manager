@@ -39,8 +39,8 @@ export default function Auth() {
           setLoading(false)
           return
         }
-        if (form.password.length < 6) {
-          setError('Password minimal 6 karakter')
+        if (form.password.length < 8) {
+          setError('Password minimal 8 karakter')
           setLoading(false)
           return
         }
@@ -131,12 +131,13 @@ export default function Auth() {
             <form onSubmit={handleSubmit} className="auth-form">
               {mode === 'register' && (
                 <div className="input-group">
-                  <label className="input-label">Nama Lengkap</label>
+                  <label className="input-label" htmlFor="auth-name">Nama Lengkap</label>
                   <div className="input-icon">
                     <User size={16} />
                     <input
                       type="text"
                       name="name"
+                      id="auth-name"
                       className="input"
                       placeholder="John Doe"
                       value={form.name}
@@ -147,12 +148,13 @@ export default function Auth() {
               )}
 
               <div className="input-group">
-                <label className="input-label">Email</label>
+                <label className="input-label" htmlFor="auth-email">Email</label>
                 <div className="input-icon">
                   <Mail size={16} />
                   <input
                     type="email"
                     name="email"
+                    id="auth-email"
                     className="input"
                     placeholder="nama@email.com"
                     value={form.email}
@@ -162,12 +164,13 @@ export default function Auth() {
               </div>
 
               <div className="input-group">
-                <label className="input-label">Password</label>
+                <label className="input-label" htmlFor="auth-password">Password</label>
                 <div className="input-icon">
                   <Lock size={16} />
                   <input
                     type="password"
                     name="password"
+                    id="auth-password"
                     className="input"
                     placeholder="••••••••"
                     value={form.password}
@@ -178,12 +181,13 @@ export default function Auth() {
 
               {mode === 'register' && (
                 <div className="input-group">
-                  <label className="input-label">Konfirmasi Password</label>
+                  <label className="input-label" htmlFor="auth-confirm">Konfirmasi Password</label>
                   <div className="input-icon">
                     <Lock size={16} />
                     <input
                       type="password"
                       name="confirmPassword"
+                      id="auth-confirm"
                       className="input"
                       placeholder="••••••••"
                       value={form.confirmPassword}

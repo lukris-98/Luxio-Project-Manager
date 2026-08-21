@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Halaman aplikasi/dashboard tidak boleh di-index
+Disallow: /app
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /admin
+
+Sitemap: https://luxio.web.id/sitemap.xml

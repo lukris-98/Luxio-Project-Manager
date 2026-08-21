@@ -7,24 +7,26 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt'],
+      includeAssets: ['favicon.svg', 'robots.txt'],
       manifest: {
-        name: 'Luxio - Task Manager Pro',
+        name: 'Luxio - Project & Target Manager',
         short_name: 'Luxio',
-        description: 'Task Manager for Agency with Workflow Chain & Multi-Divisi',
-        theme_color: '#1A1A2E',
-        background_color: '#0F0F1A',
+        description: 'Aplikasi manajemen project & target untuk tim.',
+        theme_color: '#0C0C0E',
+        background_color: '#0C0C0E',
         display: 'standalone',
+        lang: 'id',
+        start_url: '/',
         icons: [
           {
             src: '/icon-192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
           },
           {
             src: '/icon-512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
           }
         ]
       }

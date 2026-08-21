@@ -11,6 +11,32 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
+const TOKEN_KEY = 'luxio-token'
+
+/**
+ * Ambil session token dari localStorage.
+ * Token dikirim pada header `Authorization: Bearer <token>` untuk setiap
+ * request ke backend. Backend memakai token ini untuk menentukan identitas
+ * user (bukan lagi user_id di body/query yang bisa dipalsukan).
+ */
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token)
+  else localStorage.removeItem(TOKEN_KEY)
+}
+
+function authHeaders(extra = {}) {
+  const token = getToken()
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  }
+}
+
 /**
  * Helper untuk request HTTP POST dengan body JSON.
  * @param {string} path   - path endpoint, contoh '/api/auth/login'
@@ -20,7 +46,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 async function post(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -43,7 +69,7 @@ async function get(path, params = {}) {
   const url = query ? `${API_BASE}${path}?${query}` : `${API_BASE}${path}`
   const res = await fetch(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
   })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
@@ -55,7 +81,7 @@ async function get(path, params = {}) {
 async function put(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -73,7 +99,7 @@ async function put(path, body) {
 async function del(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -94,6 +120,10 @@ export const api = {
     post('/api/auth/register', { name, email, password }),
   login: (email, password) =>
     post('/api/auth/login', { email, password }),
+  logout: () =>
+    post('/api/auth/logout', {}),
+  me: () =>
+    get('/api/auth/me'),
 
   // ---- Companies ----
   createCompany: (data) => post('/api/companies', data),
