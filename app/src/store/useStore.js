@@ -155,6 +155,11 @@ export const useStore = create(
   userPin: '',
   setUserPin: (pin) => set({ userPin: pin }),
 
+  // ---------- PROFIL (Item 2: Settings lengkap + kuota edit) ----------
+  profile: null,
+  profileLoading: false,
+  profileError: '',
+
   // =====================================================================
   // ACTIONS — NAVIGASI
   // =====================================================================
@@ -644,6 +649,201 @@ export const useStore = create(
       activeRole: null,
     })
   },
+
+  // =====================================================================
+  // ACTIONS — PROFIL (Item 2)
+  // =====================================================================
+
+  // Muat profil lengkap (termasuk kuota edit bulanan) dari backend.
+  loadProfile: async () => {
+    set({ profileLoading: true, profileError: '' })
+    try {
+      const profile = await api.getProfile()
+      set({ profile, profileLoading: false })
+      return profile
+    } catch (e) {
+      set({ profileError: 'Gagal memuat profil. Pastikan backend online.', profileLoading: false })
+      return null
+    }
+  },
+
+  /**
+   * Perbarui profil. Tanpa user_id => ubah profil sendiri (kuota 3x/bulan);
+   * dengan user_id (admin/super_admin) => ubah data user lain (kuota 10x).
+   * Berhasil => currentUser ikut diperbarui.
+   */
+  updateProfile: async (data) => {
+    try {
+      const profile = await api.updateProfile(data)
+      const { currentUser } = get()
+      const own = !data.user_id || data.user_id === currentUser?.id
+      if (own && currentUser) {
+        set({
+          currentUser: {
+            ...currentUser,
+            name: profile.name,
+            email: profile.email,
+          },
+          profile,
+        })
+      } else {
+        set({ profile })
+      }
+      return { success: true, profile }
+    } catch (e) {
+      let message = 'Gagal menyimpan profil.'
+      if (e.status === 429) message = 'Kuota edit bulanan sudah habis. Tunggu bulan berikutnya.'
+      if (e.status === 409) message = 'Email sudah dipakai akun lain.'
+      return { success: false, message }
+    }
+  },
+
+  // =====================================================================
+  // ACTIONS — UPGRADE AKUN (Item 4)
+  // =====================================================================
+
+  /**
+   * Upgrade akun ke plan berbayar. Role berubah otomatis: grup => admin,
+   * organisasi => super_admin. currentUser ikut diperbarui.
+   */
+  upgradeAccount: async (data) => {
+    try {
+      const res = await api.upgradeAccount(data)
+      const { currentUser } = get()
+      if (currentUser) {
+        set({
+          currentUser: {
+            ...currentUser,
+            role: res.role,
+            plan: res.plan,
+            company: res.company_name || currentUser.company,
+            company_id: res.company_id || currentUser.company_id,
+          },
+          activeRole: res.role,
+        })
+      }
+      return { success: true, res }
+    } catch (e) {
+      return { success: false, message: e.status === 400 ? 'Data tidak valid.' : 'Gagal upgrade akun.' }
+    }
+  },
+
+  // =====================================================================
+  // ACTIONS — CHAT (Item 5)
+  // =====================================================================
+  conversations: [],
+  chatMessages: {},
+  chatContacts: [],
+  chatLoading: false,
+
+  loadConversations: async () => {
+    try {
+      const res = await api.chatConversations()
+      set({ conversations: res.conversations || [] })
+      return res.conversations || []
+    } catch (e) {
+      return []
+    }
+  },
+
+  loadChatMessages: async (conversationId) => {
+    if (!conversationId) return []
+    try {
+      const res = await api.chatMessages(conversationId)
+      set({ chatMessages: { ...get().chatMessages, [conversationId]: res.messages || [] } })
+      return res.messages || []
+    } catch (e) {
+      return []
+    }
+  },
+
+  sendChatMessage: async (payload) => {
+    try {
+      const res = await api.chatSend(payload)
+      const convId = res.conversation_id
+      const list = get().chatMessages[convId] || []
+      set({
+        chatMessages: {
+          ...get().chatMessages,
+          [convId]: [...list, {
+            id: res.message_id,
+            conversation_id: convId,
+            sender_id: res.sender_id,
+            body: res.body,
+            created_at: res.created_at,
+            sender_name: get().currentUser?.name || '',
+            is_system: false,
+          }],
+        },
+      })
+      return { success: true, res }
+    } catch (e) {
+      return { success: false, message: 'Gagal mengirim pesan.' }
+    }
+  },
+
+  loadChatContacts: async () => {
+    try {
+      const res = await api.chatContacts()
+      set({ chatContacts: res.contacts || [] })
+      return res.contacts || []
+    } catch (e) {
+      return []
+    }
+  },
+
+  addChatContact: async (userCode) => {
+    try {
+      const res = await api.chatAddContact(userCode)
+      const contacts = get().chatContacts
+      if (!contacts.some((c) => c.id === res.contact.id)) {
+        set({ chatContacts: [...contacts, res.contact] })
+      }
+      return { success: true, contact: res.contact }
+    } catch (e) {
+      return { success: false, message: e.status === 404 ? 'Kode user tidak ditemukan.' : 'Gagal menambah kontak.' }
+    }
+  },
+
+  createChatGroup: async (data) => {
+    try {
+      const res = await api.chatGroupCreate(data)
+      await get().loadConversations()
+      return { success: true, res }
+    } catch (e) {
+      return { success: false, message: 'Gagal membuat grup chat.' }
+    }
+  },
+
+  // =====================================================================
+  // ACTIONS — AI AGENT (Item 8)
+  // =====================================================================
+  agentMessages: [],
+
+  sendAgentMessage: async (message) => {
+    const history = get().agentMessages
+    set({ agentMessages: [...history, { id: Date.now() + Math.random(), sender: 'user', body: message, createdAt: Date.now() }] })
+    try {
+      const res = await api.agentChat(message)
+      set({
+        agentMessages: [
+          ...get().agentMessages,
+          { id: Date.now() + Math.random(), sender: 'agent', body: res.text || res.message || JSON.stringify(res), createdAt: Date.now() },
+        ],
+      })
+      return { success: true, res }
+    } catch (e) {
+      set({
+        agentMessages: [
+          ...get().agentMessages,
+          { id: Date.now() + Math.random(), sender: 'agent', body: 'Maaf, agent tidak merespons. Pastikan backend online.', createdAt: Date.now() },
+        ],
+      })
+      return { success: false }
+    }
+  },
+
+  clearAgentMessages: () => set({ agentMessages: [] }),
 
   // =====================================================================
   // ACTIONS — KANBAN (MOCK)

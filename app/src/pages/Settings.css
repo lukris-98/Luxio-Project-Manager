@@ -124,3 +124,124 @@
     gap: var(--space-3);
   }
 }
+
+/* Item 2 — profil lengkap */
+.edit-quota-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid var(--yellow);
+  color: var(--yellow);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-5);
+}
+
+.settings-item.column-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+
+.settings-user-select {
+  max-width: 360px;
+}
+
+.editing-other-notice {
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.profile-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.settings-form-error {
+  font-size: 0.8125rem;
+  color: var(--error);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 var(--space-4) var(--space-4);
+}
+
+/* Modal Ubah PIN */
+.settings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.settings-modal {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings-modal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-modal-head h3 {
+  font-size: 1.0625rem;
+}
+
+.settings-modal-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.settings-modal-error {
+  font-size: 0.8125rem;
+  color: var(--error);
+}
+
+.settings-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.settings-toast {
+  position: fixed;
+  bottom: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 260;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: var(--space-3) var(--space-5);
+  font-size: 0.875rem;
+  color: var(--success);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 640px) {
+  .profile-form-row {
+    grid-template-columns: 1fr;
+  }
+}

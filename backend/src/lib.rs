@@ -106,6 +106,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Profil & kuota edit (Item 2)
         .route("/api/profile", get(handlers::get_profile))
         .route("/api/profile", put(handlers::update_profile))
+        .route("/api/company/users", get(handlers::company_users))
         // Upgrade akun (Item 4)
         .route("/api/upgrade", post(handlers::upgrade_account))
         // Chat (Item 5)

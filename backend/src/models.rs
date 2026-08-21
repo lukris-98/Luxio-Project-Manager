@@ -391,6 +391,12 @@ pub struct ProfileResponse {
     pub has_pin: bool,
 }
 
+/// Query param opsional untuk GET /api/profile — `?user_id=...` (admin).
+#[derive(Debug, Deserialize)]
+pub struct ProfileQuery {
+    pub user_id: Option<String>,
+}
+
 // ---------- UPGRADE AKUN (Item 4) ----------
 
 /// Body request untuk endpoint POST /api/upgrade — upgrade akun dari role

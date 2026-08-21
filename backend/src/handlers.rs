@@ -1087,12 +1087,39 @@ async fn check_company_access(
 
 /// Ambil profil lengkap user berikut kuota edit bulanan. Dipakai halaman
 /// Settings untuk menampilkan semua data pribadi & login.
+/// Query opsional `user_id` (oleh admin/super_admin/owner) untuk melihat
+/// profil user lain.
 pub async fn get_profile(
     State(state): State<AppState>,
     headers: HeaderMap,
+    query: Option<Query<ProfileQuery>>,
 ) -> Result<Json<ProfileResponse>, StatusCode> {
-    let user_id = require_auth(&state, &headers).await?;
-    profile_for_user(&state, &user_id, false).await
+    let actor_id = require_auth(&state, &headers).await?;
+
+    let target = match query.and_then(|q| q.0.user_id).filter(|u| !u.is_empty()) {
+        Some(uid) if uid != actor_id => {
+            // Aksi admin: cek peran.
+            let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+                .bind(&actor_id)
+                .fetch_optional(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?
+                .ok_or(StatusCode::UNAUTHORIZED)?
+                .get("role");
+            let allowed = role == "owner" || role == "super_admin" || role == "admin";
+            if !allowed {
+                return Err(StatusCode::FORBIDDEN);
+            }
+            uid
+        }
+        Some(uid) => uid,
+        None => actor_id.clone(),
+    };
+
+    profile_for_user(&state, &target, target != actor_id).await
 }
 
 /// Bangun `ProfileResponse` untuk satu user. Bila `is_admin_action` true
@@ -1343,6 +1370,65 @@ pub async fn update_profile(
     );
 
     profile_for_user(&state, &target_id, is_admin_action).await
+}
+
+/// GET /api/company/users — daftar user dalam satu perusahaan (untuk
+/// admin/super_admin mengedit data user lain). Dipakai Settings (Item 2).
+pub async fn company_users(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let actor_id = require_auth(&state, &headers).await?;
+
+    // Hanya owner/super_admin/admin.
+    let actor = sqlx::query("SELECT role, company_id FROM users WHERE id = $1")
+        .bind(&actor_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let role: String = actor.get("role");
+    let allowed = role == "owner" || role == "super_admin" || role == "admin";
+    if !allowed {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    let company_id: Option<String> = actor.get("company_id");
+    let company_id = match company_id {
+        Some(c) => c,
+        None => return Err(StatusCode::BAD_REQUEST),
+    };
+
+    let rows = sqlx::query(
+        "SELECT id, email, name, role, plan, position, phone FROM users
+         WHERE company_id = $1 ORDER BY name",
+    )
+    .bind(&company_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let users: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.get::<String, _>("id"),
+                "email": r.get::<String, _>("email"),
+                "name": r.get::<String, _>("name"),
+                "role": r.get::<String, _>("role"),
+                "plan": r.get::<String, _>("plan"),
+                "position": r.get::<String, _>("position"),
+                "phone": r.get::<String, _>("phone"),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({ "users": users })))
 }
 
 // ---------- UPGRADE AKUN (Item 4) ----------

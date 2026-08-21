@@ -169,4 +169,28 @@ export const api = {
   createAdminUser: (data) => post('/api/admin/users', data),
   updateAdminUser: (data) => put('/api/admin/users', data),
   deleteAdminUser: (data) => del('/api/admin/users', data),
+
+  // ---- Profil (Item 2) ----
+  // Profil lengkap + kuota edit bulanan. user_id opsional (admin melihat user lain).
+  getProfile: (userId) => get('/api/profile', userId ? { user_id: userId } : {}),
+  // Update profil sendiri (tanpa user_id) atau user lain (admin, dengan user_id).
+  updateProfile: (data) => put('/api/profile', data),
+  // Daftar user dalam perusahaan (admin edit data user lain).
+  getCompanyUsers: () => get('/api/company/users'),
+
+  // ---- Upgrade Akun (Item 4) ----
+  upgradeAccount: (data) => post('/api/upgrade', data),
+
+  // ---- Chat (Item 5) ----
+  chatSend: (data) => post('/api/chat/send', data),
+  chatMessages: (conversationId) => get('/api/chat/messages', { conversation_id: conversationId }),
+  chatConversations: () => get('/api/chat/conversations'),
+  chatGroupCreate: (data) => post('/api/chat/group/create', data),
+  chatContacts: () => get('/api/chat/contacts'),
+  chatAddContact: (userCode) => post('/api/chat/contacts', { user_code: userCode }),
+
+  // ---- AI Agent (Item 8) ----
+  agentChat: (message, conversationId) =>
+    post('/api/agent/chat', { message, ...(conversationId ? { conversation_id: conversationId } : {}) }),
+  agentConfig: (data) => put('/api/agent/config', data),
 }
