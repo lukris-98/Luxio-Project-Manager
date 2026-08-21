@@ -102,3 +102,54 @@ pub async fn send_welcome(to: &str, name: &str, email: &str, password: &str) -> 
 pub async fn send_notification(to: &str, subject: &str, body: &str) -> Result<bool, String> {
     send(to, subject, body).await
 }
+
+/// URL depan aplikasi (untuk link konfirmasi email). Dapat dari `APP_URL`,
+/// fallback ke localhost dev.
+fn app_url() -> String {
+    std::env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string())
+}
+
+/// Email konfirmasi aktivasi akun. Wajib diklik sebelum akun bisa login.
+/// `credentials` opsional: `(email_login, password)` — dipakai saat akun
+/// dibuat oleh admin (pendaftar perlu tahu kredensialnya).
+pub async fn send_confirmation(
+    to: &str,
+    name: &str,
+    token: &str,
+    credentials: Option<(&str, &str)>,
+) -> Result<bool, String> {
+    let link = format!("{}/?token={}", app_url(), token);
+    let subject = "Konfirmasi Akun Luxio";
+    let cred_line = match credentials {
+        Some((email, password)) => format!(
+            "\n\nKredensial login kamu:\n\
+             Email: {email}\n\
+             Password: {password}\n\
+             Segera ganti password setelah login pertama."
+        ),
+        None => String::new(),
+    };
+    let body = format!(
+        "Halo {name},\n\n\
+         Terima kasih sudah mendaftar di Luxio.{cred_line}\n\n\
+         Untuk mengaktifkan akun kamu, klik tautan berikut:\n\
+         {link}\n\n\
+         Tautan berlaku 24 jam. Jika kamu tidak merasa mendaftar, abaikan email ini.\n\n\
+         Tim Luxio"
+    );
+    send(to, subject, &body).await
+}
+
+/// Email berisi kode 2FA untuk login.
+pub async fn send_login_otp(to: &str, name: &str, code: &str) -> Result<bool, String> {
+    let subject = "Kode Masuk Luxio (2FA)";
+    let body = format!(
+        "Halo {name},\n\n\
+         Kode verifikasi kamu adalah:\n\n\
+         {code}\n\n\
+         Masukkan kode tersebut di aplikasi Luxio untuk melanjutkan login.\n\
+         Kode berlaku 5 menit. Jangan bagikan kode ini kepada siapa pun.\n\n\
+         Tim Luxio"
+    );
+    send(to, subject, &body).await
+}

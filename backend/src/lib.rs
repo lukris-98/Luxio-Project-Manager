@@ -99,6 +99,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Auth
         .route("/api/auth/register", post(handlers::register))
         .route("/api/auth/login", post(handlers::login))
+        .route("/api/auth/verify", post(handlers::verify_email))
+        .route("/api/auth/2fa/verify", post(handlers::verify_2fa))
         .route("/api/auth/logout", post(handlers::logout))
         .route("/api/auth/me", get(handlers::get_me))
         // Companies

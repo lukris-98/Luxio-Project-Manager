@@ -181,3 +181,35 @@
 .auth-link:hover {
   color: var(--accent-hover);
 }
+
+/* Layar verifikasi: konfirmasi email, 2FA, loading */
+.auth-icon-big {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--space-4);
+  border-radius: 50%;
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.auth-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: var(--space-4) 0;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

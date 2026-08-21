@@ -237,7 +237,8 @@ async fn require_auth(state: &AppState, headers: &HeaderMap) -> Result<String, S
 // ---------- AUTH ----------
 
 /// POST /api/auth/register — daftar akun baru. Role pertama selalu 'member'
-/// (auto-role mengikuti paket). Mengembalikan token sesi agar langsung login.
+/// (auto-role mengikuti paket). Akun BELUM aktif sampai mengklik link
+/// konfirmasi di email. Setelah verifikasi, baru bisa login.
 pub async fn register(
     State(state): State<AppState>,
     Json(payload): Json<RegisterRequest>,
@@ -267,15 +268,20 @@ pub async fn register(
             message: "Email sudah terdaftar".to_string(),
             user: None,
             token: None,
+            requires_confirmation: None,
+            requires_2fa: None,
         }));
     }
 
     let user_id = Uuid::new_v4().to_string();
     let password_hash = hash_password(&payload.password)?;
+    let verification_token = Uuid::new_v4().to_string();
     let now = Utc::now();
+    let token_expires = now + Duration::hours(24);
 
     sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name, role, plan, created_at) VALUES ($1, $2, $3, $4, $5, 'personal', $6)",
+        "INSERT INTO users (id, email, password_hash, name, role, plan, created_at, email_verified, verification_token, verification_expires)
+         VALUES ($1, $2, $3, $4, $5, 'personal', $6, FALSE, $7, $8)",
     )
     .bind(&user_id)
     .bind(payload.email.trim())
@@ -283,6 +289,8 @@ pub async fn register(
     .bind(payload.name.trim())
     .bind(role_for_plan("personal"))
     .bind(&now)
+    .bind(&verification_token)
+    .bind(token_expires)
     .execute(&state.db)
     .await
     .map_err(|e| {
@@ -290,26 +298,116 @@ pub async fn register(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let token = create_session(&state.db, &user_id).await?;
+    // Kirim email konfirmasi (best-effort).
+    tokio::spawn({
+        let to = payload.email.trim().to_string();
+        let name = payload.name.trim().to_string();
+        let token = verification_token.clone();
+        async move {
+            match crate::mail::send_confirmation(&to, &name, &token, None).await {
+                Ok(true) => tracing::info!(event = "confirmation_email_sent", to = %to),
+                _ => tracing::warn!(event = "confirmation_email_skipped", to = %to),
+            }
+        }
+    });
 
-    tracing::info!(event = "register", user_id = %user_id, "user registered");
+    tracing::info!(event = "register", user_id = %user_id, "user registered (pending confirmation)");
 
     Ok(Json(AuthResponse {
         success: true,
-        message: "Registrasi berhasil".to_string(),
-        user: Some(UserResponse {
-            id: user_id,
-            email: payload.email.trim().to_string(),
-            name: payload.name.trim().to_string(),
-            company_id: None,
-            role: role_for_plan("personal").to_string(),
-            plan: "personal".to_string(),
-        }),
-        token: Some(token),
+        message: "Registrasi berhasil. Cek email kamu untuk konfirmasi akun.".to_string(),
+        user: None,
+        token: None,
+        requires_confirmation: Some(true),
+        requires_2fa: None,
     }))
 }
 
-/// POST /api/auth/login — verifikasi email & password, lalu keluarkan token sesi.
+/// POST /api/auth/verify — aktivasi akun memakai token dari email.
+/// Berhasil => akun aktif + langsung mendapat session token (masuk dashboard).
+pub async fn verify_email(
+    State(state): State<AppState>,
+    Json(payload): Json<VerifyEmailRequest>,
+) -> Result<Json<AuthResponse>, StatusCode> {
+    let token = payload.token.trim().to_string();
+    if token.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let row = sqlx::query(
+        "SELECT id, email, name, company_id, role, plan FROM users
+         WHERE verification_token = $1 AND email_verified = FALSE",
+    )
+    .bind(&token)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let row = match row {
+        Some(r) => r,
+        None => {
+            return Err(StatusCode::BAD_REQUEST); // token tidak valid / sudah dipakai
+        }
+    };
+
+    let expires: Option<chrono::DateTime<Utc>> = sqlx::query("SELECT verification_expires FROM users WHERE id = $1")
+        .bind(row.get::<String, _>("id"))
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("verification_expires");
+
+    if let Some(exp) = expires {
+        if exp < Utc::now() {
+            return Err(StatusCode::GONE); // token kedaluwarsa
+        }
+    }
+
+    // Aktivasi akun + bersihkan token.
+    sqlx::query(
+        "UPDATE users SET email_verified = TRUE, verification_token = NULL, verification_expires = NULL WHERE id = $1",
+    )
+    .bind(row.get::<String, _>("id"))
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Buat session agar langsung masuk dashboard.
+    let user_id: String = row.get("id");
+    let token_session = create_session(&state.db, &user_id).await?;
+
+    tracing::info!(event = "email_verified", user_id = %user_id, "account activated");
+
+    Ok(Json(AuthResponse {
+        success: true,
+        message: "Akun berhasil diaktifkan. Selamat datang!".to_string(),
+        user: Some(UserResponse {
+            id: user_id,
+            email: row.get("email"),
+            name: row.get("name"),
+            company_id: row.get("company_id"),
+            role: row.get("role"),
+            plan: row.get("plan"),
+            email_verified: Some(true),
+        }),
+        token: Some(token_session),
+        requires_confirmation: None,
+        requires_2fa: None,
+    }))
+}
+
+/// POST /api/auth/login — tahap 1: verifikasi email & password.
+/// Kalau akun aktif => kirim kode 2FA ke email, kembalikan `requires_2fa=true`.
+/// Kalau belum aktif => `requires_confirmation=true`.
 pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
@@ -320,7 +418,7 @@ pub async fn login(
     }
 
     let row = sqlx::query(
-        "SELECT id, email, password_hash, name, company_id, role, plan FROM users WHERE email = $1",
+        "SELECT id, email, password_hash, name, company_id, role, plan, email_verified FROM users WHERE email = $1",
     )
     .bind(payload.email.trim())
     .fetch_optional(&state.db)
@@ -339,6 +437,8 @@ pub async fn login(
                 message: "Email atau password salah".to_string(),
                 user: None,
                 token: None,
+                requires_confirmation: None,
+                requires_2fa: None,
             }));
         }
     };
@@ -351,10 +451,25 @@ pub async fn login(
             message: "Email atau password salah".to_string(),
             user: None,
             token: None,
+            requires_confirmation: None,
+            requires_2fa: None,
         }));
     }
 
     let user_id: String = row.get("id");
+    let email_verified: bool = row.get("email_verified");
+
+    // Akun belum dikonfirmasi lewat email.
+    if !email_verified {
+        return Ok(Json(AuthResponse {
+            success: false,
+            message: "Akun belum aktif. Silakan klik link konfirmasi di email kamu.".to_string(),
+            user: None,
+            token: None,
+            requires_confirmation: Some(true),
+            requires_2fa: None,
+        }));
+    }
 
     // Upgrade hash lama (DefaultHasher) ke Argon2id bila perlu.
     if is_legacy_hash(&password_hash) {
@@ -367,24 +482,173 @@ pub async fn login(
         }
     }
 
-    let token = create_session(&state.db, &user_id).await?;
+    // Tahap 2: kirim kode 2FA.
+    let code = generate_otp();
+    let code_hash = sha256(&code);
+    let expires_at = Utc::now() + Duration::minutes(5);
+
+    sqlx::query(
+        "INSERT INTO login_otps (id, user_id, otp_hash, expires_at, used, created_at)
+         VALUES ($1, $2, $3, $4, FALSE, $5)",
+    )
+    .bind(Uuid::new_v4().to_string())
+    .bind(&user_id)
+    .bind(&code_hash)
+    .bind(expires_at)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Kirim kode via email (best-effort).
+    let to_email: String = row.get("email");
+    let to_name: String = row.get("name");
+    tokio::spawn({
+        let to = to_email.clone();
+        let name = to_name.clone();
+        let code = code.clone();
+        async move {
+            match crate::mail::send_login_otp(&to, &name, &code).await {
+                Ok(true) => tracing::info!(event = "otp_email_sent", to = %to),
+                _ => tracing::warn!(event = "otp_email_skipped", to = %to),
+            }
+        }
+    });
 
     let company_id: Option<String> = row.get("company_id");
-    tracing::info!(event = "login", user_id = %user_id, "login success");
+    tracing::info!(event = "login_step1", user_id = %user_id, "login step 1 passed, otp sent");
 
     Ok(Json(AuthResponse {
         success: true,
-        message: "Login berhasil".to_string(),
+        message: "Kode verifikasi sudah dikirim ke email kamu.".to_string(),
         user: Some(UserResponse {
             id: user_id,
-            email: row.get("email"),
-            name: row.get("name"),
+            email: to_email,
+            name: to_name,
             company_id,
             role: row.get("role"),
             plan: row.get("plan"),
+            email_verified: Some(true),
         }),
-        token: Some(token),
+        token: None,
+        requires_confirmation: None,
+        requires_2fa: Some(true),
     }))
+}
+
+/// POST /api/auth/2fa/verify — tahap 2: cek kode 2FA lalu keluarkan session token.
+pub async fn verify_2fa(
+    State(state): State<AppState>,
+    Json(payload): Json<Verify2FARequest>,
+) -> Result<Json<AuthResponse>, StatusCode> {
+    if rate_limited(&format!("2fa:{}", payload.email.trim().to_lowercase()), 5, 10) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    let code = payload.code.trim();
+    if code.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let row = sqlx::query("SELECT id, name FROM users WHERE email = $1")
+        .bind(payload.email.trim())
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    let user_id = match row {
+        Some(r) => r.get::<String, _>("id"),
+        None => {
+            return Ok(Json(AuthResponse {
+                success: false,
+                message: "Kode salah atau kedaluwarsa".to_string(),
+                user: None,
+                token: None,
+                requires_confirmation: None,
+                requires_2fa: None,
+            }))
+        }
+    };
+
+    let code_hash = sha256(code);
+
+    // Cari OTP yang belum dipakai, belum kedaluwarsa, cocok hash-nya.
+    let otp = sqlx::query(
+        "SELECT id, expires_at FROM login_otps
+         WHERE user_id = $1 AND otp_hash = $2 AND used = FALSE AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(&user_id)
+    .bind(&code_hash)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    match otp {
+        Some(otp_row) => {
+            let otp_id: String = otp_row.get("id");
+            let _ = sqlx::query("UPDATE login_otps SET used = TRUE WHERE id = $1")
+                .bind(&otp_id)
+                .execute(&state.db)
+                .await;
+
+            let session_token = create_session(&state.db, &user_id).await?;
+
+            let user = sqlx::query(
+                "SELECT id, email, name, company_id, role, plan FROM users WHERE id = $1",
+            )
+            .bind(&user_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            tracing::info!(event = "login_step2", user_id = %user_id, "login success (2fa passed)");
+
+            Ok(Json(AuthResponse {
+                success: true,
+                message: "Login berhasil".to_string(),
+                user: Some(UserResponse {
+                    id: user_id,
+                    email: user.get("email"),
+                    name: user.get("name"),
+                    company_id: user.get("company_id"),
+                    role: user.get("role"),
+                    plan: user.get("plan"),
+                    email_verified: Some(true),
+                }),
+                token: Some(session_token),
+                requires_confirmation: None,
+                requires_2fa: None,
+            }))
+        }
+        None => Ok(Json(AuthResponse {
+            success: false,
+            message: "Kode salah atau kedaluwarsa".to_string(),
+            user: None,
+            token: None,
+            requires_confirmation: None,
+            requires_2fa: None,
+        })),
+    }
+}
+
+fn generate_otp() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
+    let rnd = (nanos as u32).wrapping_mul(2654435761).wrapping_add(0x9E3779B9);
+    format!("{:06}", (rnd % 1_000_000) as u32)
 }
 
 /// POST /api/auth/logout — hapus sesi aktif (token di header).
@@ -415,7 +679,7 @@ pub async fn get_me(
 ) -> Result<Json<UserResponse>, StatusCode> {
     let user_id = require_auth(&state, &headers).await?;
 
-    let row = sqlx::query("SELECT id, email, name, company_id, role, plan FROM users WHERE id = $1")
+    let row = sqlx::query("SELECT id, email, name, company_id, role, plan, email_verified FROM users WHERE id = $1")
         .bind(&user_id)
         .fetch_optional(&state.db)
         .await
@@ -432,6 +696,7 @@ pub async fn get_me(
             company_id: row.get("company_id"),
             role: row.get("role"),
             plan: row.get("plan"),
+            email_verified: Some(row.get("email_verified")),
         })),
         None => Err(StatusCode::NOT_FOUND),
     }
@@ -854,7 +1119,7 @@ pub async fn seed_owner(db: &PgPool) {
 
     match existing {
         Ok(Some(_)) => {
-            sqlx::query("UPDATE users SET role = $1, plan = $2 WHERE email = $3")
+            sqlx::query("UPDATE users SET role = $1, plan = $2, email_verified = TRUE WHERE email = $3")
                 .bind(OWNER_ROLE)
                 .bind(OWNER_PLAN)
                 .bind(&email)
@@ -882,7 +1147,8 @@ pub async fn seed_owner(db: &PgPool) {
             let now = Utc::now();
 
             let res = sqlx::query(
-                "INSERT INTO users (id, email, password_hash, name, role, plan, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                "INSERT INTO users (id, email, password_hash, name, role, plan, created_at, email_verified)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)",
             )
             .bind(&id)
             .bind(&email)
@@ -938,7 +1204,7 @@ pub async fn admin_list_users(
     }
 
     let rows = sqlx::query(
-        "SELECT id, email, name, company_id, role, plan FROM users ORDER BY created_at DESC",
+        "SELECT id, email, name, company_id, role, plan, email_verified FROM users ORDER BY created_at DESC",
     )
     .fetch_all(&state.db)
     .await
@@ -956,6 +1222,7 @@ pub async fn admin_list_users(
             company_id: row.get("company_id"),
             role: row.get("role"),
             plan: row.get("plan"),
+            email_verified: Some(row.get("email_verified")),
         })
         .collect();
 
@@ -1028,6 +1295,7 @@ pub async fn admin_create_user(
         company_id: None,
         role: role.to_string(),
         plan,
+        email_verified: Some(false),
     }))
 }
 
@@ -1059,7 +1327,7 @@ pub async fn admin_update_user(
         validate_password(p)?;
     }
 
-    let row = sqlx::query("SELECT id, email, name, company_id, role, plan FROM users WHERE id = $1")
+    let row = sqlx::query("SELECT id, email, name, company_id, role, plan, email_verified FROM users WHERE id = $1")
         .bind(&payload.user_id)
         .fetch_optional(&state.db)
         .await
@@ -1155,6 +1423,7 @@ pub async fn admin_update_user(
         company_id,
         role,
         plan,
+        email_verified: Some(row.get("email_verified")),
     }))
 }
 
@@ -1332,15 +1601,16 @@ pub async fn register_member(
         return Err(StatusCode::CONFLICT);
     }
 
-    // 1. Buat user account
+    // 1. Buat user account (belum aktif — wajib konfirmasi email dulu)
     let user_id = Uuid::new_v4().to_string();
     let password_hash = hash_password(&payload.password)?;
+    let verification_token = Uuid::new_v4().to_string();
     let now = Utc::now();
     let role = payload.role.clone().unwrap_or_else(|| "member".to_string());
 
     sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name, role, plan, company_id, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        "INSERT INTO users (id, email, password_hash, name, role, plan, company_id, created_at, email_verified, verification_token, verification_expires)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, $9, $10)",
     )
     .bind(&user_id)
     .bind(payload.email.trim())
@@ -1350,12 +1620,29 @@ pub async fn register_member(
     .bind("personal")
     .bind(&payload.company_id)
     .bind(&now)
+    .bind(&verification_token)
+    .bind(now + Duration::hours(24))
     .execute(&state.db)
     .await
     .map_err(|e| {
         eprintln!("[DB ERROR] {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
+
+    // Kirim email konfirmasi aktivasi + kredensial (best-effort).
+    tokio::spawn({
+        let to = payload.email.trim().to_string();
+        let name = payload.name.trim().to_string();
+        let token = verification_token.clone();
+        let cred_email = payload.email.trim().to_string();
+        let cred_password = payload.password.clone();
+        async move {
+            match crate::mail::send_confirmation(&to, &name, &token, Some((&cred_email, &cred_password))).await {
+                Ok(true) => tracing::info!(event = "confirmation_email_sent", to = %to),
+                _ => tracing::warn!(event = "confirmation_email_skipped", to = %to),
+            }
+        }
+    });
 
     // 2. Buat member
     let member_id = Uuid::new_v4().to_string();
@@ -1393,20 +1680,6 @@ pub async fn register_member(
         .execute(&state.db)
         .await
         .ok();
-
-    // 3. Kirim email sambutan (best-effort)
-    tokio::spawn({
-        let to = payload.email.trim().to_string();
-        let name = payload.name.trim().to_string();
-        let email = payload.email.trim().to_string();
-        let password = payload.password.to_string();
-        async move {
-            match crate::mail::send_welcome(&to, &name, &email, &password).await {
-                Ok(true) => tracing::info!(event = "welcome_email_sent", to = %to),
-                _ => tracing::warn!(event = "welcome_email_skipped", to = %to),
-            }
-        }
-    });
 
     tracing::info!(event = "member_registered", user_id = %user_id, member_id = %member_id, email = %payload.email.trim());
 

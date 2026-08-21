@@ -30,7 +30,7 @@ import Settings from './pages/Settings'
 import AdminUsers from './pages/AdminUsers'
 
 function App() {
-  const { appState, currentPage, isAuthenticated, theme } = useStore()
+  const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
 
   // Terapkan tema ke seluruh dokumen (termasuk halaman pre-app seperti
   // Landing/Setup) dan warna asli komponen sistem (scrollbar, dsb).
@@ -40,6 +40,15 @@ function App() {
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) meta.setAttribute('content', theme === 'dark' ? '#0C0C0E' : '#FAFAFA')
   }, [theme])
+
+  // Bila dibuka dari link konfirmasi email (?token=...), arahkan ke halaman
+  // Auth yang akan memproses token (aktivasi akun).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('token')) {
+      setAppState('auth')
+    }
+  }, [setAppState])
 
   const renderApp = () => {
     switch (currentPage) {

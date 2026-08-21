@@ -1,14 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
-import { ArrowLeft, LogIn, UserPlus, Mail, Lock, User } from 'lucide-react'
+import { ArrowLeft, LogIn, UserPlus, Mail, Lock, User, ShieldCheck, MailCheck, RefreshCw } from 'lucide-react'
 import './Auth.css'
 
 export default function Auth() {
-  const { setAppState, login, register } = useStore()
+  const { setAppState, login, register, verify2FA, verifyEmail } = useStore()
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Alur verifikasi
+  // stage: 'form' | 'otp' | 'confirm-sent' | 'verifying'
+  const [stage, setStage] = useState('form')
+  const [otp, setOtp] = useState('')
+  const [otpEmail, setOtpEmail] = useState('')
 
   const [form, setForm] = useState({
     name: '',
@@ -16,6 +22,25 @@ export default function Auth() {
     password: '',
     confirmPassword: ''
   })
+
+  // Bila dibuka dari link email konfirmasi: ?token=xxx
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    if (token) {
+      setStage('verifying')
+      ;(async () => {
+        const result = await verifyEmail(token)
+        if (result.success) {
+          const { hasCompletedSetup } = useStore.getState()
+          setAppState(hasCompletedSetup ? 'app' : 'setup')
+        } else {
+          setError(result.message || 'Link konfirmasi tidak valid atau sudah kedaluwarsa.')
+          setStage('form')
+        }
+      })()
+    }
+  }, [verifyEmail, setAppState])
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -47,8 +72,8 @@ export default function Auth() {
 
         const result = await register(form.name, form.email, form.password)
         if (result.success) {
-          // User baru wajib lewat setup
-          setAppState('setup')
+          // Pendaftar harus konfirmasi email dulu sebelum bisa login.
+          setStage('confirm-sent')
         } else {
           setError(result.message)
         }
@@ -60,8 +85,10 @@ export default function Auth() {
         }
 
         const result = await login(form.email, form.password)
-        if (result.success) {
-          // Sudah setup? langsung app. Belum? ke setup.
+        if (result.success && result.requires2FA) {
+          setOtpEmail(form.email)
+          setStage('otp')
+        } else if (result.success) {
           const { hasCompletedSetup } = useStore.getState()
           setAppState(hasCompletedSetup ? 'app' : 'setup')
         } else {
@@ -74,6 +101,33 @@ export default function Auth() {
       setLoading(false)
     }
   }
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault()
+    if (!otp.trim()) {
+      setError('Masukkan kode verifikasi.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    const result = await verify2FA(otpEmail, otp.trim())
+    if (result.success) {
+      const { hasCompletedSetup } = useStore.getState()
+      setAppState(hasCompletedSetup ? 'app' : 'setup')
+    } else {
+      setError(result.message || 'Kode salah. Coba lagi.')
+      setOtp('')
+    }
+    setLoading(false)
+  }
+
+  const goBackToLogin = () => {
+    setStage('form')
+    setMode('login')
+    setError('')
+  }
+
+  const showTabs = stage === 'form'
 
   return (
     <div className="auth-page">
@@ -97,134 +151,222 @@ export default function Auth() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="auth-tabs">
-            <button
-              className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
-              onClick={() => { setMode('login'); setError('') }}
-            >
-              <LogIn size={16} />
-              Masuk
-            </button>
-            <button
-              className={`auth-tab ${mode === 'register' ? 'active' : ''}`}
-              onClick={() => { setMode('register'); setError('') }}
-            >
-              <UserPlus size={16} />
-              Daftar
-            </button>
-          </div>
-
-          <div className="auth-content">
-            <h1>{mode === 'login' ? 'Selamat Datang Kembali' : 'Buat Akun Baru'}</h1>
-            <p className="auth-subtitle">
-              {mode === 'login'
-                ? 'Masuk ke akun Luxio kamu'
-                : 'Gratis selamanya untuk personal use'}
-            </p>
-
-            {error && (
-              <div className="auth-error">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="auth-form">
-              {mode === 'register' && (
-                <div className="input-group">
-                  <label className="input-label" htmlFor="auth-name">Nama Lengkap</label>
-                  <div className="input-icon">
-                    <User size={16} />
-                    <input
-                      type="text"
-                      name="name"
-                      id="auth-name"
-                      className="input"
-                      placeholder="John Doe"
-                      value={form.name}
-                      onChange={handleChange}
-                    />
-                  </div>
+          {/* ---------- LAYAR VERIFIKASI EMAIL (link ?token=) ---------- */}
+          {stage === 'verifying' && (
+            <div className="auth-content">
+              <div className="auth-icon-big"><ShieldCheck size={36} /></div>
+              <h1>Mengaktifkan Akun</h1>
+              <p className="auth-subtitle">Memverifikasi email kamu…</p>
+              {error && <div className="auth-error">{error}</div>}
+              {!error && (
+                <div className="auth-loading">
+                  <RefreshCw size={20} className="spin" />
+                  <span>Mohon tunggu sebentar</span>
                 </div>
               )}
-
-              <div className="input-group">
-                <label className="input-label" htmlFor="auth-email">Email</label>
-                <div className="input-icon">
-                  <Mail size={16} />
-                  <input
-                    type="email"
-                    name="email"
-                    id="auth-email"
-                    className="input"
-                    placeholder="nama@email.com"
-                    value={form.email}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="input-group">
-                <label className="input-label" htmlFor="auth-password">Password</label>
-                <div className="input-icon">
-                  <Lock size={16} />
-                  <input
-                    type="password"
-                    name="password"
-                    id="auth-password"
-                    className="input"
-                    placeholder="••••••••"
-                    value={form.password}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              {mode === 'register' && (
-                <div className="input-group">
-                  <label className="input-label" htmlFor="auth-confirm">Konfirmasi Password</label>
-                  <div className="input-icon">
-                    <Lock size={16} />
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      id="auth-confirm"
-                      className="input"
-                      placeholder="••••••••"
-                      value={form.confirmPassword}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="btn btn-primary btn-lg"
-                style={{ width: '100%' }}
-                disabled={loading}
-              >
-                {loading ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar Gratis'}
-              </button>
-            </form>
-
-            <div className="auth-footer">
-              {mode === 'login' ? (
-                <p>
-                  Belum punya akun?{' '}
-                  <button className="auth-link" onClick={() => setMode('register')}>
-                    Daftar gratis
-                  </button>
-                </p>
-              ) : (
-                <p>
-                  Sudah punya akun?{' '}
-                  <button className="auth-link" onClick={() => setMode('login')}>
-                    Masuk
-                  </button>
-                </p>
+              {error && (
+                <button className="btn btn-secondary" onClick={goBackToLogin} style={{ width: '100%' }}>
+                  Kembali ke Login
+                </button>
               )}
             </div>
-          </div>
+          )}
+
+          {/* ---------- LAYAR KONFIRMASI EMAIL SUDAH DIKIRIM ---------- */}
+          {stage === 'confirm-sent' && (
+            <div className="auth-content">
+              <div className="auth-icon-big"><MailCheck size={36} /></div>
+              <h1>Cek Email Kamu</h1>
+              <p className="auth-subtitle">
+                Kami sudah mengirim email konfirmasi ke <strong>{form.email}</strong>.
+                Klik tautan di email tersebut untuk mengaktifkan akun, lalu login.
+              </p>
+              <p className="auth-subtitle" style={{ marginTop: 8 }}>
+                Tidak menerima? Periksa folder spam, atau daftar ulang.
+              </p>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={goBackToLogin}>
+                <LogIn size={16} /> Kembali ke Login
+              </button>
+            </div>
+          )}
+
+          {/* ---------- LAYAR KODE 2FA ---------- */}
+          {stage === 'otp' && (
+            <div className="auth-content">
+              <div className="auth-icon-big"><ShieldCheck size={36} /></div>
+              <h1>Verifikasi Dua Langkah</h1>
+              <p className="auth-subtitle">
+                Kami sudah mengirim kode 6 digit ke <strong>{otpEmail}</strong>.
+                Masukkan kode untuk melanjutkan.
+              </p>
+
+              {error && <div className="auth-error">{error}</div>}
+
+              <form onSubmit={handleOtpSubmit} className="auth-form">
+                <div className="input-group">
+                  <label className="input-label" htmlFor="auth-otp">Kode Verifikasi</label>
+                  <div className="input-icon">
+                    <ShieldCheck size={16} />
+                    <input
+                      type="text"
+                      name="otp"
+                      id="auth-otp"
+                      className="input"
+                      placeholder="••••••"
+                      maxLength={6}
+                      autoFocus
+                      inputMode="numeric"
+                      value={otp}
+                      onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading || otp.length !== 6}>
+                  {loading ? 'Memverifikasi…' : 'Verifikasi & Masuk'}
+                </button>
+              </form>
+
+              <div className="auth-footer">
+                <button className="auth-link" onClick={goBackToLogin}>
+                  Gunakan email / password lain
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ---------- LAYAR FORM LOGIN / REGISTER ---------- */}
+          {showTabs && (
+            <>
+              <div className="auth-tabs">
+                <button
+                  className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
+                  onClick={() => { setMode('login'); setError('') }}
+                >
+                  <LogIn size={16} />
+                  Masuk
+                </button>
+                <button
+                  className={`auth-tab ${mode === 'register' ? 'active' : ''}`}
+                  onClick={() => { setMode('register'); setError('') }}
+                >
+                  <UserPlus size={16} />
+                  Daftar
+                </button>
+              </div>
+
+              <div className="auth-content">
+                <h1>{mode === 'login' ? 'Selamat Datang Kembali' : 'Buat Akun Baru'}</h1>
+                <p className="auth-subtitle">
+                  {mode === 'login'
+                    ? 'Masuk ke akun Luxio kamu'
+                    : 'Gratis selamanya untuk personal use'}
+                </p>
+
+                {error && (
+                  <div className="auth-error">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="auth-form">
+                  {mode === 'register' && (
+                    <div className="input-group">
+                      <label className="input-label" htmlFor="auth-name">Nama Lengkap</label>
+                      <div className="input-icon">
+                        <User size={16} />
+                        <input
+                          type="text"
+                          name="name"
+                          id="auth-name"
+                          className="input"
+                          placeholder="John Doe"
+                          value={form.name}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="input-group">
+                    <label className="input-label" htmlFor="auth-email">Email</label>
+                    <div className="input-icon">
+                      <Mail size={16} />
+                      <input
+                        type="email"
+                        name="email"
+                        id="auth-email"
+                        className="input"
+                        placeholder="nama@email.com"
+                        value={form.email}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="input-group">
+                    <label className="input-label" htmlFor="auth-password">Password</label>
+                    <div className="input-icon">
+                      <Lock size={16} />
+                      <input
+                        type="password"
+                        name="password"
+                        id="auth-password"
+                        className="input"
+                        placeholder="••••••••"
+                        value={form.password}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  {mode === 'register' && (
+                    <div className="input-group">
+                      <label className="input-label" htmlFor="auth-confirm">Konfirmasi Password</label>
+                      <div className="input-icon">
+                        <Lock size={16} />
+                        <input
+                          type="password"
+                          name="confirmPassword"
+                          id="auth-confirm"
+                          className="input"
+                          placeholder="••••••••"
+                          value={form.confirmPassword}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-lg"
+                    style={{ width: '100%' }}
+                    disabled={loading}
+                  >
+                    {loading ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar Gratis'}
+                  </button>
+                </form>
+
+                <div className="auth-footer">
+                  {mode === 'login' ? (
+                    <p>
+                      Belum punya akun?{' '}
+                      <button className="auth-link" onClick={() => setMode('register')}>
+                        Daftar gratis
+                      </button>
+                    </p>
+                  ) : (
+                    <p>
+                      Sudah punya akun?{' '}
+                      <button className="auth-link" onClick={() => setMode('login')}>
+                        Masuk
+                      </button>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </motion.div>
       </div>
     </div>

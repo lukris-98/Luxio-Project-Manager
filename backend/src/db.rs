@@ -42,6 +42,32 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Kolom verifikasi email (aktivasi akun). `email_verified=false` artinya
+    // akun belum aktif dan harus konfirmasi lewat email.
+    sqlx::query(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE",
+    )
+    .execute(db)
+    .await?;
+    sqlx::query(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT",
+    )
+    .execute(db)
+    .await?;
+    sqlx::query(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires TIMESTAMPTZ",
+    )
+    .execute(db)
+    .await?;
+    // Migrasi data lama: akun yang dibuat sebelum fitur verifikasi email
+    // (tanpa verification_token) dianggap sudah terverifikasi, agar tidak
+    // terkunci. Akun baru selalu punya token sampai klik konfirmasi.
+    sqlx::query(
+        "UPDATE users SET email_verified = TRUE WHERE verification_token IS NULL AND email_verified = FALSE",
+    )
+    .execute(db)
+    .await?;
+
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS companies (
             id TEXT PRIMARY KEY,
@@ -186,6 +212,21 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
             response JSONB NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE (user_id, idempotency_key)
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Kode 2FA (one-time password) untuk login. Hanya hash-nya yang
+    // disimpan; kode mentah dikirim via email.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS login_otps (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            otp_hash TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )",
     )
     .execute(db)

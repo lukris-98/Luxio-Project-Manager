@@ -121,15 +121,36 @@ pub struct LoginRequest {
     pub password: String,
 }
 
+/// Body request untuk endpoint POST /api/auth/verify — aktivasi akun
+/// lewat token dari email konfirmasi.
+#[derive(Debug, Deserialize)]
+pub struct VerifyEmailRequest {
+    pub token: String,
+}
+
+/// Body request untuk endpoint POST /api/auth/2fa/verify — verifikasi kode
+/// 2FA setelah login (email + kode).
+#[derive(Debug, Deserialize)]
+pub struct Verify2FARequest {
+    pub email: String,
+    pub code: String,
+}
+
 /// Response standar untuk endpoint auth. `success=false` menandakan gagal.
 /// `token` berisi session token (Bearer) yang wajib dikirim client pada
 /// header `Authorization` untuk request berikutnya.
+/// `requires_confirmation=true` => akun belum aktif (harus klik email).
+/// `requires_2fa=true` => kode 2FA sudah dikirim, lanjut ke /2fa/verify.
 #[derive(Debug, Serialize)]
 pub struct AuthResponse {
     pub success: bool,
     pub message: String,
     pub user: Option<UserResponse>,
     pub token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_confirmation: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_2fa: Option<bool>,
 }
 
 /// Bentuk user yang aman dikirim ke client (tanpa password_hash).
@@ -141,6 +162,8 @@ pub struct UserResponse {
     pub company_id: Option<String>,
     pub role: String,
     pub plan: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_verified: Option<bool>,
 }
 
 /// Body request untuk endpoint POST /api/companies.

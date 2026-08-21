@@ -120,6 +120,12 @@ export const api = {
     post('/api/auth/register', { name, email, password }),
   login: (email, password) =>
     post('/api/auth/login', { email, password }),
+  // Aktivasi akun memakai token dari email konfirmasi.
+  verifyEmail: (token) =>
+    post('/api/auth/verify', { token }),
+  // Verifikasi kode 2FA setelah login tahap 1.
+  verify2FA: (email, code) =>
+    post('/api/auth/2fa/verify', { email, code }),
   logout: () =>
     post('/api/auth/logout', {}),
   me: () =>

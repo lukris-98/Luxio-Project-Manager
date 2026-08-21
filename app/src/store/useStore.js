@@ -528,11 +528,38 @@ export const useStore = create(
   // =====================================================================
 
   /**
-   * Login ke backend. Mengembalikan { success, message }.
+   * Login tahap 1. Mengembalikan { success, message, requires2FA }.
+   * Bila `requires2FA` true, lanjutkan ke `verify2FA(email, code)`.
+   * Bila `requiresConfirmation` true, akun belum aktif (cek email).
    */
   login: async (email, password) => {
     try {
       const res = await api.login(email, password)
+      if (!res.success) {
+        return {
+          success: false,
+          message: res.message,
+          requiresConfirmation: Boolean(res.requires_confirmation),
+        }
+      }
+      if (res.requires_2fa) {
+        return { success: true, requires2FA: true, message: res.message }
+      }
+      // (tidak akan terjadi biasanya, tapi aman) — langsung set sesi.
+      setToken(res.token)
+      set({ currentUser: res.user, token: res.token || null })
+      return { success: true }
+    } catch (err) {
+      return { success: false, message: err.message }
+    }
+  },
+
+  /**
+   * Verifikasi kode 2FA setelah login tahap 1. Berhasil => masuk dashboard.
+   */
+  verify2FA: async (email, code) => {
+    try {
+      const res = await api.verify2FA(email, code)
       if (!res.success) throw new Error(res.message)
       setToken(res.token)
       // Akun OWNER (pemilik website) langsung masuk ke area app,
@@ -543,14 +570,39 @@ export const useStore = create(
         token: res.token || null,
         isAuthenticated: true,
         hasCompletedSetup: isOwner ? true : get().hasCompletedSetup,
-        // Kalau user sudah setup, langsung ke app; kalau belum, ke setup.
-        // setupStep direset 0 agar selalu mulai dari pemilihan tipe.
         appState: isOwner || get().hasCompletedSetup ? 'app' : 'setup',
         setupStep: 0,
         currentPage: isOwner ? 'admin-users' : 'dashboard',
         activeRole: res.user.role,
       })
-      track('login', { role: res.user.role })
+      track('login', { role: res.user.role, method: '2fa' })
+      return { success: true }
+    } catch (err) {
+      return { success: false, message: err.message }
+    }
+  },
+
+  /**
+   * Aktivasi akun lewat token email konfirmasi.
+   * Berhasil => sesi langsung dibuat, masuk dashboard.
+   */
+  verifyEmail: async (token) => {
+    try {
+      const res = await api.verifyEmail(token)
+      if (!res.success) throw new Error(res.message)
+      setToken(res.token)
+      const isOwner = res.user.role === 'owner'
+      set({
+        currentUser: res.user,
+        token: res.token || null,
+        isAuthenticated: true,
+        hasCompletedSetup: isOwner ? true : get().hasCompletedSetup,
+        appState: isOwner || get().hasCompletedSetup ? 'app' : 'setup',
+        setupStep: 0,
+        currentPage: isOwner ? 'admin-users' : 'dashboard',
+        activeRole: res.user.role,
+      })
+      track('signup_verified', { role: res.user.role })
       return { success: true }
     } catch (err) {
       return { success: false, message: err.message }
@@ -559,25 +611,13 @@ export const useStore = create(
 
   /**
    * Daftar akun baru ke backend. Mengembalikan { success, message }.
+   * Akun baru belum aktif — harus klik link konfirmasi di email.
    */
   register: async (name, email, password) => {
     try {
       const res = await api.register(name, email, password)
       if (!res.success) throw new Error(res.message)
-      setToken(res.token)
-      set({
-        currentUser: res.user,
-        token: res.token || null,
-        isAuthenticated: true,
-        hasCompletedSetup: false,
-        currentPlan: 'personal',
-        setupStep: 0, // user baru selalu mulai dari pemilihan tipe
-        appState: 'setup', // user baru wajib lewat setup
-        currentPage: 'dashboard',
-        activeRole: res.user.role,
-      })
-      track('signup', { role: res.user.role })
-      return { success: true }
+      return { success: true, requiresConfirmation: true, message: res.message }
     } catch (err) {
       return { success: false, message: err.message }
     }
