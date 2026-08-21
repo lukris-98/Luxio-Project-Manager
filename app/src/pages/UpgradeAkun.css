@@ -1,0 +1,261 @@
+/* Upgrade Akun Page */
+
+.upgrade-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.upgrade-page .page-header {
+  margin-bottom: var(--space-5);
+}
+
+.upgrade-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid var(--yellow);
+  color: var(--yellow);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-5);
+}
+
+.upgrade-banner div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upgrade-section {
+  margin-bottom: var(--space-5);
+}
+
+.upgrade-section .section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  color: var(--text-muted);
+}
+
+.upgrade-section .section-header h2 {
+  font-size: 1rem;
+}
+
+/* 1. Tipe organisasi */
+.org-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.org-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.org-type-card:hover {
+  border-color: var(--accent);
+}
+
+.org-type-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.org-type-card strong {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.org-type-card span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* 2. Paket */
+.plan-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.plan-card:hover {
+  border-color: var(--accent);
+}
+
+.plan-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.plan-card.popular {
+  border-color: var(--yellow);
+}
+
+.plan-popular-badge {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  padding: 4px var(--space-3);
+  background: var(--yellow);
+  color: #000;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.plan-card h3 {
+  font-size: 1.0625rem;
+  margin-top: var(--space-2);
+}
+
+.plan-card.popular h3 {
+  margin-top: var(--space-6);
+}
+
+.plan-price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.plan-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.plan-card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.8125rem;
+}
+
+.plan-card ul li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.plan-card ul li svg {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.plan-role {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-top: auto;
+}
+
+/* 3. Form */
+.upgrade-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+}
+
+.upgrade-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.upgrade-error {
+  font-size: 0.8125rem;
+  color: var(--error);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.upgrade-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-8);
+}
+
+.upgrade-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.upgrade-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.upgrade-success-icon {
+  width: 64px;
+  height: 64px;
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upgrade-success h2 {
+  font-size: 1.25rem;
+}
+
+.upgrade-success p {
+  max-width: 400px;
+}
+
+.upgrade-success-note {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.req-star {
+  color: var(--error);
+}
+
+@media (max-width: 640px) {
+  .org-type-grid,
+  .plan-grid,
+  .upgrade-form-row {
+    grid-template-columns: 1fr;
+  }
+}

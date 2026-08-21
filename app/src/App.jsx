@@ -28,6 +28,7 @@ import Calendar from './pages/Calendar'
 import Team from './pages/Team'
 import Settings from './pages/Settings'
 import AdminUsers from './pages/AdminUsers'
+import UpgradeAkun from './pages/UpgradeAkun'
 
 function App() {
   const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
@@ -74,11 +75,12 @@ function App() {
         return <Settings />
       case 'admin-users':
         return <AdminUsers />
+      case 'upgrade':
+        return <UpgradeAkun />
       default:
         return <Dashboard />
     }
   }
-
   // Landing pages — tapi kalau sesi masih aktif (dipulihkan persist dari
   // localStorage setelah refresh) jangan kirim user ke landing walau
   // appState sempat tertinggal 'landing'; langsung render halaman app.
