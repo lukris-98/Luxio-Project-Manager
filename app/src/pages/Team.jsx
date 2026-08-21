@@ -4,7 +4,7 @@ import { api } from '../services/api'
 import Layout from '../components/Layout'
 import Select from '../components/Select'
 import { motion } from 'framer-motion'
-import { Users, Building2, Mail, Plus, Trash2, Pencil, Crown, X, Shield, Check, Phone, Briefcase, Calendar, MapPin, BadgeCheck, Send, Lock, Eye, EyeOff } from 'lucide-react'
+import { Users, Building2, Mail, Plus, Trash2, Pencil, Crown, X, Shield, Check, Phone, Briefcase, Calendar, MapPin, BadgeCheck, Send, Lock, Eye, EyeOff, MoreVertical } from 'lucide-react'
 import './Team.css'
 
 const getInitials = (name) =>
@@ -26,6 +26,8 @@ export default function Team() {
 
   const [selectedDivId, setSelectedDivId] = useState(null)
   const [modal, setModal] = useState(null) // { type, ... }
+  // Dropdown aksi tiga titik (Item 3): { type: 'division'|'team', id }
+  const [openDropdown, setOpenDropdown] = useState(null)
 
   // Auto-pilih divisi pertama.
   useEffect(() => {
@@ -212,12 +214,22 @@ export default function Team() {
                     <p>{div.memberCount} anggota</p>
                   </div>
                   <div className="division-actions" onClick={(e) => e.stopPropagation()}>
-                    <button title="Ubah nama" onClick={() => openRename('division', div.id, div.name)}>
-                      <Pencil size={14} />
+                    <button className="more-btn" onClick={() => setOpenDropdown(openDropdown?.type === 'division' && openDropdown?.id === div.id ? null : { type: 'division', id: div.id })}>
+                      <MoreVertical size={14} />
                     </button>
-                    <button className="danger" title="Hapus divisi" onClick={() => handleDeleteDivision(div)}>
-                      <Trash2 size={14} />
-                    </button>
+                    {openDropdown?.type === 'division' && openDropdown?.id === div.id && (
+                      <>
+                        <div className="dropdown-backdrop" onClick={() => setOpenDropdown(null)} />
+                        <div className="dropdown-menu">
+                          <button onClick={() => { setOpenDropdown(null); openRename('division', div.id, div.name) }}>
+                            <Pencil size={14} /> Ubah nama
+                          </button>
+                          <button className="danger" onClick={() => { setOpenDropdown(null); handleDeleteDivision(div) }}>
+                            <Trash2 size={14} /> Hapus
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -272,17 +284,27 @@ export default function Team() {
                       </div>
                       {canManageTeams && (
                         <div className="team-card-actions" onClick={(e) => e.stopPropagation()}>
-                          {isDivisiMode && (
-                            <button title="Atur admin tim" onClick={() => openSetAdmin(team.id)}>
-                              <Crown size={14} />
-                            </button>
+                          <button className="more-btn" onClick={() => setOpenDropdown(openDropdown?.type === 'team' && openDropdown?.id === team.id ? null : { type: 'team', id: team.id })}>
+                            <MoreVertical size={14} />
+                          </button>
+                          {openDropdown?.type === 'team' && openDropdown?.id === team.id && (
+                            <>
+                              <div className="dropdown-backdrop" onClick={() => setOpenDropdown(null)} />
+                              <div className="dropdown-menu">
+                                {isDivisiMode && (
+                                  <button onClick={() => { setOpenDropdown(null); openSetAdmin(team.id) }}>
+                                    <Crown size={14} /> Atur admin tim
+                                  </button>
+                                )}
+                                <button onClick={() => { setOpenDropdown(null); openRename('team', team.id, team.name) }}>
+                                  <Pencil size={14} /> Ubah nama
+                                </button>
+                                <button className="danger" onClick={() => { setOpenDropdown(null); handleDeleteTeam(team) }}>
+                                  <Trash2 size={14} /> Hapus tim
+                                </button>
+                              </div>
+                            </>
                           )}
-                          <button title="Ubah nama tim" onClick={() => openRename('team', team.id, team.name)}>
-                            <Pencil size={14} />
-                          </button>
-                          <button className="danger" title="Hapus tim" onClick={() => handleDeleteTeam(team)}>
-                            <Trash2 size={14} />
-                          </button>
                         </div>
                       )}
                     </div>
