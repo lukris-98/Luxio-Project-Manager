@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
-import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle } from 'lucide-react'
+import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot } from 'lucide-react'
 import { api } from '../services/api'
 import './Settings.css'
 
@@ -40,6 +40,10 @@ export default function Settings() {
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [pinForm, setPinForm] = useState({ current: '', pin: '', confirm: '' })
   const [pinError, setPinError] = useState('')
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+  const [aiProvider, setAiProvider] = useState('')
+  const [aiKey, setAiKey] = useState('')
+  const [aiConfigMsg, setAiConfigMsg] = useState('')
   const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -333,6 +337,27 @@ export default function Settings() {
             </div>
           </motion.div>
 
+          {/* AI Agent (Item 8) — khusus owner/super_admin */}
+          {(role === 'owner' || role === 'super_admin') && (
+            <motion.div className="settings-section" variants={itemVariants}>
+              <div className="section-header">
+                <Bot size={18} />
+                <h2>AI Agent</h2>
+              </div>
+              <div className="settings-card">
+                <div className="settings-item">
+                  <div>
+                    <span className="item-label">Penyedia AI</span>
+                    <p className="item-desc">API key untuk AI Agent (OpenAI, dll.)</p>
+                  </div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setAiModalOpen(true)}>
+                    <KeyRound size={14} /> Konfigurasi
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* Notifications */}
           <motion.div className="settings-section" variants={itemVariants}>
             <div className="section-header">
@@ -431,6 +456,62 @@ export default function Settings() {
               <button className="btn btn-secondary" onClick={() => setPinModalOpen(false)}>Batal</button>
               <button className="btn btn-primary" disabled={!pinForm.pin || !pinForm.confirm} onClick={handleChangePin}>
                 <KeyRound size={14} /> Simpan PIN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal AI Agent config */}
+      {aiModalOpen && (
+        <div className="settings-modal-overlay" onClick={() => setAiModalOpen(false)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-head">
+              <Bot size={18} />
+              <h3>Konfigurasi AI Agent</h3>
+            </div>
+            <p className="settings-modal-desc">
+              Masukkan API key penyedia AI (OpenAI, dll). Agent hanya menjalankan tool resmi
+              yang terdaftar di sistem (tool/action layer).
+            </p>
+            <div className="input-group">
+              <label className="input-label">Penyedia AI</label>
+              <select className="input" value={aiProvider} onChange={(e) => setAiProvider(e.target.value)}>
+                <option value="">— Pilih penyedia —</option>
+                <option value="openai">OpenAI (GPT-4o, GPT-4o-mini)</option>
+                <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
+                <option value="google">Google Gemini</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="local">Local (LLaMA, Mistral, dll.)</option>
+              </select>
+            </div>
+            <div className="input-group">
+              <label className="input-label">API Key</label>
+              <input
+                type="password"
+                className="input"
+                placeholder="sk-..."
+                value={aiKey}
+                onChange={(e) => setAiKey(e.target.value)}
+              />
+            </div>
+            {aiConfigMsg && <p className="settings-modal-success">{aiConfigMsg}</p>}
+            <div className="settings-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setAiModalOpen(false)}>Tutup</button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  setAiConfigMsg('')
+                  try {
+                    const res = await api.agentConfig({ ai_provider: aiProvider, ai_key: aiKey })
+                    setAiConfigMsg(res.ok ? 'Konfigurasi AI tersimpan.' : 'Gagal menyimpan.')
+                    setTimeout(() => setAiModalOpen(false), 1400)
+                  } catch (e) {
+                    setAiConfigMsg('Gagal menyimpan. Pastikan backend online.')
+                  }
+                }}
+              >
+                <Save size={14} /> Simpan
               </button>
             </div>
           </div>

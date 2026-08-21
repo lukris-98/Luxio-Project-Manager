@@ -30,6 +30,7 @@ import Settings from './pages/Settings'
 import AdminUsers from './pages/AdminUsers'
 import UpgradeAkun from './pages/UpgradeAkun'
 import ChatPage from './pages/ChatPage'
+import AgentChat from './pages/AgentChat'
 
 function App() {
   const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
@@ -80,6 +81,8 @@ function App() {
         return <UpgradeAkun />
       case 'chat':
         return <ChatPage />
+      case 'agent':
+        return <AgentChat />
       default:
         return <Dashboard />
     }

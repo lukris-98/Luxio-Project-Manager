@@ -217,6 +217,11 @@
   color: var(--error);
 }
 
+.settings-modal-success {
+  font-size: 0.8125rem;
+  color: var(--success);
+}
+
 .settings-modal-actions {
   display: flex;
   justify-content: flex-end;

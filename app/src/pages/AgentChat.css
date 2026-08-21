@@ -1,0 +1,314 @@
+/* AI Agent Chat — terminal-style (Item 8) */
+
+.agent-page {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 130px);
+  min-height: 480px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.agent-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent);
+}
+
+.agent-header-left h1 {
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.agent-role-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.agent-header-actions {
+  display: flex;
+  gap: 2px;
+}
+
+/* Messages area */
+.agent-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+}
+
+.agent-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.agent-welcome-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--accent-muted);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agent-welcome h2 {
+  font-size: 1.125rem;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+.agent-welcome p {
+  font-size: 0.875rem;
+  max-width: 420px;
+}
+
+.agent-welcome-commands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 420px;
+  margin-top: var(--space-2);
+  font-size: 0.8125rem;
+}
+
+.agent-welcome-commands p {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.agent-welcome-commands code {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--accent2);
+  text-align: left;
+}
+
+.agent-msg {
+  display: flex;
+  gap: var(--space-2);
+  max-width: 90%;
+}
+
+.agent-msg.agent {
+  align-self: flex-start;
+}
+
+.agent-msg.user {
+  align-self: flex-end;
+}
+
+.agent-msg-avatar {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agent-msg.agent .agent-msg-avatar {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.agent-msg.user .agent-msg-avatar {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+.agent-msg-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-msg-sender {
+  font-size: 0.625rem;
+  font-family: var(--font-body);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.agent-msg-body {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+}
+
+.agent-msg.agent .agent-msg-body {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.agent-msg.user .agent-msg-body {
+  background: var(--accent);
+  color: #000;
+}
+
+.agent-typing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+
+.agent-typing svg {
+  animation: agent-spin 1s linear infinite;
+}
+
+@keyframes agent-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Input terminal-style */
+.agent-input {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.agent-input-prompt {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.agent-prompt-sign {
+  font-size: 1.125rem;
+}
+
+.agent-input-field {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  padding: var(--space-2);
+}
+
+.agent-input-field::placeholder {
+  color: var(--text-muted);
+}
+
+.agent-input-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border: none;
+  color: #000;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.agent-input-send:hover {
+  background: var(--accent-hover);
+}
+
+.agent-input-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Config modal */
+.agent-config-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.agent-config-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.agent-config-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.agent-config-head h3 {
+  font-size: 1.0625rem;
+}
+
+.agent-config-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.agent-config-msg {
+  font-size: 0.8125rem;
+  color: var(--success);
+}
+
+.agent-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .agent-page {
+    height: calc(100vh - 150px);
+  }
+}
