@@ -57,6 +57,9 @@ pub struct Member {
     pub name: String,
     pub email: String,
     pub role: String,
+    /// Level kewenangan anggota dalam tim (Item 6):
+    /// owner, super_admin, admin, manager, member, viewer.
+    pub authority: String,
     pub position: String,
     pub phone: String,
     pub gender: String,
@@ -191,6 +194,9 @@ pub struct CreateMember {
     pub name: String,
     pub email: String,
     pub role: String,
+    /// Level kewenangan (Item 6). Default 'member' bila tidak dikirim.
+    #[serde(default)]
+    pub authority: Option<String>,
     #[serde(default)]
     pub position: Option<String>,
     #[serde(default)]
@@ -227,6 +233,9 @@ pub struct RegisterMember {
     pub password: String,
     #[serde(default)]
     pub role: Option<String>,
+    /// Level kewenangan (Item 6).
+    #[serde(default)]
+    pub authority: Option<String>,
     #[serde(default)]
     pub position: Option<String>,
     #[serde(default)]

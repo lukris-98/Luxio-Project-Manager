@@ -880,8 +880,8 @@ pub async fn create_member(
     let now = Utc::now();
 
     sqlx::query(
-        "INSERT INTO members (id, company_id, division_id, name, email, role, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+        "INSERT INTO members (id, company_id, division_id, name, email, role, authority, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)",
     )
     .bind(&id)
     .bind(&payload.company_id)
@@ -889,6 +889,7 @@ pub async fn create_member(
     .bind(payload.name.trim())
     .bind(payload.email.trim())
     .bind(payload.role.trim())
+    .bind(payload.authority.as_deref().unwrap_or("member").trim())
     .bind(payload.position.as_deref().unwrap_or("").trim())
     .bind(payload.phone.as_deref().unwrap_or("").trim())
     .bind(payload.gender.as_deref().unwrap_or("").trim())
@@ -921,6 +922,7 @@ pub async fn create_member(
         name: payload.name.trim().to_string(),
         email: payload.email.trim().to_string(),
         role: payload.role.trim().to_string(),
+        authority: payload.authority.as_deref().unwrap_or("member").trim().to_string(),
         position: payload.position.as_deref().unwrap_or("").trim().to_string(),
         phone: payload.phone.as_deref().unwrap_or("").trim().to_string(),
         gender: payload.gender.as_deref().unwrap_or("").trim().to_string(),
@@ -946,7 +948,7 @@ pub async fn get_members(
     check_company_access(&state, &user_id, &payload.company_id).await?;
 
     let rows = sqlx::query(
-        "SELECT id, company_id, division_id, name, email, role, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at
+        "SELECT id, company_id, division_id, name, email, role, authority, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at
          FROM members WHERE company_id = $1",
     )
     .bind(&payload.company_id)
@@ -966,6 +968,7 @@ pub async fn get_members(
             name: row.get("name"),
             email: row.get("email"),
             role: row.get("role"),
+            authority: row.get("authority"),
             position: row.get("position"),
             phone: row.get("phone"),
             gender: row.get("gender"),
@@ -2859,8 +2862,8 @@ pub async fn register_member(
     // 2. Buat member
     let member_id = Uuid::new_v4().to_string();
     sqlx::query(
-        "INSERT INTO members (id, company_id, division_id, name, email, role, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+        "INSERT INTO members (id, company_id, division_id, name, email, role, authority, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)",
     )
     .bind(&member_id)
     .bind(&payload.company_id)
@@ -2868,6 +2871,7 @@ pub async fn register_member(
     .bind(payload.name.trim())
     .bind(payload.email.trim())
     .bind(&role)
+    .bind(payload.authority.as_deref().unwrap_or("member").trim())
     .bind(payload.position.as_deref().unwrap_or("").trim())
     .bind(payload.phone.as_deref().unwrap_or("").trim())
     .bind(payload.gender.as_deref().unwrap_or("").trim())
@@ -2902,6 +2906,7 @@ pub async fn register_member(
         name: payload.name.trim().to_string(),
         email: payload.email.trim().to_string(),
         role: role.to_string(),
+        authority: payload.authority.as_deref().unwrap_or("member").trim().to_string(),
         position: payload.position.as_deref().unwrap_or("").trim().to_string(),
         phone: payload.phone.as_deref().unwrap_or("").trim().to_string(),
         gender: payload.gender.as_deref().unwrap_or("").trim().to_string(),

@@ -160,6 +160,7 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
         ("skills", "TEXT NOT NULL DEFAULT ''"),
         ("education", "TEXT NOT NULL DEFAULT ''"),
         ("notes", "TEXT NOT NULL DEFAULT ''"),
+        ("authority", "TEXT NOT NULL DEFAULT 'member'"),
     ] {
         sqlx::query(&format!("ALTER TABLE members ADD COLUMN IF NOT EXISTS {column} {sql_type}"))
             .execute(db)

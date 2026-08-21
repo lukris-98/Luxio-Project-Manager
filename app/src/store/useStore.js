@@ -369,7 +369,7 @@ export const useStore = create(
 
   // Buat akun/anggota baru lalu langsung masukkan ke sebuah tim.
   createMemberAndAdd: ({
-    name, email, password = '', role = 'member', teamId, divisionId,
+    name, email, password = '', role = 'member', authority = 'member', teamId, divisionId,
     position = '', phone = '', gender = '', birthDate = '', address = '',
     joinDate = '', employmentStatus = '', salary = '', skills = '', education = '', notes = '',
   }) => {
@@ -414,6 +414,7 @@ export const useStore = create(
         email: member.email,
         divisionId: member.divisionId,
         role: member.role || 'member', // member, admin, super_admin
+        authority: member.authority || 'member', // owner, super_admin, admin, manager, member, viewer
         position: member.position || '',
         phone: member.phone || '',
         gender: member.gender || '',

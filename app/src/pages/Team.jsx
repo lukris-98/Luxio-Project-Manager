@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useStore, useEffectiveRole } from '../store/useStore'
+import { can as canAuthority, getAuthorityLabel as authLabel } from '../utils/permissions'
 import { api } from '../services/api'
 import Layout from '../components/Layout'
 import Select from '../components/Select'
@@ -9,6 +10,18 @@ import './Team.css'
 
 const getInitials = (name) =>
   (name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+
+// Level kewenangan anggota dalam tim (Item 6).
+const AUTHORITY_LEVELS = [
+  { value: 'owner', label: 'Owner', desc: 'Kontrol penuh: kelola semua, target, member, laporan' },
+  { value: 'super_admin', label: 'Super Admin', desc: 'Kelola semua fitur: target, task, member, laporan' },
+  { value: 'admin', label: 'Admin', desc: 'Kelola target, task, dan anggota divisi' },
+  { value: 'manager', label: 'Manager', desc: 'Buat target & edit task, lihat laporan' },
+  { value: 'member', label: 'Member', desc: 'Kerjakan task yang diassign, lihat target' },
+  { value: 'viewer', label: 'Viewer', desc: 'Hanya bisa melihat' },
+]
+
+const getAuthorityLabel = (a) => AUTHORITY_LEVELS.find((x) => x.value === a)?.label || a || 'member'
 
 export default function Team() {
   const {
@@ -23,6 +36,13 @@ export default function Team() {
   const isDivisiMode = role === 'owner' || role === 'super_admin'
   const canManageTeams = isDivisiMode || role === 'admin'
   const isUser = role === 'user'
+
+  // Level kewenangan user yang login (dari data member bila ada).
+  const myAuthority = members.find((m) => m.email?.toLowerCase() === currentUser?.email?.toLowerCase())?.authority
+    || (isDivisiMode ? 'super_admin' : role === 'admin' ? 'admin' : role === 'user' ? 'viewer' : 'member')
+  const authCanManageMembers = canAuthority(myAuthority, 'manage_members')
+  const authCanManageTeam = canAuthority(myAuthority, 'manage_team')
+  const authCanCreateTarget = canAuthority(myAuthority, 'create_target')
 
   const [selectedDivId, setSelectedDivId] = useState(null)
   const [modal, setModal] = useState(null) // { type, ... }
@@ -71,6 +91,7 @@ export default function Team() {
         email: data.email,
         password: data.password,
         role: 'member',
+        authority: data.authority || 'member',
         position: data.position,
         phone: data.phone,
         gender: data.gender,
@@ -319,6 +340,9 @@ export default function Team() {
                               {m.name}
                               {m.id === team.adminId && <span className="team-admin-tag">Admin</span>}
                               {m.hasAccount && <span className="member-account-badge"><Lock size={9} /> Akun</span>}
+                              {m.authority && m.authority !== 'member' && (
+                                <span className={`authority-badge auth-${m.authority}`}>{getAuthorityLabel(m.authority)}</span>
+                              )}
                             </span>
                             <span className="member-email">
                               <Mail size={12} /> {m.email}
@@ -334,17 +358,17 @@ export default function Team() {
                           </div>
                           {canManageTeams && (
                             <div className="team-member-actions">
-                              {isDivisiMode && (
+                              {authCanManageMembers && (
                                 <button title="Edit anggota" onClick={() => setModal({ type: 'edit-member', memberId: m.id })}>
                                   <Pencil size={14} />
                                 </button>
                               )}
-                              {isDivisiMode && (
+                              {authCanManageMembers && (
                                 <button title="Kirim email ke anggota" onClick={() => openNotify(m.id)}>
                                   <Send size={14} />
                                 </button>
                               )}
-                              {isDivisiMode && m.id !== team.adminId && (
+                              {authCanManageMembers && m.id !== team.adminId && (
                                 <button title="Jadikan admin tim" onClick={() => setTeamAdmin(team.id, m.id)}>
                                   <Crown size={14} />
                                 </button>
@@ -356,7 +380,7 @@ export default function Team() {
                               >
                                 <X size={14} />
                               </button>
-                              {isDivisiMode && (
+                              {authCanManageMembers && (
                                 <button
                                   className="danger"
                                   title="Hapus anggota dari organisasi"
@@ -369,7 +393,7 @@ export default function Team() {
                           )}
                         </div>
                       ))}
-                      {canManageTeams && (
+                      {authCanManageMembers && (
                         <button className="team-add-member" onClick={() => openAddMember(team.id)}>
                           <Plus size={14} /> Tambah Anggota
                         </button>
@@ -553,6 +577,7 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
     skills: '',
     education: '',
     notes: '',
+    authority: 'member',
   })
   const [selectedTeamId, setSelectedTeamId] = useState(() => {
     if (team?.id) return team.id
@@ -589,6 +614,7 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
       email: form.email,
       password: form.password,
       teamId: selectedTeamId,
+      authority: form.authority,
       phone: form.phone,
       gender: form.gender,
       birthDate: form.birthDate,
@@ -677,6 +703,29 @@ function AddMemberModal({ team, teams, members, memberById, onClose, onCreateMem
               </div>
             </div>
             <p className="field-hint">Anggota bisa login dengan email & password ini. Email sambutan berisi kredensial dikirim otomatis ke email tersebut.</p>
+          </div>
+
+          <div className="member-form-section">
+            <div className="member-form-section-title"><Shield size={15} /> Level Kewenangan (Item 6)</div>
+            <p className="field-hint">Tentukan level kewenangan anggota dalam tim ini. Admin bisa set saat membuat anggota.</p>
+            <div className="authority-grid">
+              {AUTHORITY_LEVELS.map((a) => (
+                <label
+                  key={a.value}
+                  className={`authority-option ${form.authority === a.value ? 'active' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="authority"
+                    value={a.value}
+                    checked={form.authority === a.value}
+                    onChange={() => setForm({ ...form, authority: a.value })}
+                  />
+                  <strong>{a.label}</strong>
+                  <span>{a.desc}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="member-form-section">
@@ -870,6 +919,7 @@ function EditMemberModal({ member, onSave, onClose }) {
     skills: member?.skills || '',
     education: member?.education || '',
     notes: member?.notes || '',
+    authority: member?.authority || 'member',
   }))
   if (!member) return null
 
@@ -964,6 +1014,28 @@ function EditMemberModal({ member, onSave, onClose }) {
         </div>
       </div>
 
+      <div className="member-form-section">
+        <div className="member-form-section-title"><Shield size={15} /> Level Kewenangan</div>
+        <div className="authority-grid">
+          {AUTHORITY_LEVELS.map((a) => (
+            <label
+              key={a.value}
+              className={`authority-option ${form.authority === a.value ? 'active' : ''}`}
+            >
+              <input
+                type="radio"
+                name="authority"
+                value={a.value}
+                checked={form.authority === a.value}
+                onChange={(e) => setForm({ ...form, authority: e.target.value })}
+              />
+              <strong>{a.label}</strong>
+              <span>{a.desc}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={onClose}>Batal</button>
         <button
@@ -983,6 +1055,7 @@ function EditMemberModal({ member, onSave, onClose }) {
             skills: form.skills.trim(),
             education: form.education,
             notes: form.notes.trim(),
+            authority: form.authority,
           })}
         >
           Simpan

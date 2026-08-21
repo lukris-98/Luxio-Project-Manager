@@ -70,7 +70,7 @@ const TOOLS: &[ToolSchema] = &[
         description: "Menambahkan anggota ke divisi sebuah perusahaan (form lengkap pendaftaran)",
         risk: RiskLevel::Low,
         required: &["company_id", "division_id", "name", "email", "role"],
-        optional: &["position", "phone", "gender", "birth_date", "address",
+        optional: &["authority", "position", "phone", "gender", "birth_date", "address",
                      "employment_status", "join_date", "salary", "skills", "education", "notes"],
     },
     ToolSchema {
@@ -504,9 +504,10 @@ async fn tool_create_member(
     check_company_owned(db, user_id, &company_id).await?;
 
     let id = Uuid::new_v4().to_string();
+    let authority = get_str_optional(args, "authority").unwrap_or_else(|| "member".to_string());
     sqlx::query(
-        "INSERT INTO members (id, company_id, division_id, name, email, role, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+        "INSERT INTO members (id, company_id, division_id, name, email, role, authority, position, phone, gender, birth_date, address, employment_status, join_date, salary, skills, education, notes, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)",
     )
     .bind(&id)
     .bind(&company_id)
@@ -514,6 +515,7 @@ async fn tool_create_member(
     .bind(&name)
     .bind(&email)
     .bind(&role)
+    .bind(&authority)
     .bind(get_str_optional(args, "position").unwrap_or_default())
     .bind(get_str_optional(args, "phone").unwrap_or_default())
     .bind(get_str_optional(args, "gender").unwrap_or_default())
@@ -927,7 +929,7 @@ async fn tool_list_members(
     check_company_owned(db, user_id, &company_id).await?;
 
     let rows = sqlx::query(
-        "SELECT id, division_id, name, email, role, position, phone, gender, employment_status, join_date, skills, created_at
+        "SELECT id, division_id, name, email, role, authority, position, phone, gender, employment_status, join_date, skills, created_at
          FROM members WHERE company_id = $1 ORDER BY created_at DESC",
     )
     .bind(&company_id)
@@ -944,6 +946,7 @@ async fn tool_list_members(
                 "name": r.get::<String, _>("name"),
                 "email": r.get::<String, _>("email"),
                 "role": r.get::<String, _>("role"),
+                "authority": r.get::<String, _>("authority"),
                 "position": r.get::<String, _>("position"),
                 "phone": r.get::<String, _>("phone"),
                 "gender": r.get::<String, _>("gender"),
