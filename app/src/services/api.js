@@ -206,4 +206,7 @@ export const api = {
   // ---- Absensi ----
   createAttendance: (data) => post('/api/attendance', data),
   getAttendance: (companyId) => get('/api/attendance', companyId ? { company_id: companyId } : {}),
+  // Dashboard absensi admin (filter per tim).
+  getAttendanceAdmin: (companyId, teamId) =>
+    get('/api/attendance/admin', teamId ? { company_id: companyId, team_id: teamId } : { company_id: companyId }),
 }

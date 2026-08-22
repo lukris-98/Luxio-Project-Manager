@@ -33,6 +33,7 @@ import ChatPage from './pages/ChatPage'
 import AgentChat from './pages/AgentChat'
 import OwnerDashboard from './pages/OwnerDashboard'
 import AttendancePage from './pages/AttendancePage'
+import AttendanceAdmin from './pages/AttendanceAdmin'
 
 function App() {
   const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
@@ -89,6 +90,8 @@ function App() {
         return <OwnerDashboard />
       case 'attendance':
         return <AttendancePage />
+      case 'attendance-admin':
+        return <AttendanceAdmin />
       default:
         return <Dashboard />
     }

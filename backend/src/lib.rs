@@ -131,6 +131,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Absensi
         .route("/api/attendance", post(owner::create_attendance))
         .route("/api/attendance", get(owner::list_attendance))
+        .route("/api/attendance/admin", get(owner::admin_attendance_dashboard))
         // AI Agent (Item 8)
         .route("/api/agent/config", put(handlers::agent_config))
         .route("/api/agent/chat", post(crate::tools::agent_chat))

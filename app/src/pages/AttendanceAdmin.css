@@ -1,0 +1,272 @@
+/* Attendance Admin Page — Dashboard Absensi (khusus admin/super_admin/owner) */
+
+.att-admin-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.att-admin-page .page-header {
+  margin-bottom: var(--space-5);
+}
+
+.att-admin-page .page-header-left h1 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.att-admin-page .page-header-left p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* Filter bar */
+.att-admin-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.att-admin-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 220px;
+}
+
+.att-admin-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  padding-bottom: 6px;
+}
+
+.att-admin-error {
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  font-size: 0.8125rem;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+
+/* Card tabel */
+.att-admin-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+}
+
+.att-admin-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.att-admin-loading .spin {
+  animation: att-admin-spin 1s linear infinite;
+}
+
+@keyframes att-admin-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.att-admin-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Tabel */
+.att-admin-table-wrap {
+  overflow-x: auto;
+}
+
+.att-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.att-admin-table th,
+.att-admin-table td {
+  text-align: left;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.att-admin-table th {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.att-admin-table .nowrap {
+  white-space: nowrap;
+}
+
+.att-admin-table .att-user {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Baris bermasalah */
+.att-row.row-checkout-missing td {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.att-row.row-checkin-missing td {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+/* Sel checkin/checkout */
+.att-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.att-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  cursor: zoom-in;
+  transition: transform 0.15s;
+}
+
+.att-thumb:hover {
+  transform: scale(1.05);
+}
+
+.att-cell-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.att-time {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.att-empty {
+  color: var(--text-muted);
+}
+
+.att-outside {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Badge missing */
+.att-missing {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--error);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  white-space: nowrap;
+}
+
+.att-missing.missing-checkout {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+/* Status baris */
+.att-status {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.att-status.present {
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--success);
+}
+
+.att-status.outside {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning);
+}
+
+/* Lightbox foto */
+.att-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  cursor: zoom-out;
+  padding: var(--space-5);
+}
+
+.att-zoom-img {
+  max-width: 90vw;
+  max-height: 85vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.att-zoom-close {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .att-admin-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .att-admin-filter {
+    min-width: 0;
+  }
+}

@@ -529,9 +529,12 @@ pub struct OwnerConfigRequest {
     pub value: Value,
 }
 
-/// Body request POST /api/attendance — absen masuk kerja.
+/// Body request POST /api/attendance — absen masuk (checkin) / pulang (checkout).
 #[derive(Debug, Deserialize)]
 pub struct AttendanceRequest {
+    /// 'checkin' (masuk) atau 'checkout' (pulang).
+    #[serde(default, rename = "type")]
+    pub kind: String,
     #[serde(default)]
     pub photo_url: String,
     pub latitude: f64,
@@ -542,10 +545,21 @@ pub struct AttendanceRequest {
     pub status: String,
     #[serde(default)]
     pub note: String,
+    /// ID tim (dari frontend, filter dashboard admin).
+    #[serde(default)]
+    pub team_id: String,
 }
 
 /// Query param GET /api/attendance — `?company_id=...` opsional.
 #[derive(Debug, Deserialize)]
 pub struct AttendanceQuery {
     pub company_id: Option<String>,
+}
+
+/// Query param GET /api/attendance/admin — dashboard admin.
+#[derive(Debug, Deserialize)]
+pub struct AttendanceAdminQuery {
+    pub company_id: String,
+    #[serde(default)]
+    pub team_id: String,
 }

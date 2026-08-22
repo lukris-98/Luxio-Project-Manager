@@ -4,7 +4,7 @@ import ReminderWatcher from './ReminderWatcher'
 import HeadlineMarquee from './HeadlineMarquee'
 import { requestNotificationPermission } from '../utils/notify'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound, Activity, Clock 
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList 
 } from 'lucide-react'
 import './Layout.css'
 
@@ -67,6 +67,10 @@ export default function Layout({ children }) {
     ...(effRole === 'owner' ? [{ id: 'owner-dashboard', icon: Activity, label: 'Pemantauan' }] : []),
     // Absen masuk kerja (semua role).
     { id: 'attendance', icon: Clock, label: 'Absen' },
+    // Dashboard absensi (khusus admin/super_admin/owner).
+    ...(effRole === 'admin' || effRole === 'super_admin' || effRole === 'owner'
+      ? [{ id: 'attendance-admin', icon: ClipboardList, label: 'Dashboard Absen' }]
+      : []),
   ]
 
   const handleRoleChange = (role) => {

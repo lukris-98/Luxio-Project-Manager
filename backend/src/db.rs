@@ -401,6 +401,7 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
             distance_m DOUBLE PRECISION NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'present',
             note TEXT NOT NULL DEFAULT '',
+            team_id TEXT NOT NULL DEFAULT '',
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )",
     )

@@ -2,15 +2,17 @@ import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
-import { MapPin, Camera, AlertTriangle, CheckCircle2, Clock, Loader2 } from 'lucide-react'
+import { MapPin, Camera, AlertTriangle, CheckCircle2, Clock, Loader2, LogIn, LogOut } from 'lucide-react'
 import { api } from '../services/api'
 import './AttendancePage.css'
 
 // =====================================================================
-// AttendancePage.jsx — Absen masuk kerja (selfie + GPS).
+// AttendancePage.jsx — Absen masuk & pulang kerja (selfie + GPS).
 // =====================================================================
 // - GPS: navigator.geolocation.getCurrentPosition untuk lat/lng.
 // - Selfie: input file capture="user", dikonversi ke base64 (data URL).
+// - Dua mode: 'checkin' (Absen Masuk) & 'checkout' (Absen Pulang).
+//   Tombol yang sudah dilakukan hari ini otomatis dinonaktifkan.
 // - Status otomatis 'present'/'outside' dihitung backend berdasarkan
 //   jarak ke lokasi kantor (office_geo) yang diatur admin.
 // =====================================================================
@@ -18,6 +20,19 @@ import './AttendancePage.css'
 const STATUS_LABEL = {
   present: 'Hadir',
   outside: 'Di luar area',
+}
+
+const TYPE_LABEL = {
+  checkin: 'Masuk',
+  checkout: 'Pulang',
+}
+
+const toDateKey = (d) => {
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return ''
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getDate()).padStart(2, '0')
+  return `${dt.getFullYear()}-${mm}-${dd}`
 }
 
 export default function AttendancePage() {
@@ -33,12 +48,32 @@ export default function AttendancePage() {
   const [error, setError] = useState('')
   const [history, setHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(true)
+  const [checkedInToday, setCheckedInToday] = useState(false)
+  const [checkedOutToday, setCheckedOutToday] = useState(false)
   const fileRef = useRef(null)
 
   const loadHistory = () => {
     setHistoryLoading(true)
     api.getAttendance()
-      .then((res) => setHistory(res.attendance || []))
+      .then((res) => {
+        const list = res.attendance || []
+        setHistory(list)
+        const today = toDateKey(new Date())
+        const ci = list.some((h) => h.type === 'checkin' && toDateKey(h.created_at) === today)
+        const co = list.some((h) => h.type === 'checkout' && toDateKey(h.created_at) === today)
+        setCheckedInToday(ci)
+        setCheckedOutToday(co)
+        const latest = [...list]
+          .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0]
+        if (latest) {
+          setResult({
+            type: latest.type,
+            status: latest.status,
+            photo_url: latest.photo_url,
+            created_at: latest.created_at,
+          })
+        }
+      })
       .catch(() => {})
       .finally(() => setHistoryLoading(false))
   }
@@ -82,7 +117,7 @@ export default function AttendancePage() {
     e.target.value = ''
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (type) => {
     if (!loc) {
       setError('Lokasi GPS belum didapat. Periksa izin lokasi.')
       return
@@ -95,12 +130,18 @@ export default function AttendancePage() {
     setError('')
     try {
       const res = await api.createAttendance({
+        type,
         photo_url: photoUrl,
         latitude: loc.latitude,
         longitude: loc.longitude,
         distance_m: 0,
       })
-      setResult({ status: res.status, photo_url: res.photo_url || photoUrl })
+      setResult({
+        type,
+        status: res.status,
+        photo_url: res.photo_url || photoUrl,
+        created_at: res.created_at || new Date().toISOString(),
+      })
       loadHistory()
     } catch (e) {
       setError('Gagal absen. Pastikan backend online.')
@@ -121,8 +162,8 @@ export default function AttendancePage() {
       >
         <motion.div className="page-header" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
           <div className="page-header-left">
-            <h1>Absen Masuk</h1>
-            <p>Selfie + GPS untuk absen kerja harian</p>
+            <h1>Absen Kerja</h1>
+            <p>Selfie + GPS untuk absen masuk & pulang kerja harian</p>
           </div>
         </motion.div>
 
@@ -130,7 +171,8 @@ export default function AttendancePage() {
           <AlertTriangle size={15} />
           <span>
             Foto di area kantor berbeda dengan di luar area kantor — status akan otomatis 'Hadir' atau
-            'Di luar area' berdasarkan jarak GPS ke lokasi kantor yang diatur admin.
+            'Di luar area' berdasarkan jarak GPS ke lokasi kantor yang diatur admin. Jangan lupa
+            absen masuk di awal hari dan absen pulang di akhir hari.
           </span>
         </div>
 
@@ -195,21 +237,47 @@ export default function AttendancePage() {
               </div>
             )}
 
-            <button
-              className="btn btn-primary"
-              onClick={handleSubmit}
-              disabled={submitting || !loc || !photoUrl}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 size={16} className="spin" /> Mengirim...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 size={16} /> Absen Masuk
-                </>
-              )}
-            </button>
+            <div className="attendance-actions">
+              <button
+                className={`btn ${checkedInToday ? 'btn-secondary' : 'btn-primary'}`}
+                onClick={() => handleSubmit('checkin')}
+                disabled={submitting || !loc || !photoUrl || checkedInToday}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={16} className="spin" /> Mengirim...
+                  </>
+                ) : checkedInToday ? (
+                  <>
+                    <CheckCircle2 size={16} /> Sudah Absen Masuk
+                  </>
+                ) : (
+                  <>
+                    <LogIn size={16} /> Absen Masuk
+                  </>
+                )}
+              </button>
+
+              <button
+                className={`btn ${checkedOutToday ? 'btn-secondary' : 'btn-primary'}`}
+                onClick={() => handleSubmit('checkout')}
+                disabled={submitting || !loc || !photoUrl || checkedOutToday}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={16} className="spin" /> Mengirim...
+                  </>
+                ) : checkedOutToday ? (
+                  <>
+                    <CheckCircle2 size={16} /> Sudah Absen Pulang
+                  </>
+                ) : (
+                  <>
+                    <LogOut size={16} /> Absen Pulang
+                  </>
+                )}
+              </button>
+            </div>
 
             {error && <p className="attendance-error">{error}</p>}
           </div>
@@ -223,14 +291,19 @@ export default function AttendancePage() {
 
             {result ? (
               <div className="attendance-result">
-                <div className={`result-badge ${result.status}`}>
-                  {STATUS_LABEL[result.status] || result.status}
+                <div className="attendance-result-badges">
+                  <span className={`result-badge result-type ${result.type}`}>
+                    {TYPE_LABEL[result.type] || result.type || 'Absen'}
+                  </span>
+                  <span className={`result-badge ${result.status}`}>
+                    {STATUS_LABEL[result.status] || result.status}
+                  </span>
                 </div>
                 {result.photo_url && (
                   <img className="result-photo" src={result.photo_url} alt="Bukti absen" />
                 )}
                 <p className="result-note">
-                  Absen berhasil dicatat. Status dihitung dari jarak GPS ke lokasi kantor.
+                  Absen {TYPE_LABEL[result.type] || ''} berhasil dicatat. Status dihitung dari jarak GPS ke lokasi kantor.
                 </p>
               </div>
             ) : (
@@ -265,6 +338,10 @@ export default function AttendancePage() {
                     <span className="history-time">{fmtTime(h.created_at)}</span>
                     {h.note && <span className="history-note">{h.note}</span>}
                   </div>
+                  <span className={`history-type ${h.type === 'checkout' ? 'checkout' : 'checkin'}`}>
+                    {h.type === 'checkout' ? <LogOut size={12} /> : <LogIn size={12} />}
+                    {TYPE_LABEL[h.type] || 'Absen'}
+                  </span>
                   <span className={`history-status ${h.status}`}>{STATUS_LABEL[h.status] || h.status}</span>
                 </div>
               ))}

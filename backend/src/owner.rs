@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::handlers::require_auth;
-use crate::models::{AttendanceRequest, AttendanceQuery, OwnerConfigRequest};
+use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, OwnerConfigRequest};
 
 // =====================================================================
 // OWNER DASHBOARD — analytics (Umami), database (Neon), storage
@@ -367,13 +367,15 @@ pub async fn profile_views(
     })))
 }
 
-/// POST /api/attendance — catat absen masuk (selfie + GPS).
+/// POST /api/attendance — catat absen masuk (checkin) / pulang (checkout).
 pub async fn create_attendance(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(payload): Json<AttendanceRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     let user_id = require_auth(&state, &headers).await?;
+
+    let a_type = if payload.kind == "checkout" { "checkout" } else { "checkin" };
 
     let company_id: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
         .bind(&user_id)
@@ -405,18 +407,20 @@ pub async fn create_attendance(
 
     let id = Uuid::new_v4().to_string();
     sqlx::query(
-        "INSERT INTO attendance (id, user_id, company_id, type, photo_url, latitude, longitude, distance_m, status, note, created_at)
-         VALUES ($1, $2, $3, 'checkin', $4, $5, $6, $7, $8, $9, $10)",
+        "INSERT INTO attendance (id, user_id, company_id, type, photo_url, latitude, longitude, distance_m, status, note, team_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
     )
     .bind(&id)
     .bind(&user_id)
     .bind(&company_id)
+    .bind(a_type)
     .bind(&payload.photo_url)
     .bind(payload.latitude)
     .bind(payload.longitude)
     .bind(payload.distance_m)
     .bind(&status)
     .bind(&payload.note)
+    .bind(&payload.team_id)
     .bind(Utc::now())
     .execute(&state.db)
     .await
@@ -428,10 +432,11 @@ pub async fn create_attendance(
     // Audit log.
     let _ = sqlx::query(
         "INSERT INTO audit_logs (id, actor_type, user_id, tool_name, action, target_resource, result, detail, created_at)
-         VALUES ($1, 'user', $2, 'attendance', 'checkin', $3, $4, $5, $6)",
+         VALUES ($1, 'user', $2, 'attendance', $3, $4, $5, $6, $7)",
     )
     .bind(Uuid::new_v4().to_string())
     .bind(&user_id)
+    .bind(a_type)
     .bind(&id)
     .bind(&status)
     .bind(Some(&payload.note))
@@ -439,7 +444,7 @@ pub async fn create_attendance(
     .execute(&state.db)
     .await;
 
-    Ok(Json(json!({ "ok": true, "id": id, "status": status, "photo_url": payload.photo_url })))
+    Ok(Json(json!({ "ok": true, "id": id, "type": a_type, "status": status, "photo_url": payload.photo_url })))
 }
 
 /// GET /api/attendance — daftar absensi (diri sendiri / company utk admin).
@@ -525,6 +530,154 @@ pub async fn list_attendance(
         .collect();
 
     Ok(Json(json!({ "attendance": list })))
+}
+
+/// GET /api/attendance/admin — dashboard absensi untuk admin/super_admin/owner.
+/// Menampilkan data per anggota per tanggal: jam masuk (checkin) + foto,
+/// jam pulang (checkout) + foto. Bila salah satu belum dilakukan, ditandai.
+/// Filter: `?company_id=...&team_id=...` (opsional).
+pub async fn admin_attendance_dashboard(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<AttendanceAdminQuery>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+
+    let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+        .bind(&user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("role");
+    let is_admin = role == "owner" || role == "super_admin" || role == "admin";
+    if !is_admin {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Pastikan company milik actor (atau actor owner).
+    if role != "owner" {
+        let my_company: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+            .bind(&user_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+            .get("company_id");
+        if my_company.as_deref() != Some(query.company_id.as_str()) {
+            return Err(StatusCode::FORBIDDEN);
+        }
+    }
+
+    // Ambil semua data absensi company (opsional filter team_id).
+    let rows = if query.team_id.is_empty() {
+        sqlx::query(
+            "SELECT a.id, a.user_id, u.name AS user_name, u.email AS user_email,
+                    a.type, a.photo_url, a.latitude, a.longitude, a.distance_m,
+                    a.status, a.note, a.team_id, a.created_at
+             FROM attendance a
+             JOIN users u ON u.id = a.user_id
+             WHERE a.company_id = $1
+             ORDER BY a.created_at DESC
+             LIMIT 2000",
+        )
+        .bind(&query.company_id)
+        .fetch_all(&state.db)
+        .await
+    } else {
+        sqlx::query(
+            "SELECT a.id, a.user_id, u.name AS user_name, u.email AS user_email,
+                    a.type, a.photo_url, a.latitude, a.longitude, a.distance_m,
+                    a.status, a.note, a.team_id, a.created_at
+             FROM attendance a
+             JOIN users u ON u.id = a.user_id
+             WHERE a.company_id = $1 AND a.team_id = $2
+             ORDER BY a.created_at DESC
+             LIMIT 2000",
+        )
+        .bind(&query.company_id)
+        .bind(&query.team_id)
+        .fetch_all(&state.db)
+        .await
+    }
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Kelompokkan per user per tanggal (lokasi waktu server UTC → pakai date di Asia/Jakarta).
+    use std::collections::BTreeMap;
+    let mut by_key: BTreeMap<(String, String), Vec<Value>> = BTreeMap::new();
+
+    for r in &rows {
+        let user_id: String = r.get("user_id");
+        let created_at: chrono::DateTime<Utc> = r.get("created_at");
+        // Konversi ke WIB (UTC+7) untuk penanggalan lokal.
+        let wib = created_at + chrono::Duration::hours(7);
+        let date = wib.format("%Y-%m-%d").to_string();
+        by_key.entry((user_id.clone(), date)).or_default().push(json!({
+            "id": r.get::<String, _>("id"),
+            "type": r.get::<String, _>("type"),
+            "photo_url": r.get::<String, _>("photo_url"),
+            "latitude": r.get::<f64, _>("latitude"),
+            "longitude": r.get::<f64, _>("longitude"),
+            "distance_m": r.get::<f64, _>("distance_m"),
+            "status": r.get::<String, _>("status"),
+            "note": r.get::<String, _>("note"),
+            "team_id": r.get::<String, _>("team_id"),
+            "created_at": created_at,
+        }));
+    }
+
+    // Bangun hasil: per user per tanggal, cari checkin & checkout pertama/terakhir.
+    let mut records: Vec<Value> = Vec::new();
+    for ((uid, date), items) in by_key {
+        // Ambil nama user (dari item mana pun — konsisten).
+        let row0 = &rows.iter().find(|r| r.get::<String, _>("user_id") == uid && {
+            let c: chrono::DateTime<Utc> = r.get("created_at");
+            (c + chrono::Duration::hours(7)).format("%Y-%m-%d").to_string() == date
+        });
+
+        let name = row0.map(|r| r.get::<String, _>("user_name")).unwrap_or_default();
+        let email = row0.map(|r| r.get::<String, _>("user_email")).unwrap_or_default();
+
+        let checkin = items.iter().find(|v| v.get("type").and_then(|t| t.as_str()) == Some("checkin"));
+        let checkout = items.iter().find(|v| v.get("type").and_then(|t| t.as_str()) == Some("checkout"));
+
+        let status = checkin
+            .and_then(|c| c.get("status").and_then(|s| s.as_str()))
+            .unwrap_or("missing")
+            .to_string();
+
+        records.push(json!({
+            "user_id": uid,
+            "user_name": name,
+            "user_email": email,
+            "date": date,
+            "team_id": checkin.and_then(|c| c.get("team_id").and_then(|t| t.as_str())).unwrap_or("").to_string(),
+            "status": status,
+            "checkin": checkin.cloned(),
+            "checkout": checkout.cloned(),
+            "checkin_missing": checkin.is_none(),
+            "checkout_missing": checkout.is_none(),
+        }));
+    }
+
+    // Urut: yang "bermasalah" (checkin/checkout missing) di atas, lalu tanggal terbaru.
+    records.sort_by(|a, b| {
+        let am = a.get("checkin_missing").and_then(|v| v.as_bool()).unwrap_or(false) as i32
+            + a.get("checkout_missing").and_then(|v| v.as_bool()).unwrap_or(false) as i32;
+        let bm = b.get("checkin_missing").and_then(|v| v.as_bool()).unwrap_or(false) as i32
+            + b.get("checkout_missing").and_then(|v| v.as_bool()).unwrap_or(false) as i32;
+        bm.cmp(&am)
+            .then_with(|| b.get("date").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("date").and_then(|v| v.as_str()).unwrap_or("")))
+    });
+
+    Ok(Json(json!({ "records": records, "count": records.len() })))
 }
 
 /// Jarak haversine dalam meter.
