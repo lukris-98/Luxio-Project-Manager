@@ -4,7 +4,7 @@ import ReminderWatcher from './ReminderWatcher'
 import HeadlineMarquee from './HeadlineMarquee'
 import { requestNotificationPermission } from '../utils/notify'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound 
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound, Activity, Clock 
 } from 'lucide-react'
 import './Layout.css'
 
@@ -63,6 +63,10 @@ export default function Layout({ children }) {
     ...(effRole === 'user' ? [{ id: 'upgrade', icon: Rocket, label: 'Upgrade Akun' }] : []),
     // Kelola Akun khusus pemilik (role efektif owner).
     ...(effRole === 'owner' ? [{ id: 'admin-users', icon: Crown, label: 'Kelola Akun' }] : []),
+    // Pemantauan owner (analytics, database, storage, log) — khusus owner.
+    ...(effRole === 'owner' ? [{ id: 'owner-dashboard', icon: Activity, label: 'Pemantauan' }] : []),
+    // Absen masuk kerja (semua role).
+    { id: 'attendance', icon: Clock, label: 'Absen' },
   ]
 
   const handleRoleChange = (role) => {
@@ -73,7 +77,7 @@ export default function Layout({ children }) {
 
   // Kalau role diganti dan sedang di halaman khusus owner, lempar ke dashboard.
   useEffect(() => {
-    if (currentPage === 'admin-users' && effRole !== 'owner') {
+    if ((currentPage === 'admin-users' || currentPage === 'owner-dashboard') && effRole !== 'owner') {
       setCurrentPage('dashboard')
     }
   }, [effRole, currentPage, setCurrentPage])

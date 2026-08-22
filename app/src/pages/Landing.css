@@ -199,7 +199,7 @@
 }
 
 .hero h1 {
-  font-size: 1.25rem;
+  font-size: clamp(1.375rem, 3vw, 2.25rem);
   line-height: 1.1;
   margin-bottom: var(--space-5);
 }
@@ -462,6 +462,14 @@
 /* Features */
 .features {
   padding: var(--space-12) var(--space-6);
+}
+
+/* Fitur Lengkap (section tambahan sebelum footer) */
+.features-full {
+  padding: var(--space-12) var(--space-6);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .features-grid {
@@ -917,7 +925,7 @@
 
 @media (max-width: 640px) {
   .hero h1 {
-    font-size: 1.125rem;
+    font-size: clamp(1.25rem, 5.5vw, 1.75rem);
   }
   
   .hero-counters {
@@ -928,5 +936,28 @@
   .features-grid,
   .pricing-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 96px var(--space-4) var(--space-8);
+  }
+
+  .features,
+  .features-full,
+  .pricing,
+  .faq,
+  .cta {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  .section-header {
+    margin-bottom: var(--space-6);
+  }
+
+  .cta-box {
+    padding: var(--space-6) var(--space-4);
   }
 }

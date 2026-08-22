@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { motion, useSpring, useTransform, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion'
-import { ArrowRight, ArrowUp, Check, Users, Target, BarChart3, Shield, Globe, Clock, Moon, Sun, Menu, X } from 'lucide-react'
+import { ArrowRight, ArrowUp, Check, Users, Target, BarChart3, Shield, Globe, Clock, Moon, Sun, Menu, X, Kanban, CheckSquare, Lock, Calendar, MessageSquare, Bot, Camera, Database, HardDrive } from 'lucide-react'
 import HeadlineMarquee from '../components/HeadlineMarquee'
 import './Landing.css'
 
@@ -91,6 +91,21 @@ export default function Landing() {
     { icon: Clock, title: 'Deadline Tracking', desc: 'Tidak ada yang terlewat. Reminder otomatis sebelum deadline' },
     { icon: Shield, title: 'Aman & Privat', desc: 'Data perusahaan kamu tersimpan aman di database Neon. Tidak ada yang bisa lihat selain tim kamu' },
     { icon: Globe, title: 'Buka di Mana Saja', desc: 'PWA - bisa dibuka di browser apa saja, tanpa install aplikasi' },
+  ]
+
+  const featureGroups = [
+    { icon: Target, title: 'Manajemen Target & Proyek', desc: 'Target mingguan, bulanan, quarterly dengan progress terukur' },
+    { icon: Kanban, title: 'Kanban & To-Do', desc: 'Kelola task dengan board kanban atau daftar to-do sederhana' },
+    { icon: Lock, title: 'Catatan Pribadi + PIN', desc: 'Catatan rahasia dikunci PIN — aman dari orang lain' },
+    { icon: Calendar, title: 'Kalender & Pengingat', desc: 'Jadwal & reminder otomatis sebelum deadline tiba' },
+    { icon: Users, title: 'Tim, Divisi & Kewenangan', desc: 'Atur divisi, tim, dan hak akses tiap anggota' },
+    { icon: MessageSquare, title: 'Chat antar anggota + grup otomatis', desc: 'Diskusi antar anggota, grup chat otomatis per tim' },
+    { icon: Bot, title: 'AI Agent', desc: 'Asisten AI yang menjalankan tool resmi sistem' },
+    { icon: Camera, title: 'Absen Masuk + GPS & Selfie', desc: 'Absen dengan foto selfie dan lokasi GPS' },
+    { icon: BarChart3, title: 'Analytics (Umami)', desc: 'Dashboard pengunjung situs tanpa jejak cookie' },
+    { icon: Database, title: 'Monitoring Database (Neon)', desc: 'Pantau kuota & pemakaian PostgreSQL' },
+    { icon: HardDrive, title: 'Penyimpanan (Backblaze)', desc: 'Penyimpanan objek untuk foto profil & absensi' },
+    { icon: Shield, title: 'Keamanan: 2FA, PIN, email konfirmasi', desc: 'Aktivasi email, PIN pribadi, dan verifikasi dua langkah' },
   ]
   
 const pricingPlans = [
@@ -355,6 +370,27 @@ const pricingPlans = [
         </motion.div>
       </RevealSection>
       
+      {/* Fitur Lengkap */}
+      <RevealSection id="fitur-lengkap" className="features-full">
+        <motion.div className="section-inner" variants={revealContainer}>
+          <motion.div className="section-header" variants={revealItem}>
+            <h2>Fitur Lengkap</h2>
+            <p>Semua yang kamu butuhkan untuk mengelola target, tim, dan operasional harian</p>
+          </motion.div>
+          <motion.div className="features-grid" variants={revealContainer}>
+            {featureGroups.map((f, idx) => (
+              <motion.div key={idx} className="feature-card" variants={revealItem}>
+                <div className="feature-icon">
+                  <f.icon size={22} />
+                </div>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.div>
+      </RevealSection>
+
       {/* CTA */}
       <RevealSection className="cta">
         <motion.div className="section-inner" variants={revealContainer}>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
-import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot } from 'lucide-react'
+import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye } from 'lucide-react'
 import { api } from '../services/api'
 import './Settings.css'
 
@@ -50,6 +50,7 @@ export default function Settings() {
   const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [views, setViews] = useState(null)
 
   const isEditingOther = Boolean(selectedUserId) && selectedUserId !== (currentUser?.id || '')
 
@@ -80,6 +81,15 @@ export default function Settings() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Muat statistik tampilan profil (TikTok-style views).
+  useEffect(() => {
+    if (!currentUser?.id) return
+    api.getProfileViews(currentUser.id)
+      .then(setViews)
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id])
 
   // Bila profil di-refresh / dipilih user lain, isi ulang form.
   useEffect(() => {
@@ -292,6 +302,54 @@ export default function Settings() {
                   <Save size={14} /> {saving ? 'Menyimpan…' : 'Simpan'}
                 </button>
               </div>
+            </div>
+          </motion.div>
+
+          {/* Profil Saya — views TikTok-style */}
+          <motion.div className="settings-section" variants={itemVariants}>
+            <div className="section-header">
+              <Eye size={18} />
+              <h2>Profil Saya</h2>
+            </div>
+            <div className="settings-card">
+              <div className="settings-item">
+                <div>
+                  <span className="item-label">Total tampilan profil</span>
+                  <p className="item-desc">Berapa kali profil kamu dilihat anggota lain</p>
+                </div>
+                <span className="views-count">{views?.total_views ?? '-'}</span>
+              </div>
+
+              {views?.can_see_viewers ? (
+                views.viewers && views.viewers.length > 0 ? (
+                  <div className="viewers-list">
+                    {views.viewers.map((v, i) => (
+                      <div key={i} className="viewer-row">
+                        <div className="viewer-avatar">
+                          {(v.name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="viewer-info">
+                          <span className="viewer-name">{v.name}</span>
+                          <span className="viewer-meta">
+                            {[v.position, v.company_name].filter(Boolean).join(' · ') || v.email || '-'}
+                          </span>
+                        </div>
+                        <span className="viewer-time">
+                          {new Date(v.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="settings-item">
+                    <span className="item-value">Belum ada yang melihat profil kamu.</span>
+                  </div>
+                )
+              ) : (
+                <div className="settings-item">
+                  <span className="item-value">Hanya pemilik profil yang bisa melihat daftar pengunjung.</span>
+                </div>
+              )}
             </div>
           </motion.div>
 
