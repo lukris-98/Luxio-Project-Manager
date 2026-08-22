@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::handlers::require_auth;
-use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, OwnerConfigRequest};
+use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, IncentiveRequest, OwnerConfigRequest, SalaryQuery};
 
 // =====================================================================
 // OWNER DASHBOARD — analytics (Umami), database (Neon), storage
@@ -678,6 +678,291 @@ pub async fn admin_attendance_dashboard(
     });
 
     Ok(Json(json!({ "records": records, "count": records.len() })))
+}
+
+/// GET /api/salary/monthly — kalkulasi gaji bulanan per user berdasarkan
+/// absensi (kehadiran), gaji pokok (members.salary), dan insentif.
+/// Hanya admin/super_admin/owner. `?company_id=&month=YYYY-MM&team_id=`.
+pub async fn salary_monthly(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<SalaryQuery>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+
+    let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+        .bind(&user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("role");
+    let is_admin = role == "owner" || role == "super_admin" || role == "admin";
+    if !is_admin {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    if role != "owner" {
+        let my_company: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+            .bind(&user_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+            .get("company_id");
+        if my_company.as_deref() != Some(query.company_id.as_str()) {
+            return Err(StatusCode::FORBIDDEN);
+        }
+    }
+
+    // Batas bulan (YYYY-MM) → rentang waktu WIB (UTC+7) di SQL.
+    let month_start = format!("{}", query.month); // 'YYYY-MM'
+    if !is_valid_month(&month_start) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Semua member company (opsional filter team_id — pakai members.division_id
+    // sebagai pendekatan tim; bila team_id diberikan, filter via attendance.team_id).
+    let members = sqlx::query(
+        "SELECT m.id AS member_id, m.name, m.email, m.position, m.salary, m.division_id, u.id AS user_id
+         FROM members m
+         LEFT JOIN users u ON LOWER(u.email) = LOWER(m.email)
+         WHERE m.company_id = $1
+         ORDER BY m.name",
+    )
+    .bind(&query.company_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let mut result: Vec<Value> = Vec::new();
+
+    for m in &members {
+        let user_id_match: Option<String> = m.get("user_id");
+        let salary_text: String = m.get("salary");
+        let base_salary: f64 = salary_text.trim().parse().unwrap_or(0.0);
+
+        // Hitung kehadiran di bulan tsb (dari attendance user, type=checkin,
+        // status=present, dalam rentang bulan).
+        let (present_days, outside_days, total_checkins): (i64, i64, i64) = match &user_id_match {
+            Some(uid) => {
+                let r = sqlx::query(
+                    "SELECT
+                        COUNT(*) FILTER (WHERE status = 'present') AS present,
+                        COUNT(*) FILTER (WHERE status = 'outside') AS outside,
+                        COUNT(*) AS total
+                     FROM attendance
+                     WHERE user_id = $1 AND type = 'checkin'
+                       AND to_char(created_at AT TIME ZONE 'UTC' + INTERVAL '7 hours', 'YYYY-MM') = $2",
+                )
+                .bind(uid)
+                .bind(&month_start)
+                .fetch_one(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+                (r.get("present"), r.get("outside"), r.get("total"))
+            }
+            None => (0, 0, 0),
+        };
+
+        // Insentif bulan tsb.
+        let incentives = if let Some(uid) = &user_id_match {
+            sqlx::query(
+                "SELECT id, amount, reason, created_at FROM salary_incentives
+                 WHERE user_id = $1 AND month = $2 ORDER BY created_at DESC",
+            )
+            .bind(uid)
+            .bind(&month_start)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+        } else {
+            vec![]
+        };
+
+        let total_incentive: f64 = incentives.iter().map(|i| i.get::<f64, _>("amount")).sum();
+        let total_gaji: f64 = base_salary + total_incentive;
+
+        result.push(json!({
+            "member_id": m.get::<String, _>("member_id"),
+            "name": m.get::<String, _>("name"),
+            "email": m.get::<String, _>("email"),
+            "position": m.get::<String, _>("position"),
+            "user_id": user_id_match,
+            "base_salary": base_salary,
+            "present_days": present_days,
+            "outside_days": outside_days,
+            "total_checkins": total_checkins,
+            "incentives": incentives.iter().map(|i| json!({
+                "id": i.get::<String, _>("id"),
+                "amount": i.get::<f64, _>("amount"),
+                "reason": i.get::<String, _>("reason"),
+                "created_at": i.get::<chrono::DateTime<Utc>, _>("created_at"),
+            })).collect::<Vec<_>>(),
+            "total_incentive": total_incentive,
+            "total_salary": total_gaji,
+        }));
+    }
+
+    Ok(Json(json!({
+        "month": query.month,
+        "count": result.len(),
+        "records": result,
+    })))
+}
+
+/// POST /api/salary/incentive — tambah insentif bulanan untuk user.
+pub async fn salary_add_incentive(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<IncentiveRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let actor_id = require_auth(&state, &headers).await?;
+    let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+        .bind(&actor_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("role");
+    if role != "owner" && role != "super_admin" && role != "admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    if !is_valid_month(&payload.month) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if payload.amount <= 0.0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let company_id: Option<String> = sqlx::query("SELECT company_id FROM users WHERE id = $1")
+        .bind(&payload.user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("company_id");
+
+    let id = Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO salary_incentives (id, company_id, user_id, month, amount, reason, created_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    )
+    .bind(&id)
+    .bind(&company_id)
+    .bind(&payload.user_id)
+    .bind(&payload.month)
+    .bind(payload.amount)
+    .bind(&payload.reason)
+    .bind(&actor_id)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(json!({ "ok": true, "id": id })))
+}
+
+/// DELETE /api/salary/incentive/{id} — hapus insentif.
+pub async fn salary_delete_incentive(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(incentive_id): axum::extract::Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    let actor_id = require_auth(&state, &headers).await?;
+    let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+        .bind(&actor_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("role");
+    if role != "owner" && role != "super_admin" && role != "admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    sqlx::query("DELETE FROM salary_incentives WHERE id = $1")
+        .bind(&incentive_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    Ok(Json(json!({ "ok": true })))
+}
+
+/// GET /api/owner/neon/active — konfigurasi koneksi Neon aktif (khusus owner).
+/// Menampilkan host & nama database dari DATABASE_URL, tanpa credential asli.
+pub async fn neon_active_config(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let url = std::env::var("DATABASE_URL").unwrap_or_default();
+    // parse postgres://user:pass@host:port/db?...
+    let host = url
+        .split('@')
+        .nth(1)
+        .and_then(|s| s.split('/').next())
+        .unwrap_or("")
+        .to_string();
+    let db_name = url
+        .split('@')
+        .nth(1)
+        .and_then(|s| s.split('/').nth(1))
+        .and_then(|s| s.split('?').next())
+        .unwrap_or("")
+        .to_string();
+    // host bisa berisi port
+    let host_only = host.split(':').next().unwrap_or(&host).to_string();
+
+    Ok(Json(json!({
+        "configured": !url.is_empty(),
+        "host": host_only,
+        "port": host.split(':').nth(1).unwrap_or("5432"),
+        "database": db_name,
+        "provider": "Neon PostgreSQL",
+        "note": "Ini koneksi aktif dari .env (DATABASE_URL). Kredensial disembunyikan.",
+    })))
+}
+
+fn is_valid_month(month: &str) -> bool {
+    let parts: Vec<&str> = month.split('-').collect();
+    if parts.len() != 2 {
+        return false;
+    }
+    let y: i32 = parts[0].parse().unwrap_or(0);
+    let m: i32 = parts[1].parse().unwrap_or(0);
+    (2000..=2100).contains(&y) && (1..=12).contains(&m)
 }
 
 /// Jarak haversine dalam meter.

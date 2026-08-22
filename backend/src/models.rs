@@ -563,3 +563,22 @@ pub struct AttendanceAdminQuery {
     #[serde(default)]
     pub team_id: String,
 }
+
+/// Query param GET /api/salary/monthly — `?company_id=&month=YYYY-MM&team_id=`.
+#[derive(Debug, Deserialize)]
+pub struct SalaryQuery {
+    pub company_id: String,
+    pub month: String,
+    #[serde(default)]
+    pub team_id: String,
+}
+
+/// Body request POST /api/salary/incentive — tambah/hapus insentif bulanan.
+#[derive(Debug, Deserialize)]
+pub struct IncentiveRequest {
+    pub user_id: String,
+    pub month: String,
+    pub amount: f64,
+    #[serde(default)]
+    pub reason: String,
+}

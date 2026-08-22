@@ -408,5 +408,21 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Insentif/bonus bulanan per user (dipakai kalkulasi gaji di dashboard absensi).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS salary_incentives (
+            id TEXT PRIMARY KEY,
+            company_id TEXT REFERENCES companies(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            month TEXT NOT NULL DEFAULT '',
+            amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+            reason TEXT NOT NULL DEFAULT '',
+            created_by TEXT REFERENCES users(id),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }
