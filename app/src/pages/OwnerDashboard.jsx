@@ -48,6 +48,9 @@ export default function OwnerDashboard() {
   const [neonStatus, setNeonStatus] = useState(null)
   const [neonLoading, setNeonLoading] = useState(false)
   const [neonError, setNeonError] = useState('')
+  const [neonActive, setNeonActive] = useState(null)
+  const [neonActiveLoading, setNeonActiveLoading] = useState(false)
+  const [neonActiveError, setNeonActiveError] = useState('')
 
   // Backblaze B2
   const [b2Form, setB2Form] = useState({ key_id: '', application_key: '', bucket_name: '', endpoint: '' })
@@ -169,6 +172,25 @@ export default function OwnerDashboard() {
     } finally {
       setNeonLoading(false)
     }
+  }
+
+  const loadNeonActive = async () => {
+    setNeonActiveLoading(true)
+    setNeonActiveError('')
+    try {
+      const res = await api.neonActiveConfig()
+      setNeonActive(res)
+    } catch (e) {
+      setNeonActiveError('Gagal memuat info koneksi aktif.')
+    } finally {
+      setNeonActiveLoading(false)
+    }
+  }
+
+  const maskConn = (cfg) => {
+    if (!cfg?.configured || !cfg.host) return '-'
+    const db = cfg.database ? `/${cfg.database}` : ''
+    return `postgres://*****@${cfg.host}:${cfg.port || '5432'}${db}`
   }
 
   const summarizeConsumption = (c) => {
@@ -295,6 +317,10 @@ export default function OwnerDashboard() {
               loading={neonLoading}
               error={neonError}
               onCheck={checkNeon}
+              active={neonActive}
+              activeLoading={neonActiveLoading}
+              activeError={neonActiveError}
+              onLoadActive={loadNeonActive}
             />
           )}
 
@@ -395,6 +421,7 @@ function AnalyticsTab({ config, form, setForm, saving, onSave }) {
 function NeonTab({
   config, form, setForm, projects, newProject, setNewProject,
   onAddProject, onRemoveProject, onSave, saving, status, loading, error, onCheck,
+  active, activeLoading, activeError, onLoadActive,
 }) {
   const consumption = summarizeNeonConsumption(status)
   return (
@@ -471,6 +498,58 @@ function NeonTab({
           <span>{status.message || 'Neon belum dikonfigurasi.'}</span>
         </div>
       )}
+
+      <div className="owner-active-box">
+        <div className="owner-active-head">
+          <div className="owner-active-title">
+            <Database size={16} />
+            <div>
+              <h3>Koneksi Database Aktif</h3>
+              <p>Konfigurasi koneksi yang sedang dipakai (dari .env / DATABASE_URL).</p>
+            </div>
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={onLoadActive} disabled={activeLoading}>
+            <RefreshCw size={14} className={activeLoading ? 'spin' : ''} />
+            {activeLoading ? 'Memuat…' : 'Muat Info Koneksi'}
+          </button>
+        </div>
+
+        {activeError && <p className="owner-error">{activeError}</p>}
+
+        {active && (
+          <div className="owner-conn-info">
+            {active.configured ? (
+              <>
+                <div className="owner-account-item">
+                  <span className="item-label">Connection String (masked)</span>
+                  <span className="item-value mono">{maskConn(active)}</span>
+                </div>
+                <div className="owner-account-item">
+                  <span className="item-label">Host</span>
+                  <span className="item-value mono">{active.host || '-'}</span>
+                </div>
+                <div className="owner-account-item">
+                  <span className="item-label">Port</span>
+                  <span className="item-value mono">{active.port || '-'}</span>
+                </div>
+                <div className="owner-account-item">
+                  <span className="item-label">Database</span>
+                  <span className="item-value mono">{active.database || '-'}</span>
+                </div>
+                <div className="owner-account-item">
+                  <span className="item-label">Provider</span>
+                  <span className="item-value">{active.provider || '-'}</span>
+                </div>
+                {active.note && (
+                  <p className="field-hint">{active.note}</p>
+                )}
+              </>
+            ) : (
+              <p className="item-desc">Belum ada konfigurasi koneksi aktif di backend.</p>
+            )}
+          </div>
+        )}
+      </div>
 
       {status?.configured && (
         <div className="owner-status-block">

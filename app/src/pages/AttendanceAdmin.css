@@ -259,6 +259,182 @@
   cursor: pointer;
 }
 
+/* Tab switcher: Kehadiran | Gaji */
+.att-admin-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.att-admin-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.att-admin-tab:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.att-admin-tab.active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Kolom aksi tabel gaji */
+.sal-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.sal-total {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Modal umum */
+.sal-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-5);
+}
+
+.sal-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sal-modal-sm {
+  max-width: 400px;
+}
+
+.sal-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.sal-modal-head h3 {
+  font-size: 1rem;
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-icon:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.sal-modal-body {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sal-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sal-info-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.sal-info-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+.sal-total-row .sal-info-value {
+  color: var(--success);
+  font-size: 1rem;
+}
+
+.sal-divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.sal-incentive-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-4);
+}
+
+.sal-incentive-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 0.8125rem;
+}
+
+.sal-inc-reason {
+  color: var(--text-secondary);
+}
+
+.sal-inc-amount {
+  font-weight: 600;
+}
+
+.sal-inc-for {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.sal-modal-actions {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.sal-modal-actions .btn {
+  flex: 1;
+}
+
 /* Responsive */
 @media (max-width: 720px) {
   .att-admin-filters {
@@ -268,5 +444,20 @@
 
   .att-admin-filter {
     min-width: 0;
+  }
+
+  .att-admin-tabs {
+    flex-direction: column;
+  }
+
+  .att-admin-tab {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .attendance-grid {
+    grid-template-columns: 1fr;
   }
 }

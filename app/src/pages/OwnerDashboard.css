@@ -404,6 +404,52 @@
   border: 1px solid var(--yellow);
 }
 
+/* Koneksi Database Aktif (Neon) */
+.owner-active-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+}
+
+.owner-active-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.owner-active-title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.owner-active-title > svg {
+  color: var(--accent);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.owner-active-title h3 {
+  font-size: 0.9375rem;
+  margin-bottom: 2px;
+}
+
+.owner-active-title p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.owner-conn-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 /* Raw JSON */
 .owner-raw {
   display: flex;

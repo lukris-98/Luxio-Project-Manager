@@ -198,6 +198,14 @@ export const api = {
   ownerLogs: () => get('/api/owner/logs'),
   neonStatus: () => get('/api/owner/neon/status'),
   b2Status: () => get('/api/owner/b2/status'),
+  // Konfigurasi Neon aktif (dari .env, owner).
+  neonActiveConfig: () => get('/api/owner/neon/active'),
+
+  // ---- Gaji & insentif (dashboard absensi admin) ----
+  salaryMonthly: (companyId, month, teamId) =>
+    get('/api/salary/monthly', teamId ? { company_id: companyId, month, team_id: teamId } : { company_id: companyId, month }),
+  salaryAddIncentive: (data) => post('/api/salary/incentive', data),
+  salaryDeleteIncentive: (id) => del(`/api/salary/incentive/${id}`, {}),
 
   // ---- Profil views (TikTok-style) ----
   recordProfileView: (userId) => post(`/api/profile/${userId}/view`, {}),

@@ -1,179 +1,86 @@
-# Luxio Project Manager
+# Luxio — Project & Target Manager 🚀
 
-Aplikasi manajemen project & target untuk tim, dengan **frontend React** dan **backend Rust (Axum)**.
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-Axum-orange?logo=rust&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-Enabled-5A0FC8?logo=pwa&logoColor=white)
 
-Dokumen ini adalah **panduan onboarding** — baca untuk memahami arsitektur, cara menjalankan, dan fungsi tiap bagian sebelum mengubah kode.
-
----
-
-## 1. Arsitektur Singkat
-
-```
-Luxio Project Manager/
-├── app/        # Frontend (React + Vite + Zustand) — UI pengguna
-└── backend/    # Backend (Rust + Axum + PostgreSQL) — REST API
-```
-
-Alur data: **Browser → `app` (React) → `app/src/services/api.js` → HTTP → `backend` (Axum) → PostgreSQL**
-
-Frontend menyimpan state global di Zustand (`app/src/store/useStore.js`). Komponen halaman tinggal membaca/memanggil action dari store — tidak menyentuh API langsung.
-
-> ⚠️ **Status integrasi**: Auth (login/register) sudah terhubung ke backend dengan **session token** (Argon2id + hash token). Fitur project/task/kanban **masih mock** (data di memori, hilang saat reload). Lihat [Roadmap](#7-roadmap) untuk langkah berikutnya.
+Aplikasi manajemen **project & target** untuk tim — dari perencanaan, kolaborasi,
+absensi, hingga kalkulasi gaji bulanan — dalam satu platform. Frontend dibangun
+dengan **React + Vite + PWA**, backend dengan **Rust (Axum)**, dan database
+**PostgreSQL** (siap untuk Neon Serverless).
 
 ---
 
-## 2. Prasyarat
+## 📸 Screenshot
 
-| Tools | Untuk | Versi disarankan |
-|-------|-------|------------------|
-| [Node.js](https://nodejs.org) | Frontend (Vite/React) | ≥ 18 |
-| [Rust](https://rustup.rs) | Backend (Cargo) | ≥ 1.70 |
-| PostgreSQL / [Neon](https://neon.tech) | Database backend | — |
-| MSVC Build Tools | Compile Rust di Windows (`link.exe`) | — |
+> _Tambahkan tangkapan layar aplikasi di sini._
+>
+> ```
+> app/public/screenshots/
+> ├── dashboard.png
+> ├── absensi.png
+> └── owner-dashboard.png
+> ```
 
 ---
 
-## 3. Cara Menjalankan
+## ✨ Fitur
 
-### 3.1 Backend (`backend`)
+| Kategori | Fitur |
+|----------|-------|
+| 🗂️ Manajemen | Project & target, task, kanban board, kalender, catatan pribadi + PIN |
+| 👥 Tim | Divisi, tim, kewenangan per anggota, chat antar anggota + grup otomatis |
+| 🔐 Keamanan | Autentikasi Argon2id, 2FA, PIN, verifikasi email, audit log aktivitas |
+| 🤖 AI | AI Agent via tool layer, eksekusi terotentikasi + idempotency |
+| 📸 Absensi | Absen masuk/pulang dengan kamera live & GPS, peta lokasi, rekap admin |
+| 💰 Gaji | Kalkulasi gaji bulanan (kehadiran + insentif), preview rincian, cetak PDF |
+| 👑 Owner | Analytics (Umami), monitoring Neon, storage Backblaze B2, log sistem |
+
+---
+
+## 🧱 Tech Stack
+
+| Lapisan | Teknologi |
+|---------|-----------|
+| Frontend | React 18, Vite, Zustand, Framer Motion, PWA (vite-plugin-pwa) |
+| Backend | Rust, Axum, SQLx |
+| Database | PostgreSQL (Neon Serverless ready) |
+| Integrasi | Umami Analytics, Neon, Backblaze B2 |
+
+---
+
+## 🚀 Quick Start
 
 ```bash
+# 1. Backend (Rust + Axum)
 cd backend
+cp .env.example .env   # isi DATABASE_URL
+cargo run              # http://localhost:3000
 
-# 1. Siapkan env (salin dulu dari contoh)
-cp .env.example .env
-#   lalu isi DATABASE_URL dengan koneksi Postgres kamu
-#   (untuk produksi wajib isi juga OWNER_EMAIL & OWNER_PASSWORD)
-
-# 2. Jalankan server (akan konek DB + buat tabel otomatis)
-cargo run
-```
-
-Server berjalan di `http://localhost:3000`. Cek hidup: `GET http://localhost:3000/health` → `OK`.
-
-### 3.2 Frontend (`app`)
-
-```bash
+# 2. Frontend (React + Vite)
 cd app
 npm install
-
-# (opsional) set URL backend, default sudah ke localhost:3000
-echo "VITE_API_URL=http://localhost:3000" > .env
-
-# Mode pengembangan (hot reload)
-npm run dev
+npm run dev            # http://localhost:5173
 
 # Build produksi (PWA)
 npm run build
-npm run preview
 ```
 
-Frontend berjalan di `http://localhost:5173` saat `npm run dev`.
+---
 
-> Jalankan **backend dulu**, lalu frontend, agar login/register berfungsi.
+## 📚 Dokumentasi Lengkap
+
+| Dokumen | Isi |
+|---------|-----|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Arsitektur sistem & alur data |
+| [SECURITY.md](./SECURITY.md) | Kebijakan & praktik keamanan |
+| [SPEC.md](./SPEC.md) | Spesifikasi fitur & API |
+| [WIREFRAME.md](./WIREFRAME.md) | Wireframe antarmuka |
+| [saran_pricing.md](./saran_pricing.md) | Strategi & saran pricing |
 
 ---
 
-## 4. Struktur Folder — Fungsi per Bagian
+## 📄 Lisensi
 
-### 4.1 `app/` — Frontend
-
-| Path | Fungsi |
-|------|--------|
-| `src/main.jsx` | Entry point. Merender `<App />` ke `#root`. |
-| `src/App.jsx` | Router manual. Pilih halaman berdasarkan `appState` & `currentPage` di store. |
-| `src/store/useStore.js` | State global (Zustand): auth, setup, project, task, kanban. Sumber utama state. |
-| `src/services/api.js` | Klien API terpusat. Semua `fetch` ke backend lewat file ini. |
-| `src/components/Layout.jsx` | Layout area 'app': sidebar, topbar, theme, logout. |
-| `src/pages/` | Satu folder per halaman. Lihat tabel di bawah. |
-| `src/pages/*.css` | Styling per halaman (diimpor oleh JSX terkait). |
-| `vite.config.js` | Konfigurasi Vite + PWA manifest. |
-| `index.html` | HTML host + load font & `main.jsx`. |
-
-**Halaman (`src/pages/`):**
-
-| File | Fungsi |
-|------|--------|
-| `Landing.jsx` | Landing page (publik). |
-| `Pricing.jsx` / `FAQ.jsx` / `Checkout.jsx` | Halaman info & pembelian (publik). |
-| `Auth.jsx` | Login & Register (terhubung backend). |
-| `Setup.jsx` | Onboarding wizard: pilih tipe (Individual/Grup/Perusahaan/Sekolah) → alur data berbeda per tipe. |
-| `Dashboard.jsx` | Ringkasan statistik & aksi cepat. |
-| `Projects.jsx` / `ProjectDetail.jsx` | Kelola project/target. |
-| `Kanban.jsx` | Board kanban kustom (mock). |
-| `TodoList.jsx` / `MyTasks.jsx` / `Calendar.jsx` | Task & kalender (mock). |
-| `Team.jsx` | Kelola anggota tim. |
-| `Settings.jsx` | Pengaturan. |
-
-### 4.2 `backend/` — Backend (Rust)
-
-| Path | Fungsi |
-|------|--------|
-| `src/main.rs` | Binary `luxio-server`. Hanya memanggil `luxio_backend::run()`. |
-| `src/lib.rs` | Root lib: deklarasi modul + `AppState` + fungsi `run()` (merangkai router & start server). |
-| `src/models.rs` | Tipe data: model database & request/response API. |
-| `src/db.rs` | Koneksi pool Postgres + migrasi pembuatan tabel. |
-| `src/handlers.rs` | Implementasi semua endpoint REST + logika hash. |
-| `src/tools.rs` | **Tool/Action layer** untuk AI Agent & UI: registri tool, schema, risk level, audit log, idempotency. |
-| `Cargo.toml` | Dependensi & target (lib + bin). |
-| `.env` / `.env.example` | Konfigurasi `DATABASE_URL` & `PORT`. |
-
----
-
-## 5. Dokumentasi API
-
-Semua endpoint mengembalikan JSON. Base URL: `http://localhost:3000`.
-
-| Method | Path | Fungsi | Body / Query | Auth |
-|--------|------|--------|--------------|------|
-| GET | `/health` | Cek server hidup | — | — |
-| POST | `/api/auth/register` | Daftar akun | `{ email, password, name }` | — |
-| POST | `/api/auth/login` | Login | `{ email, password }` | — |
-| POST | `/api/auth/logout` | Hapus sesi (logout) | — | Bearer token |
-| GET | `/api/auth/me` | Data user sesi aktif | — | Bearer token |
-| POST | `/api/companies` | Buat perusahaan | `{ name, industry, size }` | Bearer token |
-| GET | `/api/companies` | Daftar perusahaan user | — | Bearer token |
-| POST | `/api/divisions` | Buat divisi | `{ company_id, name }` | Bearer token |
-| GET | `/api/divisions` | Daftar divisi | `?company_id=...` | Bearer token |
-| POST | `/api/members` | Tambah member | `{ company_id, division_id, name, email, role }` | Bearer token |
-| GET | `/api/members` | Daftar member | `?company_id=...` | Bearer token |
-| GET | `/api/projects` | Daftar project aktif | `?company_id=...` | Bearer token |
-| GET | `/api/tools` | Daftar tool + schema (kontrak agent) | — | Bearer token |
-| POST | `/api/tools/execute` | Jalankan satu tool (action layer) | `{ tool, args, confirm?, idempotency_key?, actor_type? }` | Bearer token |
-
-> **Auth**: Setiap endpoint (kecuali `/health`, `/api/auth/register`, `/api/auth/login`) memerlukan header `Authorization: Bearer <token>`. Token diperoleh dari response login/register. Token disimpan di `localStorage` dengan kunci `luxio-token`.
-
-> **AI Agent / Tools**: Agent (dan UI) menjalankan operasi lewat **tool resmi** di `/api/tools/execute`, bukan akses database langsung. Setiap tool: auth (token) → risk check (medium/high wajib `confirm:true`) → validasi → authorization ownership → business logic → audit log (`audit_logs`) → idempotency opsional (`idempotency_key`). Daftar tool & schema: `GET /api/tools`. Referensi: [`ai-agent-security-architecture.md`](./ai-agent-security-architecture.md).
-
----
-
-## 6. Konvensi & Standar Kode
-
-- **Frontend**: React + JSX + Zustand. Halaman ada di `src/pages/`, style terpisah per halaman (`.css`).
-- **Backend**: Rust + Axum. Tiap domain = satu fungsi handler di `handlers.rs`; tipe data di `models.rs`.
-- **Pola panggilan API**: komponen **jangan** langsung `fetch`. Tambahkan method ke `api.js`, lalu panggil lewat store.
-- **Komentar**: gunakan komentar header untuk menjelaskan fungsi file/modul & fungsi utama. Jangan komentar per-baris yang sudah jelas.
-- **Bahasa komentar**: Bahasa Indonesia (disesuaikan tim).
-- **State**: semua state aplikasi lewat `useStore` (Zustand), bukan `useState` global terpisah.
-
----
-
-## 7. Roadmap
-
-- [ ] Migrasi routing manual (`App.jsx`) → `react-router-dom` (sudah ada di dependency).
-- [ ] Hubungkan project/task/kanban ke backend (saat ini mock).
-- [x] Ganti `simple_hash` (DefaultHasher) dengan **Argon2id** — keamanan produksi.
-- [ ] Pindahkan pembuatan tabel dari `db.rs` ke tool migrasi (`sqlx-cli` / `refinery`).
-- [ ] Tambah unit test backend (`cargo test`) & frontend (vitest).
-- [x] Token/session auth (header `Authorization`) alih-alih body user_id.
-
----
-
-## 8. Troubleshooting
-
-| Masalah | Solusi |
-|---------|--------|
-| `cargo check/build` gagal `could not exec the linker link.exe` | Install **MSVC Build Tools** (Visual Studio Build Tools), karena Rust perlu `link.exe`. Ini masalah lingkungan, bukan kode. |
-| `DATABASE_URL must be set` | Pastikan `.env` di `backend/` ada dan berisi `DATABASE_URL`. |
-| Login gagal saat dev | Pastikan backend sudah jalan (port 3000) sebelum frontend. |
-| Data project hilang setelah reload | Normal — fitur project masih mock, lihat [Roadmap](#7-roadmap). |
+Proprietary — © 2026 Luxio. Hak cipta dilindungi undang-undang.

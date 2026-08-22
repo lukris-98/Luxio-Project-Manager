@@ -2,15 +2,17 @@ import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
-import { MapPin, Camera, AlertTriangle, CheckCircle2, Clock, Loader2, LogIn, LogOut } from 'lucide-react'
+import { MapPin, Camera, Upload, X, AlertTriangle, CheckCircle2, Clock, Loader2, LogIn, LogOut, Video } from 'lucide-react'
 import { api } from '../services/api'
 import './AttendancePage.css'
 
 // =====================================================================
-// AttendancePage.jsx — Absen masuk & pulang kerja (selfie + GPS).
+// AttendancePage.jsx — Absen masuk & pulang kerja (kamera live + GPS).
 // =====================================================================
 // - GPS: navigator.geolocation.getCurrentPosition untuk lat/lng.
-// - Selfie: input file capture="user", dikonversi ke base64 (data URL).
+// - Peta: iframe Google Maps embed (draggable) di titik lokasi GPS.
+// - Bukti foto: live camera (getUserMedia) dengan snapshot ke canvas,
+//   atau upload dari galeri (input file capture="user").
 // - Dua mode: 'checkin' (Absen Masuk) & 'checkout' (Absen Pulang).
 //   Tombol yang sudah dilakukan hari ini otomatis dinonaktifkan.
 // - Status otomatis 'present'/'outside' dihitung backend berdasarkan
@@ -51,6 +53,13 @@ export default function AttendancePage() {
   const [checkedInToday, setCheckedInToday] = useState(false)
   const [checkedOutToday, setCheckedOutToday] = useState(false)
   const fileRef = useRef(null)
+
+  // Live camera
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const streamRef = useRef(null)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
 
   const loadHistory = () => {
     setHistoryLoading(true)
@@ -99,6 +108,61 @@ export default function AttendancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Stop kamera saat komponen dilepas.
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+  }, [])
+
+  // Attach stream ke <video> setelah state cameraOpen berubah.
+  useEffect(() => {
+    if (cameraOpen && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current
+      videoRef.current.play().catch(() => {})
+    }
+  }, [cameraOpen])
+
+  const openCamera = async () => {
+    setCameraError('')
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError('Browser tidak mendukung akses kamera. Gunakan "Upload dari Galeri".')
+        return
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      })
+      streamRef.current = stream
+      setCameraOpen(true)
+    } catch (e) {
+      setCameraError('Tidak bisa mengakses kamera. Periksa izin kamera atau gunakan "Upload dari Galeri".')
+    }
+  }
+
+  const closeCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    setCameraOpen(false)
+    setCameraError('')
+  }
+
+  const capturePhoto = () => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+    const w = video.videoWidth || 640
+    const h = video.videoHeight || 480
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(video, 0, 0, w, h)
+    setPhotoUrl(canvas.toDataURL('image/jpeg', 0.9))
+    closeCamera()
+  }
+
   const handlePhoto = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -123,7 +187,7 @@ export default function AttendancePage() {
       return
     }
     if (!photoUrl) {
-      setError('Selfie wajib diambil sebelum absen.')
+      setError('Foto bukti wajib diambil sebelum absen.')
       return
     }
     setSubmitting(true)
@@ -135,6 +199,7 @@ export default function AttendancePage() {
         latitude: loc.latitude,
         longitude: loc.longitude,
         distance_m: 0,
+        team_id: currentUser?.team_id ?? undefined,
       })
       setResult({
         type,
@@ -163,7 +228,7 @@ export default function AttendancePage() {
         <motion.div className="page-header" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
           <div className="page-header-left">
             <h1>Absen Kerja</h1>
-            <p>Selfie + GPS untuk absen masuk & pulang kerja harian</p>
+            <p>Kamera live + GPS untuk absen masuk & pulang kerja harian</p>
           </div>
         </motion.div>
 
@@ -208,7 +273,7 @@ export default function AttendancePage() {
 
             <div className="attendance-card-head">
               <Camera size={18} />
-              <h2>Selfie</h2>
+              <h2>Bukti Foto</h2>
             </div>
 
             <input
@@ -219,10 +284,34 @@ export default function AttendancePage() {
               className="attendance-file-input"
               onChange={handlePhoto}
             />
-            <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()}>
-              <Camera size={14} />
-              {photoUrl ? 'Ganti Selfie' : 'Ambil Selfie'}
-            </button>
+
+            <div className="attendance-photo-actions">
+              <button className="btn btn-secondary btn-sm" onClick={openCamera}>
+                <Video size={14} />
+                {photoUrl ? 'Ganti Foto' : 'Ambil dari Kamera'}
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()}>
+                <Upload size={14} />
+                Upload dari Galeri
+              </button>
+            </div>
+
+            {cameraError && <p className="attendance-camera-error">{cameraError}</p>}
+
+            {cameraOpen && (
+              <div className="attendance-camera">
+                <video ref={videoRef} autoPlay playsInline muted />
+                <canvas ref={canvasRef} style={{ display: 'none' }} />
+                <div className="attendance-camera-actions">
+                  <button className="btn btn-primary btn-sm" onClick={capturePhoto}>
+                    <Camera size={14} /> Ambil Foto
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={closeCamera}>
+                    <X size={14} /> Tutup
+                  </button>
+                </div>
+              </div>
+            )}
 
             {photoLoading && (
               <div className="attendance-loading">
@@ -282,34 +371,67 @@ export default function AttendancePage() {
             {error && <p className="attendance-error">{error}</p>}
           </div>
 
-          {/* Kolom kanan: hasil terakhir */}
+          {/* Kolom tengah: peta lokasi */}
           <div className="attendance-card">
             <div className="attendance-card-head">
-              <Clock size={18} />
-              <h2>Hasil Terakhir</h2>
+              <MapPin size={18} />
+              <h2>Peta Lokasi</h2>
             </div>
 
-            {result ? (
-              <div className="attendance-result">
-                <div className="attendance-result-badges">
-                  <span className={`result-badge result-type ${result.type}`}>
-                    {TYPE_LABEL[result.type] || result.type || 'Absen'}
-                  </span>
-                  <span className={`result-badge ${result.status}`}>
-                    {STATUS_LABEL[result.status] || result.status}
-                  </span>
-                </div>
-                {result.photo_url && (
-                  <img className="result-photo" src={result.photo_url} alt="Bukti absen" />
-                )}
-                <p className="result-note">
-                  Absen {TYPE_LABEL[result.type] || ''} berhasil dicatat. Status dihitung dari jarak GPS ke lokasi kantor.
-                </p>
+            {locLoading ? (
+              <div className="attendance-loading">
+                <Loader2 size={16} className="spin" />
+                <span>Menyiapkan peta...</span>
               </div>
+            ) : loc ? (
+              <>
+                <div className="att-map-wrap">
+                  <iframe
+                    title="Peta Lokasi GPS"
+                    src={`https://maps.google.com/maps?q=${loc.latitude},${loc.longitude}&z=15&output=embed`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
+                <p className="map-hint">
+                  Peta dapat digeser (drag) untuk melihat area sekitar titik lokasi.
+                </p>
+              </>
             ) : (
-              <div className="attendance-empty">Belum ada absen. Ambil selfie & klik "Absen Masuk".</div>
+              <div className="attendance-empty">
+                {locError || 'Peta tidak tersedia tanpa lokasi GPS.'}
+              </div>
             )}
           </div>
+        </div>
+
+        {/* Kolom hasil terakhir */}
+        <div className="attendance-card">
+          <div className="attendance-card-head">
+            <Clock size={18} />
+            <h2>Hasil Terakhir</h2>
+          </div>
+
+          {result ? (
+            <div className="attendance-result">
+              <div className="attendance-result-badges">
+                <span className={`result-badge result-type ${result.type}`}>
+                  {TYPE_LABEL[result.type] || result.type || 'Absen'}
+                </span>
+                <span className={`result-badge ${result.status}`}>
+                  {STATUS_LABEL[result.status] || result.status}
+                </span>
+              </div>
+              {result.photo_url && (
+                <img className="result-photo" src={result.photo_url} alt="Bukti absen" />
+              )}
+              <p className="result-note">
+                Absen {TYPE_LABEL[result.type] || ''} berhasil dicatat. Status dihitung dari jarak GPS ke lokasi kantor.
+              </p>
+            </div>
+          ) : (
+            <div className="attendance-empty">Belum ada absen. Ambil foto & klik "Absen Masuk".</div>
+          )}
         </div>
 
         {/* Riwayat */}
