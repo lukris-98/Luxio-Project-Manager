@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: luxio-backend
+    runtime: rust
+    repo: https://github.com/lukris-98/Luxio-Project-Manager
+    buildCommand: cargo build --release
+    startCommand: ./target/release/luxio-server
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PORT
+        value: "3000"
+      - key: OWNER_EMAIL
+        sync: false
+      - key: OWNER_PASSWORD
+        sync: false
+      - key: ALLOWED_ORIGIN
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: RUST_LOG
+        value: info
