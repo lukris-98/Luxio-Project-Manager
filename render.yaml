@@ -2,10 +2,12 @@ services:
   - type: web
     name: luxio-backend
     runtime: rust
+    rootDir: backend
     repo: https://github.com/lukris-98/Luxio-Project-Manager
     buildCommand: cargo build --release
     startCommand: ./target/release/luxio-server
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: DATABASE_URL
         sync: false

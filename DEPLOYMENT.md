@@ -1,169 +1,250 @@
-# DEPLOYMENT.md — Panduan Deploy Luxio
+# DEPLOYMENT.md — Tutorial Deploy Luxio
 
-Luxio di-deploy ke dua platform:
+> **Urutan yang benar:**
+> 1. Deploy **backend** ke Render dulu (biar dapat URL API, mis. `https://luxio-backend.onrender.com`)
+> 2. Deploy **frontend** ke EdgeOne Makers (isi `VITE_API_URL` dengan URL backend)
+> 3. Tes login & integrasi
 
-| Bagian | Platform | Alat |
+| Bagian | Platform | Cara |
 |--------|----------|------|
-| **Frontend** (React SPA/PWA) | **EdgeOne Makers** (Tencent Cloud) | Console / Git integration |
-| **Backend** (Rust API) | **Render** | `render` CLI / `render.yaml` |
+| **Backend** (Rust API) | **Render** | Blueprint (`render.yaml`) atau manual via Dashboard |
+| **Frontend** (React SPA/PWA) | **EdgeOne Makers** | Console (Git integration / upload) + `edgeone-cli` untuk purge cache |
 
 ---
 
-## 1. Persiapan Local
+# BAGIAN 1 — Deploy Backend ke Render 🦀
 
-### CLI yang sudah diinstall
+## Persiapan (sekali saja)
 
-```bash
-# EdgeOne CLI (npm global) — untuk purge cache setelah deploy frontend
-edgeone-cli --version        # v1.1.1
-
-# Render CLI (Windows) — untuk deploy/kelola backend
-render --help               # v2.24.0
-```
-
-Render CLI diinstall di `%LOCALAPPDATA%\Programs\render\render.exe` dan
-sudah ditambahkan ke PATH user. Buka **terminal baru** setelah instalasi agar
-PATH ter-refresh.
-
-### Verifikasi build
+### 1.1 Buat akun & CLI login
 
 ```bash
-# Frontend
-cd app && npm run build        # hasil di app/dist/
+# 1. Daftar di https://dashboard.render.com (pakai GitHub login, gratis)
 
-# Backend
-cd backend && cargo build --release   # hasil di backend/target/release/
-```
-
----
-
-## 2. Deploy Frontend → EdgeOne Makers
-
-EdgeOne Makers adalah platform hosting frontend di atas infrastruktur
-EdgeOne (global edge network). Ada 3 cara membuat project:
-
-### Cara A — Import Git Repository (disarankan)
-
-1. Login ke [EdgeOne Console](https://console.tencentcloud.com/edgeone).
-2. Pilih **Makers** → **Create Project** → **Import Git Repository**.
-3. Klik **Github** → **Authorize EO Makers** → pilih repo `Luxio-Project-Manager`.
-4. Konfigurasi build:
-   - **Root Directory**: `app`
-   - **Build Command**: `npm install && npm run build`
-   - **Output Directory**: `dist`
-5. Klik **Start Deployment**.
-6. Setiap push ke `main` → EdgeOne otomatis build & deploy ulang.
-
-### Cara B — Upload Langsung (tanpa Git)
-
-1. Build dulu: `cd app && npm run build`.
-2. Di console, buat project → **Upload directly**.
-3. Drag & drop isi folder `app/dist/` (harus ada `index.html` di root).
-4. Klik **Start Deployment**.
-
-### Setelah deploy: purge cache (opsional)
-
-```bash
-# Inisialisasi config EdgeOne dulu (isi secretId/secretKey dari console)
-edgeone-cli config init
-
-# Bersihkan cache domain
-edgeone-cli purge -a
-```
-
-> **Catatan**: `edgeone-cli` adalah tool manajemen cache EdgeOne. Pembuatan
-> project Makers dilakukan lewat console (Git integration / upload), bukan CLI.
-
-### Custom domain
-
-Setelah preview benar, tambahkan custom domain di **Domain Management**.
-Jika region Indonesia dipilih, mungkin diperlukan **ICP filing** untuk domain
-kustom — pastikan `ALLOWED_ORIGIN` di backend berisi domain tersebut.
-
----
-
-## 3. Deploy Backend → Render
-
-Render mendukung deploy Rust secara native. Ada dua cara:
-
-### Cara A — Render Blueprint (`render.yaml`) — disarankan
-
-File `render.yaml` sudah disiapkan di root repo:
-
-```yaml
-services:
-  - type: web
-    name: luxio-backend
-    runtime: rust
-    repo: https://github.com/lukris-98/Luxio-Project-Manager
-    buildCommand: cargo build --release
-    startCommand: ./target/release/luxio-server
-    healthCheckPath: /health
-    envVars: { ... }
-```
-
-1. Di [Render Dashboard](https://dashboard.render.com), pilih **New** → **Blueprint**.
-2. Hubungkan repo GitHub.
-3. Render membaca `render.yaml`, buat service, lalu build.
-4. Isi env vars yang `sync: false` (dipertanyakan saat setup):
-   - `DATABASE_URL` — koneksi Neon PostgreSQL
-   - `OWNER_EMAIL` & `OWNER_PASSWORD` — akun owner
-   - `ALLOWED_ORIGIN` — URL frontend (EdgeOne Makers), contoh `https://xxx.edgeone.app`
-   - `APP_URL` — URL frontend untuk link konfirmasi email
-   - `SMTP_*` — konfigurasi email (kosongkan bila tidak pakai)
-5. Deploy otomatis saat push ke `main`.
-
-### Cara B — Manual dengan Render CLI
-
-```bash
-# 1. Login (buka browser untuk authorize)
+# 2. Login CLI (buka browser untuk authorize)
 render login
+# → browser terbuka → klik "Authorize CLI" → kembali ke terminal
 
-# 2. Pilih workspace
+# 3. Pilih workspace
+render workspace set
+```
+
+> Render CLI berada di `%LOCALAPPDATA%\Programs\render\render.exe`.
+> Jika `render` tidak dikenali, buka **terminal baru** atau jalankan path lengkap.
+
+### 1.2 Siapkan database Neon (sudah punya)
+
+Catat `DATABASE_URL` dari Neon console. Contoh:
+```
+postgresql://username:password@ep-xxx.ap-southeast-1.aws.neon.tech/luxio?sslmode=require
+```
+
+---
+
+## Cara A — Deploy via Render Blueprint (disarankan)
+
+`render.yaml` sudah tersedia di root repo (dengan `rootDir: backend`).
+
+### Langkah 1: Hubungkan repo
+
+1. Buka **https://dashboard.render.com**.
+2. Klik tombol **New** (pojok kanan atas) → pilih **Blueprint**.
+3. Klik **Connect a repository** → pilih `lukris-98/Luxio-Project-Manager`.
+4. Render membaca `render.yaml` dan menampilkan preview service `luxio-backend`.
+
+### Langkah 2: Isi environment variables
+
+Klik service `luxio-backend` → tab **Environment**. Isi variabel yang
+bertanda `sync: false` (Render akan bertanya saat Blueprint pertama dibuat,
+atau isi manual di tab Environment):
+
+| Variable | Contoh nilai | Keterangan |
+|----------|--------------|------------|
+| `DATABASE_URL` | `postgresql://...neon.tech/luxio?sslmode=require` | Koneksi Neon **wajib** |
+| `OWNER_EMAIL` | `master@luxio.web.id` | Email akun owner |
+| `OWNER_PASSWORD` | `password-kuat-20-karakter` | Password owner |
+| `ALLOWED_ORIGIN` | `https://xxx.edgeone.app` | URL frontend (isi setelah deploy frontend) |
+| `APP_URL` | `https://xxx.edgeone.app` | URL frontend untuk link email |
+| `SMTP_HOST` | `smtp.gmail.com` | Kosongkan bila tak pakai email |
+| `SMTP_PORT` | `587` | |
+| `SMTP_USERNAME` | `email@gmail.com` | |
+| `SMTP_PASSWORD` | `app-password-16-karakter` | |
+| `SMTP_FROM` | `email@gmail.com` | |
+
+> `PORT` sudah otomatis 3000. `RUST_LOG=info` sudah ter-set.
+
+### Langkah 3: Deploy
+
+1. Klik **Apply** (atau **Create Resources**).
+2. Render akan build `cargo build --release` (butuh beberapa menit pertama,
+   membangun semua dependensi Rust).
+3. Setelah selesai, URL service tampil, mis. **`https://luxio-backend.onrender.com`**.
+
+### Langkah 4: Verifikasi
+
+```bash
+# Cek health
+curl https://luxio-backend.onrender.com/health
+# → OK
+
+# Cek di CLI
+render services
+```
+
+> Deploy otomatis: setiap push ke `main` → Render build & deploy ulang.
+
+---
+
+## Cara B — Deploy Manual via Dashboard (tanpa render.yaml)
+
+1. Dashboard Render → **New** → **Web Service**.
+2. Hubungkan repo `Luxio-Project-Manager`.
+3. Pengaturan:
+   - **Name**: `luxio-backend`
+   - **Runtime**: `Rust` (pilih dari dropdown — Render mendukung Rust native)
+   - **Root Directory**: `backend`
+   - **Build Command**: `cargo build --release`
+   - **Start Command**: `./target/release/luxio-server`
+   - **Health Check Path**: `/health`
+4. Tab **Advanced** → tambahkan env vars seperti tabel di atas.
+5. Klik **Create Web Service** → tunggu build selesai.
+
+---
+
+## Cara C — Deploy via Render CLI (non-interaktif)
+
+```bash
+# Login dulu (sekali saja)
+render login
 render workspace set
 
-# 3. Buat service web dari repo
-render services create web --repo https://github.com/lukris-98/Luxio-Project-Manager \
-  --envPath / --buildCommand "cargo build --release" \
-  --startCommand "./target/release/luxio-server" \
-  --healthCheckPath /health
+# Buat service dari blueprint
+render blueprints apply "render.yaml"
 
-# 4. Trigger deploy ulang
+# Atau trigger deploy ulang ke service tertentu
 render deploys create <SERVICE_ID> --wait
 ```
 
-### Environment Variables (backend)
+---
 
-| Variable | Wajib | Keterangan |
-|----------|-------|------------|
-| `DATABASE_URL` | ✅ | Koneksi Postgres (Neon) |
-| `PORT` | ❌ | Default 3000 |
-| `OWNER_EMAIL` | ✅ | Email akun owner |
-| `OWNER_PASSWORD` | ✅ | Password akun owner (kuat!) |
-| `ALLOWED_ORIGIN` | ✅ | Origin frontend (koma untuk banyak) |
-| `APP_URL` | ✅ | URL frontend untuk link email |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | ❌ | Email (welcome, 2FA, konfirmasi) |
-| `RUST_LOG` | ❌ | Level log (default `info`) |
+# BAGIAN 2 — Deploy Frontend ke EdgeOne Makers 🚀
+
+> **Penting**: `edgeone-cli` BUKAN untuk membuat/deploy project Makers.
+> Pembuatan & deploy project dilakukan di **console EdgeOne** (via Git
+> integration atau upload file). `edgeone-cli` dipakai untuk **purge cache**
+> setelah deploy.
+
+## Persiapan (sekali saja)
+
+### 2.1 Buat akun EdgeOne & init CLI
+
+```bash
+# 1. Daftar / login di https://console.tencentcloud.com/edgeone
+
+# 2. Dapatkan SecretId & SecretKey:
+#    Console → kanan atas avatar → API Keys → Create API Key
+#    (catat SecretId & SecretKey)
+
+# 3. Init config edgeone-cli (isikan secretId, secretKey, zone)
+edgeone-cli config init
+```
 
 ---
 
-## 4. Setelah Deploy — Checklist
+## Cara A — Deploy via Git Integration (disarankan, auto-deploy)
 
-- [ ] `GET https://<backend>.onrender.com/health` → `OK`
-- [ ] Frontend bisa login/register (backend terhubung)
-- [ ] CORS: `ALLOWED_ORIGIN` berisi domain frontend
-- [ ] Email terkirim (2FA & konfirmasi) bila SMTP diisi
+### Langkah 1: Build frontend lokal (untuk memastikan tidak error)
+
+```bash
+cd app
+npm install
+npm run build        # hasil di app/dist/
+```
+
+### Langkah 2: Buat project Makers dari Git
+
+1. Buka **https://console.tencentcloud.com/edgeone** → pilih tab **Makers**.
+2. Klik **Create Project** → pilih **Import Git Repository**.
+3. Klik **Github** → **Authorize EO Makers** → pilih repo `Luxio-Project-Manager` → **Install**.
+4. Pengaturan build:
+   - **Root Directory**: `app`
+   - **Build Command**: `npm install && npm run build`
+   - **Output Directory**: `dist`
+   - **Region**: pilih sesuai target (mis. Asia Tenggara)
+5. Klik **Start Deployment**.
+
+> Setelah ini, setiap push ke `main` → EdgeOne build & deploy otomatis.
+
+### Langkah 3: Salin URL preview
+
+Deploy selesai → dapat **preview link**, mis. `https://luxio-xxx.edgeone.app`.
+Gunakan URL ini untuk mengisi `ALLOWED_ORIGIN` & `APP_URL` di Render backend.
+
+---
+
+## Cara B — Deploy via Upload Langsung (tanpa Git)
+
+1. Build dulu:
+   ```bash
+   cd app && npm run build
+   ```
+2. Console EdgeOne → Makers → **Create Project** → **Upload directly**.
+3. Beri nama project & pilih region.
+4. **Drag & drop seluruh isi folder `app/dist/`** ke area upload
+   (harus ada `index.html` di root — jangan upload folder `dist` itu sendiri).
+5. Klik **Start Deployment**.
+
+> Catatan: project yang dibuat via upload **tidak bisa** dihubungkan ke Git
+> di kemudian hari. Gunakan Git integration bila ingin auto-deploy.
+
+---
+
+## Setelah deploy: Purge cache dengan edgeone-cli
+
+EdgeOne menyimpan cache edge. Setelah deploy versi baru, bersihkan cache:
+
+```bash
+# Bersihkan SEMUA cache zone
+edgeone-cli purge -a
+
+# Bersihkan cache URL tertentu
+edgeone-cli purge -u https://luxio-xxx.edgeone.app
+
+# Pre-warm (panaskan) beberapa URL
+edgeone-cli prefetch https://luxio-xxx.edgeone.app/
+```
+
+Cek riwayat purge:
+```bash
+edgeone-cli history
+```
+
+---
+
+# BAGIAN 3 — Integrasi Frontend + Backend
+
+Setelah keduanya live:
+
+1. **Backend**: catat URL, mis. `https://luxio-backend.onrender.com`
+2. **Frontend**: pastikan saat build, `VITE_API_URL` menunjuk ke backend.
+
+   Di EdgeOne, tambahkan env var build di console:
+   - **VITE_API_URL**: `https://luxio-backend.onrender.com`
+   - atau buat file `app/.env.production` sebelum build:
+     ```env
+     VITE_API_URL=https://luxio-backend.onrender.com
+     ```
+3. **Render**: pastikan `ALLOWED_ORIGIN` & `APP_URL` berisi URL frontend EdgeOne.
+4. **Neon**: pastikan `DATABASE_URL` di Render sama dengan Neon (bisa beda database
+   untuk production vs development).
+
+---
+
+# Checklist Final
+
+- [ ] `GET https://luxio-backend.onrender.com/health` → `OK`
+- [ ] Frontend EdgeOne bisa login/register
+- [ ] `ALLOWED_ORIGIN` = URL frontend (tidak error CORS)
+- [ ] Email 2FA & konfirmasi terkirim (bila SMTP diisi)
 - [ ] Akun OWNER dibuat otomatis saat server start
-- [ ] Cloudflare / HTTPS aktif di depan (opsional, disarankan)
-
----
-
-## 5. Troubleshooting
-
-| Masalah | Solusi |
-|---------|--------|
-| Frontend 404 setelah upload | Pastikan ada `index.html` di root folder yang di-upload |
-| Backend build gagal | Cek `cargo build --release` lokal dulu; pastikan versi Rust ≥ 1.70 |
-| Login 401 terus | Token sesi valid 7 hari; pastikan `DATABASE_URL` sama dgn yang dipakai |
-| Email tidak terkirim | Cek `SMTP_*`; untuk Gmail pakai **App Password**, bukan password biasa |
-| CORS error di browser | Tambahkan domain frontend ke `ALLOWED_ORIGIN` di Render env |
+- [ ] Chat, absensi, gaji, AI Agent berfungsi dari frontend production
