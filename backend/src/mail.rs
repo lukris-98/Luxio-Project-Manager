@@ -26,6 +26,18 @@ struct MailConfig {
     from: String,
 }
 
+/// True bila SMTP dikonfigurasi (host tidak kosong).
+pub fn is_configured() -> bool {
+    let host = std::env::var("SMTP_HOST").unwrap_or_default();
+    !host.is_empty()
+}
+
+/// URL depan aplikasi (untuk link konfirmasi email). Dapat dari `APP_URL`,
+/// fallback ke localhost dev.
+pub fn app_url() -> String {
+    std::env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string())
+}
+
 fn config() -> Option<MailConfig> {
     let host = std::env::var("SMTP_HOST").unwrap_or_default();
     if host.is_empty() {
@@ -101,12 +113,6 @@ pub async fn send_welcome(to: &str, name: &str, email: &str, password: &str) -> 
 /// Email notifikasi umum dari admin.
 pub async fn send_notification(to: &str, subject: &str, body: &str) -> Result<bool, String> {
     send(to, subject, body).await
-}
-
-/// URL depan aplikasi (untuk link konfirmasi email). Dapat dari `APP_URL`,
-/// fallback ke localhost dev.
-fn app_url() -> String {
-    std::env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string())
 }
 
 /// Email konfirmasi aktivasi akun. Wajib diklik sebelum akun bisa login.

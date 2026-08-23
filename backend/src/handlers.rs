@@ -299,6 +299,10 @@ pub async fn register(
     })?;
 
     // Kirim email konfirmasi (best-effort).
+    if !crate::mail::is_configured() {
+        let link = format!("{}/?token={}", crate::mail::app_url(), verification_token);
+        tracing::warn!(event = "verify_dev_mode", email = %payload.email.trim(), link = %link, "SMTP belum dikonfigurasi — link aktivasi untuk testing: {}", link);
+    }
     tokio::spawn({
         let to = payload.email.trim().to_string();
         let name = payload.name.trim().to_string();
@@ -510,6 +514,12 @@ pub async fn login(
     // Kirim kode via email (best-effort).
     let to_email: String = row.get("email");
     let to_name: String = row.get("name");
+    let smtp_configured = crate::mail::is_configured();
+    if !smtp_configured {
+        // Dev-mode: tanpa SMTP, kode 2FA dicetak ke console server agar
+        // alur bisa diuji sebelum konfigurasi email (Gmail dll).
+        tracing::warn!(event = "otp_dev_mode", email = %to_email, code = %code, "SMTP belum dikonfigurasi — kode 2FA untuk testing: {}", code);
+    }
     tokio::spawn({
         let to = to_email.clone();
         let name = to_name.clone();
@@ -2435,7 +2445,7 @@ pub async fn agent_config(
 // Kredensial akun pemilik website (OWNER) diambil dari environment,
 // JANGAN di-hardcode di source. Akun ini dibuat otomatis saat server start
 // dan berhak mengelola seluruh akun di sistem.
-const OWNER_EMAIL_DEFAULT: &str = "master@luxio.web.id";
+const OWNER_EMAIL_DEFAULT: &str = "master@arsipin.web.id";
 const OWNER_NAME_DEFAULT: &str = "Master Owner";
 const OWNER_ROLE: &str = "owner";
 const OWNER_PLAN: &str = "organisasi";
@@ -3018,6 +3028,10 @@ pub async fn register_member(
     })?;
 
     // Kirim email konfirmasi aktivasi + kredensial (best-effort).
+    if !crate::mail::is_configured() {
+        let link = format!("{}/?token={}", crate::mail::app_url(), verification_token);
+        tracing::warn!(event = "verify_dev_mode", email = %payload.email.trim(), link = %link, credentials = %payload.password, "SMTP belum dikonfigurasi — link aktivasi + password untuk testing: {} | pass: {}", link, payload.password);
+    }
     tokio::spawn({
         let to = payload.email.trim().to_string();
         let name = payload.name.trim().to_string();

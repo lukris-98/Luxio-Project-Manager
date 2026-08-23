@@ -62,7 +62,7 @@ docker push <username>/luxio-backend:latest
    |----------|--------------|--------|
    | `DATABASE_URL` | `postgresql://username:password@ep-xxx.ap-southeast-1.aws.neon.tech/luxio?sslmode=require` | ✅ Wajib |
    | `PORT` | `3000` | ✅ Wajib (Render memberi nilai, default sudah 3000) |
-   | `OWNER_EMAIL` | `master@luxio.web.id` | ✅ Wajib |
+   | `OWNER_EMAIL` | `master@arsipin.web.id` | ✅ Wajib |
    | `OWNER_PASSWORD` | `password-kuat-min-20-karakter` | ✅ Wajib |
    | `ALLOWED_ORIGIN` | `https://luxio-xxx.edgeone.app` | ⚠️ Isi setelah deploy frontend |
    | `APP_URL` | `https://luxio-xxx.edgeone.app` | ⚠️ Isi setelah deploy frontend |
