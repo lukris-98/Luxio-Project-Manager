@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::handlers::require_auth;
-use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, IncentiveRequest, OwnerConfigRequest, SalaryQuery};
+use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, IncentiveRequest, MailTestRequest, OwnerConfigRequest, SalaryQuery};
 
 // =====================================================================
 // OWNER DASHBOARD — analytics (Umami), database (Neon), storage
@@ -953,6 +953,54 @@ pub async fn neon_active_config(
         "provider": "Neon PostgreSQL",
         "note": "Ini koneksi aktif dari .env (DATABASE_URL). Kredensial disembunyikan.",
     })))
+}
+
+/// POST /api/owner/mail/test — tes kirim email (khusus owner). Mengembalikan
+/// status konfigurasi SMTP & hasil pengiriman.
+pub async fn mail_test(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<MailTestRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let to = payload.email.trim().to_string();
+    if to.is_empty() || !to.contains('@') {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    if !crate::mail::is_configured() {
+        return Ok(Json(json!({
+            "ok": false,
+            "configured": false,
+            "message": "SMTP belum dikonfigurasi. Isi SMTP_HOST/USERNAME/PASSWORD/FROM di .env lalu restart."
+        })));
+    }
+
+    let subject = "Tes Email Luxio 🚀";
+    let body = format!(
+        "Halo!\n\nIni email uji coba dari aplikasi Luxio.\nJika kamu menerima email ini, konfigurasi SMTP Gmail sudah benar.\n\n— Tim Luxio"
+    );
+    match crate::mail::send_notification(&to, subject, &body).await {
+        Ok(true) => Ok(Json(json!({
+            "ok": true,
+            "configured": true,
+            "message": format!("Email tes terkirim ke {to}. Periksa kotak masuk (dan spam).")
+        }))),
+        Ok(false) => Ok(Json(json!({
+            "ok": false,
+            "configured": true,
+            "message": "Pengiriman email gagal (SMTP diatur tapi tidak terkirim)."
+        }))),
+        Err(e) => Ok(Json(json!({
+            "ok": false,
+            "configured": true,
+            "message": format!("Gagal mengirim: {e}")
+        }))),
+    }
 }
 
 fn is_valid_month(month: &str) -> bool {

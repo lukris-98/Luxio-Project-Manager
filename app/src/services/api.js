@@ -200,6 +200,8 @@ export const api = {
   b2Status: () => get('/api/owner/b2/status'),
   // Konfigurasi Neon aktif (dari .env, owner).
   neonActiveConfig: () => get('/api/owner/neon/active'),
+  // Tes kirim email (owner).
+  mailTest: (email) => post('/api/owner/mail/test', { email }),
 
   // ---- Gaji & insentif (dashboard absensi admin) ----
   salaryMonthly: (companyId, month, teamId) =>

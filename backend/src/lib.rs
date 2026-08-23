@@ -138,6 +138,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/salary/incentive/{id}", delete(owner::salary_delete_incentive))
         // Konfigurasi Neon aktif (owner)
         .route("/api/owner/neon/active", get(owner::neon_active_config))
+        // Tes kirim email (owner)
+        .route("/api/owner/mail/test", post(owner::mail_test))
         // AI Agent (Item 8)
         .route("/api/agent/config", put(handlers::agent_config))
         .route("/api/agent/chat", post(crate::tools::agent_chat))

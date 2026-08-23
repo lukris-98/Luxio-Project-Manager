@@ -2445,7 +2445,7 @@ pub async fn agent_config(
 // Kredensial akun pemilik website (OWNER) diambil dari environment,
 // JANGAN di-hardcode di source. Akun ini dibuat otomatis saat server start
 // dan berhak mengelola seluruh akun di sistem.
-const OWNER_EMAIL_DEFAULT: &str = "master@arsipin.web.id";
+const OWNER_EMAIL_DEFAULT: &str = "master@diarsipin.web.id";
 const OWNER_NAME_DEFAULT: &str = "Master Owner";
 const OWNER_ROLE: &str = "owner";
 const OWNER_PLAN: &str = "organisasi";

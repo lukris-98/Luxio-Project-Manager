@@ -504,6 +504,12 @@ pub struct AgentChatRequest {
     pub conversation_id: Option<String>,
 }
 
+/// Body request POST /api/owner/mail/test — tes kirim email (owner).
+#[derive(Debug, Deserialize)]
+pub struct MailTestRequest {
+    pub email: String,
+}
+
 /// Body request PUT /api/agent/config — simpan penyedia AI (owner/super_admin).
 #[derive(Debug, Deserialize)]
 pub struct AgentConfigRequest {
