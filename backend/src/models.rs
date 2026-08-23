@@ -140,11 +140,27 @@ pub struct Verify2FARequest {
     pub code: String,
 }
 
+/// Body request untuk endpoint POST /api/auth/verify-pin — verifikasi PIN
+/// owner setelah login. Bila PIN belum ada, PIN akan disimpan & login langsung.
+#[derive(Debug, Deserialize)]
+pub struct VerifyPinRequest {
+    pub email: String,
+    pub pin: String,
+}
+
+/// Body request untuk PUT /api/profile/pin — ganti PIN (butuh auth token).
+#[derive(Debug, Deserialize)]
+pub struct SetPinRequest {
+    pub pin: String,
+}
+
 /// Response standar untuk endpoint auth. `success=false` menandakan gagal.
 /// `token` berisi session token (Bearer) yang wajib dikirim client pada
 /// header `Authorization` untuk request berikutnya.
 /// `requires_confirmation=true` => akun belum aktif (harus klik email).
 /// `requires_2fa=true` => kode 2FA sudah dikirim, lanjut ke /2fa/verify.
+/// `requires_pin=true` => (khusus owner) PIN sudah terdaftar, lanjut ke verify-pin.
+/// `requires_pin_setup=true` => (khusus owner) PIN belum ada, set PIN dulu.
 #[derive(Debug, Serialize)]
 pub struct AuthResponse {
     pub success: bool,
@@ -155,6 +171,10 @@ pub struct AuthResponse {
     pub requires_confirmation: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requires_2fa: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_pin: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_pin_setup: Option<bool>,
 }
 
 /// Bentuk user yang aman dikirim ke client (tanpa password_hash).

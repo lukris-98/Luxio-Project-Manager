@@ -96,6 +96,8 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
         // Status upgrade (Item 4): tipe organisasi saat upgrade.
         ("org_type", "TEXT NOT NULL DEFAULT ''"),
         ("upgraded_at", "TIMESTAMPTZ"),
+        // PIN akun (khusus owner): hash SHA256, dipakai login owner tanpa 2FA.
+        ("pin_hash", "TEXT NOT NULL DEFAULT ''"),
     ] {
         sqlx::query(&format!("ALTER TABLE users ADD COLUMN IF NOT EXISTS {column} {sql_type}"))
             .execute(db)

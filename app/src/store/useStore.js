@@ -557,6 +557,15 @@ export const useStore = create(
       if (res.requires_2fa) {
         return { success: true, requires2FA: true, message: res.message }
       }
+      if (res.requires_pin !== undefined || res.requires_pin_setup !== undefined) {
+        // Owner: lanjut verifikasi PIN.
+        return {
+          success: true,
+          requiresPin: Boolean(res.requires_pin),
+          requiresPinSetup: Boolean(res.requires_pin_setup),
+          message: res.message,
+        }
+      }
       // (tidak akan terjadi biasanya, tapi aman) — langsung set sesi.
       setToken(res.token)
       set({ currentUser: res.user, token: res.token || null })
@@ -589,6 +598,46 @@ export const useStore = create(
         activeRole: res.user.role,
       })
       track('login', { role: res.user.role, method: '2fa' })
+      return { success: true }
+    } catch (err) {
+      return { success: false, message: err.message }
+    }
+  },
+
+  /**
+   * Verifikasi PIN owner (gantikan 2FA email untuk owner).
+   * Bila PIN belum ada, PIN disimpan & langsung login.
+   */
+  verifyPin: async (email, pin) => {
+    try {
+      const res = await api.verifyPin(email, pin)
+      if (!res.success) throw new Error(res.message)
+      setToken(res.token)
+      set({
+        currentUser: res.user,
+        token: res.token || null,
+        isAuthenticated: true,
+        hasCompletedSetup: true,
+        appState: 'app',
+        setupStep: 0,
+        currentPage: 'admin-users',
+        activeRole: res.user.role,
+        userPin: pin,
+      })
+      track('login', { role: res.user.role, method: 'pin' })
+      return { success: true }
+    } catch (err) {
+      return { success: false, message: err.message }
+    }
+  },
+
+  /**
+   * Ganti PIN akun (owner) — sinkron ke backend.
+   */
+  changePin: async (pin) => {
+    try {
+      await api.setPin(pin)
+      set({ userPin: pin })
       return { success: true }
     } catch (err) {
       return { success: false, message: err.message }

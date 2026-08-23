@@ -270,6 +270,8 @@ pub async fn register(
             token: None,
             requires_confirmation: None,
             requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
         }));
     }
 
@@ -324,6 +326,8 @@ pub async fn register(
         token: None,
         requires_confirmation: Some(true),
         requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
     }))
 }
 
@@ -410,6 +414,8 @@ pub async fn verify_email(
         token: Some(token_session),
         requires_confirmation: None,
         requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
     }))
 }
 
@@ -426,7 +432,7 @@ pub async fn login(
     }
 
     let row = sqlx::query(
-        "SELECT id, email, password_hash, name, company_id, role, plan, email_verified FROM users WHERE email = $1",
+        "SELECT id, email, password_hash, name, company_id, role, plan, email_verified, pin_hash FROM users WHERE email = $1",
     )
     .bind(payload.email.trim())
     .fetch_optional(&state.db)
@@ -447,6 +453,8 @@ pub async fn login(
                 token: None,
                 requires_confirmation: None,
                 requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
             }));
         }
     };
@@ -461,6 +469,8 @@ pub async fn login(
             token: None,
             requires_confirmation: None,
             requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
         }));
     }
 
@@ -476,6 +486,8 @@ pub async fn login(
             token: None,
             requires_confirmation: Some(true),
             requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
         }));
     }
 
@@ -490,7 +502,37 @@ pub async fn login(
         }
     }
 
-    // Tahap 2: kirim kode 2FA.
+    // Owner: skip 2FA email, pakai PIN (khusus owner).
+    let owner_role: String = row.get("role");
+    if owner_role == "owner" {
+        let pin_hash: String = row.get("pin_hash");
+        let has_pin = !pin_hash.is_empty();
+        let company_id: Option<String> = row.get("company_id");
+        return Ok(Json(AuthResponse {
+            success: true,
+            message: if has_pin { "Masukkan PIN akun".to_string() } else { "Atur PIN akun terlebih dahulu".to_string() },
+            user: Some(UserResponse {
+                id: user_id,
+                email: row.get("email"),
+                name: row.get("name"),
+                company_id,
+                role: owner_role,
+                plan: row.get("plan"),
+                email_verified: Some(true),
+                ai_provider: None,
+                ai_base_url: None,
+                ai_model: None,
+                ai_enabled: None,
+            }),
+            token: None,
+            requires_confirmation: None,
+            requires_2fa: None,
+            requires_pin: Some(has_pin),
+            requires_pin_setup: Some(!has_pin),
+        }));
+    }
+
+    // Tahap 2: kirim kode 2FA (untuk non-owner).
     let code = generate_otp();
     let code_hash = sha256(&code);
     let expires_at = Utc::now() + Duration::minutes(5);
@@ -554,7 +596,161 @@ pub async fn login(
         token: None,
         requires_confirmation: None,
         requires_2fa: Some(true),
+            requires_pin: None,
+            requires_pin_setup: None,
     }))
+}
+
+/// POST /api/auth/verify-pin — verifikasi PIN owner setelah login.
+/// Bila PIN belum ada (owner baru), PIN disimpan & login langsung diterima.
+pub async fn verify_pin(
+    State(state): State<AppState>,
+    Json(payload): Json<VerifyPinRequest>,
+) -> Result<Json<AuthResponse>, StatusCode> {
+    if rate_limited(&format!("pin:{}", payload.email.trim().to_lowercase()), 5, 10) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    let pin = payload.pin.trim();
+    // PIN 4-6 digit
+    if pin.len() < 4 || pin.len() > 6 || !pin.chars().all(|c| c.is_ascii_digit()) {
+        return Ok(Json(AuthResponse {
+            success: false,
+            message: "PIN harus 4-6 digit angka".to_string(),
+            user: None,
+            token: None,
+            requires_confirmation: None,
+            requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
+        }));
+    }
+
+    let row = sqlx::query(
+        "SELECT id, email, name, company_id, role, plan, pin_hash FROM users WHERE email = $1",
+    )
+    .bind(payload.email.trim())
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let row = match row {
+        Some(r) => r,
+        None => {
+            return Ok(Json(AuthResponse {
+                success: false,
+                message: "Akun tidak ditemukan".to_string(),
+                user: None,
+                token: None,
+                requires_confirmation: None,
+                requires_2fa: None,
+                requires_pin: None,
+                requires_pin_setup: None,
+            }))
+        }
+    };
+
+    let user_id: String = row.get("id");
+    let role: String = row.get("role");
+    if role != "owner" {
+        return Err(StatusCode::FORBIDDEN); // PIN hanya untuk owner
+    }
+
+    let pin_hash: String = row.get("pin_hash");
+    let pin_hash_now = sha256(pin);
+
+    if pin_hash.is_empty() {
+        // Owner baru: simpan PIN, langsung login.
+        sqlx::query("UPDATE users SET pin_hash = $1 WHERE id = $2")
+            .bind(&pin_hash_now)
+            .bind(&user_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+    } else if pin_hash != pin_hash_now {
+        tracing::warn!(event = "pin_failed", user_id = %user_id, "pin salah");
+        return Ok(Json(AuthResponse {
+            success: false,
+            message: "PIN salah".to_string(),
+            user: None,
+            token: None,
+            requires_confirmation: None,
+            requires_2fa: None,
+            requires_pin: Some(true),
+            requires_pin_setup: None,
+        }));
+    }
+
+    let token = create_session(&state.db, &user_id).await?;
+    tracing::info!(event = "login_owner_pin", user_id = %user_id, "owner login via PIN");
+
+    Ok(Json(AuthResponse {
+        success: true,
+        message: "Login berhasil".to_string(),
+        user: Some(UserResponse {
+            id: user_id,
+            email: row.get("email"),
+            name: row.get("name"),
+            company_id: row.get("company_id"),
+            role: role.clone(),
+            plan: row.get("plan"),
+            email_verified: Some(true),
+            ai_provider: None,
+            ai_base_url: None,
+            ai_model: None,
+            ai_enabled: None,
+        }),
+        token: Some(token),
+        requires_confirmation: None,
+        requires_2fa: None,
+        requires_pin: None,
+        requires_pin_setup: None,
+    }))
+}
+
+/// PUT /api/profile/pin — ganti PIN (butuh token sesi). Hanya owner.
+pub async fn set_pin(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<SetPinRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let role: String = sqlx::query("SELECT role FROM users WHERE id = $1")
+        .bind(&user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .get("role");
+    if role != "owner" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let pin = payload.pin.trim();
+    if pin.len() < 4 || pin.len() > 6 || !pin.chars().all(|c| c.is_ascii_digit()) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let pin_hash = sha256(pin);
+    sqlx::query("UPDATE users SET pin_hash = $1 WHERE id = $2")
+        .bind(&pin_hash)
+        .bind(&user_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    Ok(Json(json!({ "ok": true })))
 }
 
 /// POST /api/auth/2fa/verify — tahap 2: cek kode 2FA lalu keluarkan session token.
@@ -590,6 +786,8 @@ pub async fn verify_2fa(
                 token: None,
                 requires_confirmation: None,
                 requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
             }))
         }
     };
@@ -653,6 +851,8 @@ pub async fn verify_2fa(
                 token: Some(session_token),
                 requires_confirmation: None,
                 requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
             }))
         }
         None => Ok(Json(AuthResponse {
@@ -662,6 +862,8 @@ pub async fn verify_2fa(
             token: None,
             requires_confirmation: None,
             requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
         })),
     }
 }

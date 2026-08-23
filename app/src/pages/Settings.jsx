@@ -23,7 +23,7 @@ const EDU_OPTIONS = ['', 'SMA/SMK', 'D3', 'S1', 'S2', 'S3']
 
 export default function Settings() {
   const {
-    currentUser, setAppState, userPin, setUserPin,
+    currentUser, setAppState, userPin, setUserPin, changePin,
     profile, loadProfile, updateProfile,
   } = useStore()
 
@@ -154,12 +154,18 @@ export default function Settings() {
     }
   }
 
-  const handleChangePin = () => {
+  const handleChangePin = async () => {
     if (!pinForm.current) return setPinError('Masukkan PIN saat ini.')
     if (pinForm.current !== userPin) return setPinError('PIN saat ini salah.')
     if (!/^\d{4,6}$/.test(pinForm.pin)) return setPinError('PIN baru harus 4–6 digit angka.')
     if (pinForm.pin !== pinForm.confirm) return setPinError('PIN baru tidak sama dengan konfirmasi.')
-    setUserPin(pinForm.pin)
+    // Sinkron ke backend (owner) atau simpan lokal (non-owner).
+    if (currentUser?.role === 'owner') {
+      const result = await changePin(pinForm.pin)
+      if (!result.success) return setPinError(result.message)
+    } else {
+      setUserPin(pinForm.pin)
+    }
     setPinModalOpen(false)
     setPinForm({ current: '', pin: '', confirm: '' })
     setPinError('')

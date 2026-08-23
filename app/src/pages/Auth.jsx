@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
-import { ArrowLeft, LogIn, UserPlus, Mail, Lock, User, ShieldCheck, MailCheck, RefreshCw } from 'lucide-react'
+import { ArrowLeft, LogIn, UserPlus, Mail, Lock, User, ShieldCheck, MailCheck, RefreshCw, KeyRound, KeySquare } from 'lucide-react'
 import './Auth.css'
 
 export default function Auth() {
-  const { setAppState, login, register, verify2FA, verifyEmail } = useStore()
+  const { setAppState, login, register, verify2FA, verifyEmail, verifyPin } = useStore()
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   // Alur verifikasi
-  // stage: 'form' | 'otp' | 'confirm-sent' | 'verifying'
+  // stage: 'form' | 'otp' | 'pin' | 'confirm-sent' | 'verifying'
   const [stage, setStage] = useState('form')
   const [otp, setOtp] = useState('')
   const [otpEmail, setOtpEmail] = useState('')
+  const [pin, setPin] = useState('')
+  const [pinMode, setPinMode] = useState('verify') // 'verify' | 'setup'
 
   const [form, setForm] = useState({
     name: '',
@@ -88,6 +90,11 @@ export default function Auth() {
         if (result.success && result.requires2FA) {
           setOtpEmail(form.email)
           setStage('otp')
+        } else if (result.success && result.requiresPin !== undefined) {
+          // Owner: login pakai PIN, bukan 2FA email.
+          setOtpEmail(form.email)
+          setPinMode(result.requiresPinSetup ? 'setup' : 'verify')
+          setStage('pin')
         } else if (result.success) {
           const { hasCompletedSetup } = useStore.getState()
           setAppState(hasCompletedSetup ? 'app' : 'setup')
@@ -117,6 +124,24 @@ export default function Auth() {
     } else {
       setError(result.message || 'Kode salah. Coba lagi.')
       setOtp('')
+    }
+    setLoading(false)
+  }
+
+  const handlePinSubmit = async (e) => {
+    e.preventDefault()
+    if (!pin || !/^\d{4,6}$/.test(pin)) {
+      setError('PIN harus 4-6 digit angka.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    const result = await verifyPin(otpEmail, pin)
+    if (result.success) {
+      setAppState('app')
+    } else {
+      setError(result.message || 'PIN salah. Coba lagi.')
+      setPin('')
     }
     setLoading(false)
   }
@@ -223,6 +248,51 @@ export default function Auth() {
                 </div>
                 <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading || otp.length !== 6}>
                   {loading ? 'Memverifikasi…' : 'Verifikasi & Masuk'}
+                </button>
+              </form>
+
+              <div className="auth-footer">
+                <button className="auth-link" onClick={goBackToLogin}>
+                  Gunakan email / password lain
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ---------- LAYAR PIN (khusus OWNER) ---------- */}
+          {stage === 'pin' && (
+            <div className="auth-content">
+              <div className="auth-icon-big"><KeySquare size={36} /></div>
+              <h1>{pinMode === 'setup' ? 'Atur PIN Akun' : 'Masukkan PIN'}</h1>
+              <p className="auth-subtitle">
+                {pinMode === 'setup'
+                  ? 'Buat PIN 4-6 digit untuk melindungi akun owner. PIN ini menggantikan kode email saat login.'
+                  : `Masukkan PIN akun kamu untuk melanjutkan ke <strong>${otpEmail}</strong>.`}
+              </p>
+
+              {error && <div className="auth-error">{error}</div>}
+
+              <form onSubmit={handlePinSubmit} className="auth-form">
+                <div className="input-group">
+                  <label className="input-label" htmlFor="auth-pin">PIN</label>
+                  <div className="input-icon">
+                    <KeyRound size={16} />
+                    <input
+                      type="password"
+                      name="pin"
+                      id="auth-pin"
+                      className="input"
+                      placeholder="••••"
+                      maxLength={6}
+                      autoFocus
+                      inputMode="numeric"
+                      value={pin}
+                      onChange={(e) => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading || pin.length < 4}>
+                  {loading ? 'Memproses…' : pinMode === 'setup' ? 'Simpan & Masuk' : 'Verifikasi & Masuk'}
                 </button>
               </form>
 
