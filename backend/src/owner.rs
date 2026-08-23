@@ -190,7 +190,7 @@ pub async fn neon_status(
         .header("Authorization", format!("Bearer {api_key}"))
         .send()
         .await
-        .map_err(|e| StatusCode::BAD_GATEWAY) // infra error, biarkan client retry
+        .map_err(|_| StatusCode::BAD_GATEWAY) // infra error, biarkan client retry
         .and_then(|r| r.error_for_status().map_err(|_| StatusCode::BAD_GATEWAY))
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
     let projects = projects
