@@ -1,4 +1,4 @@
-/* Luxio Design System - Complete Dark/Light Theme Support */
+/* Luxio Design System - Complete App Theme Support */
 
 :root,
 [data-theme="dark"] {
@@ -20,6 +20,7 @@
   --accent-muted: rgba(255, 107, 53, 0.15);
   --accent2: #22D3EE;
   --accent3: #A78BFA;
+  --focus-ring: #22D3EE;
   
   /* Secondary accents */
   --cyan: #22D3EE;
@@ -78,6 +79,7 @@
   --accent-muted: rgba(234, 88, 12, 0.1);
   --accent2: #0891B2;
   --accent3: #7C3AED;
+  --focus-ring: #0891B2;
   
   --cyan: #0891B2;
   --green: #16A34A;
@@ -92,6 +94,93 @@
   --border-hover: #BEBEC4;
 
   --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Main White Theme */
+[data-theme="main-white-light"] {
+  color-scheme: light;
+
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F7F7F7;
+  --bg-tertiary: #EEEEEE;
+  --bg-elevated: #FFFFFF;
+
+  --text-primary: #1F2937;
+  --text-secondary: #4B5563;
+  --text-muted: #8B8D94;
+
+  --accent: #36D2D3;
+  --accent-hover: #27BFC0;
+  --accent-muted: rgba(54, 210, 211, 0.16);
+  --accent2: #36D2D3;
+  --accent3: #6B7280;
+  --focus-ring: #0E8F90;
+
+  --cyan: #0E8F90;
+  --green: #16A34A;
+  --purple: #7C3AED;
+  --yellow: #CA8A04;
+
+  --success: #16A34A;
+  --warning: #CA8A04;
+  --error: #DC2626;
+
+  --border: #36D2D3;
+  --border-hover: #27BFC0;
+
+  --font-body: 'Roboto', Helvetica, Arial, Verdana, sans-serif;
+  --font-display: 'Roboto', Helvetica, Arial, Verdana, sans-serif;
+  --line-height-base: 1.6;
+
+  --radius-sm: 2px;
+  --radius-md: 50px;
+  --radius-lg: 100px;
+  --radius-xl: 500px;
+
+  --card-shadow: rgba(0, 0, 0, 0) 0 0 10px 0;
+}
+
+[data-theme="main-white-dark"] {
+  color-scheme: dark;
+
+  --bg-primary: #000000;
+  --bg-secondary: #0D0D0D;
+  --bg-tertiary: #171717;
+  --bg-elevated: #202020;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #EEEEEE;
+  --text-muted: #A7A9AF;
+
+  --accent: #36D2D3;
+  --accent-hover: #61E5E6;
+  --accent-muted: rgba(54, 210, 211, 0.2);
+  --accent2: #36D2D3;
+  --accent3: #EEEEEE;
+  --focus-ring: #61E5E6;
+
+  --cyan: #36D2D3;
+  --green: #4ADE80;
+  --purple: #A78BFA;
+  --yellow: #FACC15;
+
+  --success: #4ADE80;
+  --warning: #FACC15;
+  --error: #F87171;
+
+  --border: #36D2D3;
+  --border-hover: #61E5E6;
+
+  --font-body: 'Roboto', Helvetica, Arial, Verdana, sans-serif;
+  --font-display: 'Roboto', Helvetica, Arial, Verdana, sans-serif;
+  --line-height-base: 1.6;
+
+  --radius-sm: 2px;
+  --radius-md: 50px;
+  --radius-lg: 100px;
+  --radius-xl: 500px;
+
+  --card-shadow: rgba(0, 0, 0, 0.2) 0 0 1px 1px;
 }
 
 * {
@@ -109,7 +198,7 @@ body {
   font-family: var(--font-body);
   background: var(--bg-primary);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: var(--line-height-base, 1.5);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   transition: background 0.3s, color 0.3s;
@@ -222,6 +311,8 @@ a:hover {
 
 .input {
   width: 100%;
+  height: auto;
+  min-height: 44px;
   padding: var(--space-3) var(--space-4);
   font-family: var(--font-body);
   font-size: 1rem;
@@ -232,9 +323,37 @@ a:hover {
   transition: all 0.15s;
 }
 
+/* Native <select> modern — same appearance as custom Select */
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b8d94' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+select.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+textarea.input {
+  height: auto;
+  min-height: 44px;
+  resize: vertical;
+}
+
 .input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent2));
+  outline-offset: 2px;
 }
 
 .input::placeholder {

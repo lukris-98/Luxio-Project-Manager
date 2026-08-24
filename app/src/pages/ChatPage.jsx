@@ -169,13 +169,13 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Pencarian user global (nama/email/kode) */}
+          {/* Pencarian user global (username/nama/email) */}
           <div className="chat-search">
             <div className="chat-search-box">
               <Search size={15} />
               <input
                 className="chat-search-input"
-                placeholder="Cari orang / kode user…"
+                placeholder="Cari orang / username…"
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
               />
@@ -266,7 +266,7 @@ export default function ChatPage() {
               <div className="chat-contacts-add">
                 <input
                   className="input"
-                  placeholder="Kode user (LUX...)"
+                  placeholder="Username (cth: joko123)"
                   value={contactCode}
                   onChange={(e) => setContactCode(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddContact() }}
@@ -303,7 +303,7 @@ export default function ChatPage() {
                   </div>
                 ))}
                 {chatContacts.length === 0 && (
-                  <p className="chat-contacts-empty">Belum ada kontak. Cari lewat kode user.</p>
+                  <p className="chat-contacts-empty">Belum ada kontak. Cari lewat username.</p>
                 )}
               </div>
             </div>
@@ -419,10 +419,10 @@ export default function ChatPage() {
               <h3 className="chat-profile-name">{viewProfile.user.name}</h3>
               {viewProfile.user.position && <p className="chat-profile-detail">{viewProfile.user.position}</p>}
               <div className="chat-profile-info">
-                {viewProfile.user.user_code && (
+                {viewProfile.user.username && (
                   <div className="chat-profile-row">
-                    <span className="chat-profile-label">Kode User</span>
-                    <span className="chat-profile-value">{viewProfile.user.user_code}</span>
+                    <span className="chat-profile-label">Username</span>
+                    <span className="chat-profile-value">@{viewProfile.user.username}</span>
                   </div>
                 )}
                 {viewProfile.user.company_name && (

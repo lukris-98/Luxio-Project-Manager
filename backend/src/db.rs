@@ -87,6 +87,8 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
         ("admin_edit_month", "TEXT NOT NULL DEFAULT ''"),
         // Kode pertemanan (Item 5: friend system via user code).
         ("user_code", "TEXT"),
+        // username unik (pengganti kode LUX sebagai identitas publik).
+        ("username", "TEXT"),
         // AI Agent (Item 8): penyedia & API key milik owner.
         ("ai_provider", "TEXT NOT NULL DEFAULT ''"),
         ("ai_key", "TEXT NOT NULL DEFAULT ''"),
@@ -107,6 +109,38 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     // Isi user_code unik (kode pertemanan) untuk akun yang belum punya.
     sqlx::query(
         "UPDATE users SET user_code = 'LUX' || id WHERE user_code IS NULL",
+    )
+    .execute(db)
+    .await?;
+
+    // Isi username unik untuk akun yang belum punya (backfill dari user_code
+    // agar tidak ada NULL). Username dipakai sebagai identitas publik pengganti
+    // kode LUX di pencarian anggota/user.
+    sqlx::query(
+        "UPDATE users SET username = user_code WHERE username IS NULL AND user_code IS NOT NULL",
+    )
+    .execute(db)
+    .await?;
+
+    // Pastikan username unik: ada kemungkinan user_code lama duplikat secara
+    // teori, maka cukup tambahkan suffix angka bagi yang bentrok.
+    sqlx::query(
+        "UPDATE users u
+         SET username = username || '-' || SUBSTRING(id FROM 1 FOR 6)
+         WHERE username IN (
+             SELECT username
+             FROM users
+             WHERE id != u.id
+               AND username IS NOT NULL
+             GROUP BY username
+             HAVING COUNT(*) > 1
+         )",
+    )
+    .execute(db)
+    .await?;
+
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username)",
     )
     .execute(db)
     .await?;

@@ -116,8 +116,8 @@ async function del(path, body) {
 // agar konsisten dan mudah di-trace dari satu tempat.
 export const api = {
   // ---- Auth ----
-  register: (name, email, password) =>
-    post('/api/auth/register', { name, email, password }),
+  register: (name, email, password, username) =>
+    post('/api/auth/register', { name, email, password, ...(username ? { username } : {}) }),
   login: (email, password) =>
     post('/api/auth/login', { email, password }),
   // Aktivasi akun memakai token dari email konfirmasi.
@@ -193,7 +193,7 @@ export const api = {
   chatConversations: () => get('/api/chat/conversations'),
   chatGroupCreate: (data) => post('/api/chat/group/create', data),
   chatContacts: () => get('/api/chat/contacts'),
-  chatAddContact: (userCode) => post('/api/chat/contacts', { user_code: userCode }),
+  chatAddContact: (username) => post('/api/chat/contacts', { username }),
   // Cari user global (lintas perusahaan) + lihat profil publik orang lain.
   searchUsers: (q) => get('/api/users/search', { q }),
   getPublicProfile: (userId) => get(`/api/users/${userId}`),

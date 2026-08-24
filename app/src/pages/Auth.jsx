@@ -21,6 +21,7 @@ export default function Auth() {
   const [form, setForm] = useState({
     name: '',
     email: '',
+    username: '',
     password: '',
     confirmPassword: ''
   })
@@ -72,7 +73,7 @@ export default function Auth() {
           return
         }
 
-        const result = await register(form.name, form.email, form.password)
+        const result = await register(form.name, form.email, form.password, form.username.trim() || undefined)
         if (result.success) {
           // Pendaftar harus konfirmasi email dulu sebelum bisa login.
           setStage('confirm-sent')
@@ -372,6 +373,24 @@ export default function Auth() {
                       />
                     </div>
                   </div>
+
+                  {mode === 'register' && (
+                    <div className="input-group">
+                      <label className="input-label" htmlFor="auth-username">Username (unik)</label>
+                      <div className="input-icon">
+                        <User size={16} />
+                        <input
+                          type="text"
+                          name="username"
+                          id="auth-username"
+                          className="input"
+                          placeholder="mis. joko123 (opsional)"
+                          value={form.username}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="input-group">
                     <label className="input-label" htmlFor="auth-password">Password</label>

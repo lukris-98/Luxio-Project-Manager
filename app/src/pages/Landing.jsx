@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useStore } from '../store/useStore'
+import { getAppThemeMode, toggleAppThemeMode, useStore } from '../store/useStore'
 import { motion, useSpring, useTransform, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion'
 import { ArrowRight, ArrowUp, Check, Users, Target, BarChart3, Shield, Globe, Clock, Moon, Sun, Menu, X, Kanban, CheckSquare, Lock, Calendar, MessageSquare, Bot, Camera, Database, HardDrive } from 'lucide-react'
 import HeadlineMarquee from '../components/HeadlineMarquee'
@@ -54,8 +54,9 @@ function RevealSection({ id, className, children }) {
 }
 
 export default function Landing() {
-  const { setAppState } = useStore()
-  const [theme, setTheme] = useState('dark')
+  const { setAppState, theme, setTheme } = useStore()
+  const themeMode = getAppThemeMode(theme)
+  const isDarkTheme = themeMode === 'dark'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showBackTop, setShowBackTop] = useState(false)
   const [cardMinimized, setCardMinimized] = useState(false)
@@ -68,13 +69,8 @@ export default function Landing() {
     setTimeout(() => setCardShaking(false), 450)
   }
   
-  // Apply theme
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-  }, [theme])
-  
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
+    setTheme(toggleAppThemeMode(theme))
   }
 
   useMotionValueEvent(scrollY, 'change', (latest) => {
@@ -124,7 +120,7 @@ const pricingPlans = [
   ]
   
   return (
-    <div className={`landing theme-${theme}`}>
+    <div className={`landing theme-${themeMode}`}>
       {/* Navigation */}
       <header className="main-nav">
         <div className="nav-inner">
@@ -141,8 +137,12 @@ const pricingPlans = [
           
           <div className="nav-actions">
             <InstallAppButton className="install-nav-btn" label="Install" />
-            <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            <button
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+            >
+              {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             <button className="nav-link" onClick={() => setAppState('auth')}>Log in</button>
             <button className="btn btn-primary" onClick={() => setAppState('auth')}>

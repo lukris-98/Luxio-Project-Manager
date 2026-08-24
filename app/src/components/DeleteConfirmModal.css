@@ -1,0 +1,30 @@
+/* DeleteConfirmModal — verifikasi penghapusan (PIN atau ketik DELETE) */
+
+.delete-verify-box {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.delete-verify-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.delete-verify-head svg {
+  color: var(--warning);
+}
+
+.delete-verify-error {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--error);
+}

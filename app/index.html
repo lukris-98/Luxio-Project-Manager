@@ -50,16 +50,22 @@
         var t = (function () {
           try { return JSON.parse(localStorage.getItem('luxio-store')).state.theme } catch (e) { return null }
         })()
-        if (t === 'light') {
-          document.documentElement.setAttribute('data-theme', 'light')
-          document.documentElement.style.colorScheme = 'light'
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#F1F1F3')
+        var themes = {
+          dark: { scheme: 'dark', color: '#0C0C0E' },
+          light: { scheme: 'light', color: '#F1F1F3' },
+          'main-white-light': { scheme: 'light', color: '#FFFFFF' },
+          'main-white-dark': { scheme: 'dark', color: '#000000' }
+        }
+        if (themes[t]) {
+          document.documentElement.setAttribute('data-theme', t)
+          document.documentElement.style.colorScheme = themes[t].scheme
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', themes[t].color)
         }
       } catch (e) {}
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Roboto:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>

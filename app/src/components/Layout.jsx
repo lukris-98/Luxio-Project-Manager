@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useStore } from '../store/useStore'
+import { getAppThemeMode, toggleAppThemeMode, useStore } from '../store/useStore'
 import { api } from '../services/api'
 import ReminderWatcher from './ReminderWatcher'
 import HeadlineMarquee from './HeadlineMarquee'
@@ -148,6 +148,7 @@ export default function Layout({ children }) {
     { id: 'kanban', icon: KanbanSquare, label: 'Kanban' },
     { id: 'todo-list', icon: ListTodo, label: 'Todo' },
     { id: 'private-note', icon: StickyNote, label: 'Catatan' },
+    { id: 'vault', icon: KeyRound, label: 'Brankas' },
     { id: 'calendar', icon: Calendar, label: 'Kalender' },
     { id: 'my-tasks', icon: CheckSquare, label: 'Task Saya' },
     // Super Admin / Owner => Divisi (CRUD divisi+tim), Admin/User => Tim.
@@ -201,8 +202,10 @@ export default function Layout({ children }) {
     return () => clearTimeout(t)
   }, [notifications])
 
+  const themeMode = getAppThemeMode(theme)
+  const isDarkTheme = themeMode === 'dark'
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
+    setTheme(toggleAppThemeMode(theme))
   }
 
   // Muat notifikasi dari backend setiap 30 detik selama sesi aktif.
@@ -373,6 +376,9 @@ export default function Layout({ children }) {
               <div className="user-avatar">
                 {currentUser?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || 'U'}
               </div>
+              <div className="user-details">
+                <span className="user-name">{currentUser?.name || 'User'}</span>
+              </div>
               <ChevronDown size={16} className="profile-chevron" />
             </button>
 
@@ -474,8 +480,12 @@ export default function Layout({ children }) {
 
             <InstallAppButton className="install-btn" label="Install" />
 
-            <button className="theme-toggle-btn" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            <button
+              className="theme-toggle-btn"
+              onClick={toggleTheme}
+              aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+            >
+              {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             <div className="notif-wrap">

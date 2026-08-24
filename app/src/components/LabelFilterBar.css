@@ -28,7 +28,8 @@
 .label-filter-input {
   padding: var(--space-2) var(--space-3);
   font-size: 0.875rem;
-  height: 36px;
+  height: auto;
+  min-height: 36px;
   color-scheme: inherit;
 }
 

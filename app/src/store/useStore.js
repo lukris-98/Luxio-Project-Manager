@@ -15,6 +15,23 @@ import { persist } from 'zustand/middleware'
 import { api, setToken } from '../services/api'
 import { track } from '../utils/analytics'
 
+export const APP_THEME_CONFIG = {
+  dark: { scheme: 'dark', color: '#0C0C0E' },
+  light: { scheme: 'light', color: '#F1F1F3' },
+  'main-white-light': { scheme: 'light', color: '#FFFFFF' },
+  'main-white-dark': { scheme: 'dark', color: '#000000' },
+}
+
+export const APP_THEME_VALUES = Object.keys(APP_THEME_CONFIG)
+export const normalizeAppTheme = (theme) => APP_THEME_VALUES.includes(theme) ? theme : 'dark'
+export const getAppThemeConfig = (theme) => APP_THEME_CONFIG[normalizeAppTheme(theme)]
+export const getAppThemeFamily = (theme) => normalizeAppTheme(theme).startsWith('main-white') ? 'main-white' : 'luxio'
+export const getAppThemeMode = (theme) => normalizeAppTheme(theme).endsWith('light') ? 'light' : 'dark'
+export const makeAppTheme = (family, mode) => family === 'main-white'
+  ? `main-white-${mode === 'light' ? 'light' : 'dark'}`
+  : mode === 'light' ? 'light' : 'dark'
+export const toggleAppThemeMode = (theme) => makeAppTheme(getAppThemeFamily(theme), getAppThemeMode(theme) === 'dark' ? 'light' : 'dark')
+
 // Hitung ulang progress target dengan cara kelola 'kanban':
 // persentase task di kolom Done terhadap seluruh task board.
 const recalcBoardProgress = (state) => {
@@ -96,9 +113,9 @@ export const useStore = create(
   // currentPage: halaman dalam area 'app' (dashboard, projects, dll)
   currentPage: 'dashboard',
 
-  // ---------- TEMA (dark/light, tersimpan di localStorage) ----------
+  // ---------- TEMA APLIKASI (tersimpan di localStorage) ----------
   theme: 'dark',
-  setTheme: (theme) => set({ theme }),
+  setTheme: (theme) => set({ theme: normalizeAppTheme(theme) }),
 
   // ---------- STATE ALUR SETUP ----------
   setupStep: 0,
@@ -161,11 +178,73 @@ export const useStore = create(
   // Catatan yang sedang dibuka dari sidebar (untuk membuka tab tertentu).
   selectedNoteId: null,
 
+  // ---------- BAJAK / PENYIMPANAN KREDENSIAL (per user) ----------
+  // vault[userId] = [ { id, category, label, username, email, password, url, notes, createdAt, updatedAt } ]
+  vault: {},
+  // Vault yang sedang dibuka dari sidebar (untuk membuka tab tertentu).
+  selectedVaultId: null,
+
+  addVaultEntry: (entry) => {
+    const { currentUser } = get()
+    const uid = currentUser?.id || 'local'
+    const list = get().vault[uid] || []
+    set({
+      vault: {
+        ...get().vault,
+        [uid]: [
+          {
+            id: Date.now(),
+            category: entry.category || 'Lainnya',
+            label: entry.label || 'Tanpa Judul',
+            username: entry.username || '',
+            email: entry.email || '',
+            password: entry.password || '',
+            url: entry.url || '',
+            notes: entry.notes || '',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+          ...list,
+        ],
+      },
+    })
+  },
+
+  updateVaultEntry: (id, data) => {
+    const { currentUser } = get()
+    const uid = currentUser?.id || 'local'
+    set({
+      vault: {
+        ...get().vault,
+        [uid]: (get().vault[uid] || []).map((e) =>
+          e.id === id ? { ...e, ...data, updatedAt: Date.now() } : e
+        ),
+      },
+    })
+  },
+
+  deleteVaultEntry: (id) => {
+    const { currentUser } = get()
+    const uid = currentUser?.id || 'local'
+    set({
+      vault: {
+        ...get().vault,
+        [uid]: (get().vault[uid] || []).filter((e) => e.id !== id),
+      },
+    })
+  },
+
   // ---------- PIN AKUN (global, per user, tersimpan di localStorage) ----------
   // PIN dipakai untuk mengunci catatan pribadi (PrivateNote) dan wajib
   // di-set setelah login pertama kali. Bisa diubah di Settings.
   userPin: '',
   setUserPin: (pin) => set({ userPin: pin }),
+
+  // Verifikasi penghapusan (Settings > Risiko Tinggi):
+  // true  => hapus akun/target/kanban/todo wajib masukkan PIN akun.
+  // false => cukup ketik 'DELETE' sebagai konfirmasi.
+  requirePinForDelete: false,
+  setRequirePinForDelete: (value) => set({ requirePinForDelete: Boolean(value) }),
 
   // ---------- PROFIL (Item 2: Settings lengkap + kuota edit) ----------
   profile: null,
@@ -722,6 +801,7 @@ export const useStore = create(
         activeRole: res.user.role,
       })
       track('login', { role: res.user.role, method: '2fa' })
+      get().seedOwnerDummyData()
       return { success: true }
     } catch (err) {
       return { success: false, message: err.message }
@@ -749,6 +829,8 @@ export const useStore = create(
         userPin: pin,
       })
       track('login', { role: res.user.role, method: 'pin' })
+      // Seed data demo untuk owner (hanya sekali).
+      get().seedOwnerDummyData()
       return { success: true }
     } catch (err) {
       return { success: false, message: err.message }
@@ -790,6 +872,7 @@ export const useStore = create(
         activeRole: res.user.role,
       })
       track('signup_verified', { role: res.user.role })
+      get().seedOwnerDummyData()
       return { success: true }
     } catch (err) {
       return { success: false, message: err.message }
@@ -800,9 +883,9 @@ export const useStore = create(
    * Daftar akun baru ke backend. Mengembalikan { success, message }.
    * Akun baru belum aktif — harus klik link konfirmasi di email.
    */
-  register: async (name, email, password) => {
+  register: async (name, email, password, username) => {
     try {
-      const res = await api.register(name, email, password)
+      const res = await api.register(name, email, password, username)
       if (!res.success) throw new Error(res.message)
       return { success: true, requiresConfirmation: true, message: res.message }
     } catch (err) {
@@ -857,6 +940,7 @@ export const useStore = create(
             ...currentUser,
             name: profile.name,
             email: profile.email,
+            username: profile.username,
           },
           profile,
         })
@@ -867,13 +951,342 @@ export const useStore = create(
     } catch (e) {
       let message = 'Gagal menyimpan profil.'
       if (e.status === 429) message = 'Kuota edit bulanan sudah habis. Tunggu bulan berikutnya.'
-      if (e.status === 409) message = 'Email sudah dipakai akun lain.'
-      return { success: false, message }
+      if (e.status === 409) message = 'Email atau username sudah dipakai akun lain.'
+      return { success: false, message, status: e.status }
     }
   },
 
   // =====================================================================
-  // ACTIONS — UPGRADE AKUN (Item 4)
+  // ACTIONS — DEMO DATA (khusus Owner, seed sekali)
+  // =====================================================================
+
+  seedOwnerDummyData: () => {
+    const { projects, currentUser } = get()
+    if (!currentUser || currentUser.role !== 'owner') return
+    const now = Date.now()
+    const userId = currentUser.id
+
+    // Tema/label yang dipakai
+    const themes = ['Marketing', 'Development', 'Event']
+
+    // ---------- Target (projects) ----------
+    const p1 = {
+      id: now + 1,
+      createdAt: now - 1209600000,
+      name: 'Meningkatkan Brand Awareness Q3',
+      description: 'Target quarterly untuk meningkatkan brand awareness melalui kampanye digital dan kolaborasi KOL.',
+      viewType: 'kanban',
+      theme: 'Marketing',
+      priority: 'high',
+      type: 'quarterly',
+      deadlineType: 'deadline',
+      deadline: '2026-09-30',
+      deadlineLabel: '',
+      createdBy: userId,
+      assigneeId: userId,
+      division: '',
+      divisionId: '',
+      progress: 35,
+      status: 'active',
+      stages: [
+        { id: 1, name: 'Riset & Strategi', status: 'completed', checklist: [
+          { id: 1, text: 'Analisis kompetitor', completed: true },
+          { id: 2, text: 'Tentukan target audience', completed: true },
+        ]},
+        { id: 2, name: 'Eksekusi Kampanye', status: 'in_progress', checklist: [
+          { id: 3, text: 'Buat konten visual', completed: true },
+          { id: 4, text: 'Jadwalkan posting', completed: false },
+          { id: 5, text: 'Kolaborasi KOL', completed: false },
+        ]},
+        { id: 3, name: 'Evaluasi', status: 'locked', checklist: [
+          { id: 6, text: 'Laporan mingguan', completed: false },
+          { id: 7, text: 'Review KPI', completed: false },
+        ]},
+      ],
+      collaboratorIds: [],
+    }
+
+    const p2 = {
+      id: now + 2,
+      createdAt: now - 864000000,
+      name: 'Launch Fitur Chat & Grup',
+      description: 'Rilis fitur chat antar anggota dan grup otomatis per divisi untuk rilis Q4.',
+      viewType: 'kanban',
+      theme: 'Development',
+      priority: 'high',
+      type: 'project',
+      deadlineType: 'deadline',
+      deadline: '2026-10-15',
+      deadlineLabel: '',
+      createdBy: userId,
+      assigneeId: userId,
+      division: '',
+      divisionId: '',
+      progress: 15,
+      status: 'active',
+      stages: [
+        { id: 1, name: 'Planning', status: 'completed', checklist: [
+          { id: 8, text: 'Finalisasi fitur', completed: true },
+        ]},
+        { id: 2, name: 'Development', status: 'in_progress', checklist: [
+          { id: 9, text: 'Backend chat API', completed: true },
+          { id: 10, text: 'Frontend chat UI', completed: false },
+        ]},
+        { id: 3, name: 'Testing', status: 'locked', checklist: [
+          { id: 11, text: 'Unit test', completed: false },
+          { id: 12, text: 'QA', completed: false },
+        ]},
+        { id: 4, name: 'Launch', status: 'locked', checklist: [
+          { id: 13, text: 'Deploy', completed: false },
+        ]},
+      ],
+      collaboratorIds: [],
+    }
+
+    const p3 = {
+      id: now + 3,
+      createdAt: now - 432000000,
+      name: 'Persiapan Event Akhir Tahun',
+      description: 'Persiapan acara akhir tahun untuk seluruh anggota tim.',
+      viewType: 'todo',
+      theme: 'Event',
+      priority: 'medium',
+      type: 'project',
+      deadlineType: 'deadline',
+      deadline: '2026-12-20',
+      deadlineLabel: '',
+      createdBy: userId,
+      assigneeId: userId,
+      division: '',
+      divisionId: '',
+      progress: 0,
+      status: 'active',
+      stages: [],
+      collaboratorIds: [],
+    }
+
+    // ---------- Kanban Boards ----------
+    const board1 = {
+      id: now + 10,
+      projectId: p1.id,
+      name: 'Kampanye Brand Awareness',
+      description: 'Board kanban untuk kampanye brand awareness Q3',
+      theme: 'Marketing',
+      deadlineType: 'deadline',
+      deadline: '2026-09-30',
+      deadlineLabel: '',
+      createdBy: userId,
+      createdAt: now - 1200000000,
+      columns: [
+        { id: 100, name: 'To Do', tasks: [
+          { id: 200, title: 'Desain konten feed Instagram', priority: 'high', deadlineType: 'deadline', deadline: '2026-09-10', deadlineLabel: '', assignedTo: userId },
+          { id: 201, title: 'Hubungi 3 KOL potensial', priority: 'medium', deadlineType: 'deadline', deadline: '2026-09-15', deadlineLabel: '', assignedTo: userId },
+          { id: 202, title: 'Persiapan budget iklan', priority: 'high', deadlineType: 'deadline', deadline: '2026-09-20', deadlineLabel: '', assignedTo: userId },
+        ]},
+        { id: 101, name: 'In Progress', tasks: [
+          { id: 203, title: 'Jadwalkan posting mingguan', priority: 'medium', deadlineType: 'deadline', deadline: '2026-09-08', deadlineLabel: '', assignedTo: userId },
+          { id: 204, title: 'Buat konten video Reels', priority: 'high', deadlineType: 'deadline', deadline: '2026-09-12', deadlineLabel: '', assignedTo: userId },
+        ]},
+        { id: 102, name: 'Done', tasks: [
+          { id: 205, title: 'Audit akun sosial media', priority: 'low', deadlineType: 'deadline', deadline: '2026-08-25', deadlineLabel: '', assignedTo: userId },
+          { id: 206, title: 'Buat moodboard visual', priority: 'medium', deadlineType: 'deadline', deadline: '2026-08-28', deadlineLabel: '', assignedTo: userId },
+        ]},
+      ],
+      collaboratorIds: [],
+    }
+
+    const board2 = {
+      id: now + 11,
+      projectId: p2.id,
+      name: 'Fitur Chat',
+      description: 'Development board untuk fitur chat & grup',
+      theme: 'Development',
+      deadlineType: 'deadline',
+      deadline: '2026-10-15',
+      deadlineLabel: '',
+      createdBy: userId,
+      createdAt: now - 840000000,
+      columns: [
+        { id: 110, name: 'Planning', tasks: [
+          { id: 210, title: 'Review PRD fitur chat', priority: 'high', deadlineType: 'deadline', deadline: '2026-09-05', deadlineLabel: '', assignedTo: userId },
+        ]},
+        { id: 111, name: 'Development', tasks: [
+          { id: 211, title: 'Buat schema database chat', priority: 'high', deadlineType: 'deadline', deadline: '2026-09-12', deadlineLabel: '', assignedTo: userId },
+          { id: 212, title: 'Implementasi API send message', priority: 'high', deadlineType: 'deadline', deadline: '2026-09-20', deadlineLabel: '', assignedTo: userId },
+          { id: 213, title: 'UI komponen chat bubble', priority: 'medium', deadlineType: 'deadline', deadline: '2026-09-22', deadlineLabel: '', assignedTo: userId },
+          { id: 214, title: 'Fitur grup chat otomatis', priority: 'medium', deadlineType: 'deadline', deadline: '2026-09-28', deadlineLabel: '', assignedTo: userId },
+        ]},
+        { id: 112, name: 'Testing', tasks: [
+          { id: 215, title: 'Test send/receive message', priority: 'high', deadlineType: 'deadline', deadline: '2026-10-05', deadlineLabel: '', assignedTo: userId },
+        ]},
+        { id: 113, name: 'Launch', tasks: [
+          { id: 216, title: 'Deploy ke staging', priority: 'medium', deadlineType: 'deadline', deadline: '2026-10-10', deadlineLabel: '', assignedTo: userId },
+          { id: 217, title: 'Deploy ke production', priority: 'high', deadlineType: 'deadline', deadline: '2026-10-15', deadlineLabel: '', assignedTo: userId },
+        ]},
+      ],
+      collaboratorIds: [],
+    }
+
+    // ---------- To-do Tasks (global + project 3) ----------
+    const todoTasks = [
+      { id: now + 300, projectId: p3.id, title: 'Cari venue acara', description: 'Cari tempat yang muat 50 orang dengan budget sesuai', status: 'pending', priority: 'high', deadlineType: 'deadline', deadline: '2026-11-01', deadlineLabel: '', assignedTo: userId, theme: 'Event', createdAt: now - 400000000 },
+      { id: now + 301, projectId: p3.id, title: 'Buat daftar tamu undangan', description: 'Kumpulkan nama anggota & partner yang diundang', status: 'pending', priority: 'medium', deadlineType: 'deadline', deadline: '2026-11-10', deadlineLabel: '', assignedTo: userId, theme: 'Event', createdAt: now - 380000000 },
+      { id: now + 302, projectId: p3.id, title: 'Tentukan tema acara', description: 'Konsep acara: formal / casual / outdoor', status: 'completed', priority: 'medium', deadlineType: 'deadline', deadline: '2026-10-25', deadlineLabel: '', assignedTo: userId, theme: 'Event', createdAt: now - 350000000 },
+      { id: now + 303, projectId: p3.id, title: 'Siapkan konsumsi & doorprize', description: 'Koordinasi catering dan hadiah', status: 'pending', priority: 'low', deadlineType: 'deadline', deadline: '2026-12-01', deadlineLabel: '', assignedTo: userId, theme: 'Event', createdAt: now - 300000000 },
+      { id: now + 304, projectId: p3.id, title: 'Buat rundown acara', description: 'Susun jadwal acara dari awal sampai akhir', status: 'pending', priority: 'medium', deadlineType: 'deadline', deadline: '2026-12-05', deadlineLabel: '', assignedTo: userId, theme: 'Event', createdAt: now - 250000000 },
+      // Global tasks
+      { id: now + 305, projectId: '', title: 'Update profile perusahaan', description: 'Pastikan data perusahaan di profil sudah terbaru', status: 'pending', priority: 'low', deadlineType: 'deadline', deadline: '2026-09-20', deadlineLabel: '', assignedTo: userId, theme: '', createdAt: now - 200000000 },
+      { id: now + 306, projectId: '', title: 'Cek notifikasi dan pengingat', description: 'Review semua notifikasi yang belum dibaca', status: 'completed', priority: 'medium', deadlineType: 'custom', deadline: '', deadlineLabel: 'Bulanan', assignedTo: userId, theme: '', createdAt: now - 150000000 },
+      { id: now + 307, projectId: '', title: 'Backup database', description: 'Lakukan backup database secara berkala', status: 'pending', priority: 'high', deadlineType: 'everyday', deadline: '', deadlineLabel: '', assignedTo: userId, theme: '', createdAt: now - 100000000 },
+    ]
+
+    // ---------- Catatan Pribadi ----------
+    const notes = [
+      {
+        id: now + 400,
+        title: 'Ide Fitur Baru',
+        content: '<p>Daftar fitur yang mungkin ditambahkan ke depannya:</p><ul><li>Integrasi Google Calendar</li><li>Export laporan PDF</li><li>Dark mode kustom</li><li>Template target mingguan</li></ul>',
+        pin: null,
+        locked: false,
+        closed: false,
+        theme: 'Development',
+        createdAt: now - 500000000,
+        updatedAt: now - 480000000,
+        collaboratorIds: [],
+      },
+      {
+        id: now + 401,
+        title: 'Catatan Rapat — Evaluasi Q3',
+        content: '<p><strong>Tanggal:</strong> 1 September 2026</p><p><strong>Hadir:</strong> Tim Inti</p><p><strong>Agenda:</strong></p><ol><li>Review progress kampanye — 35%</li><li>Kendala: budget iklan belum disetujui</li><li>Target: 50% di akhir bulan</li><li>Next action: approve budget minggu depan</li></ol>',
+        pin: null,
+        locked: false,
+        closed: false,
+        theme: 'Marketing',
+        createdAt: now - 450000000,
+        updatedAt: now - 420000000,
+        collaboratorIds: [],
+      },
+      {
+        id: now + 402,
+        title: 'Password & API Key',
+        content: '<p>Daftar kredensial penting (dilindungi PIN):</p><ul><li>Backend API: <code>https://api.luxio.id</code></li><li>Neon DB: tersimpan di .env</li><li>SMTP: Gmail app password</li></ul><p><em>Jangan bagikan catatan ini ke siapa pun.</em></p>',
+        pin: '1234',
+        locked: true,
+        closed: false,
+        theme: 'Development',
+        createdAt: now - 400000000,
+        updatedAt: now - 350000000,
+        collaboratorIds: [],
+      },
+    ]
+
+    // ---------- Divisi & Tim (struktur perusahaan) ----------
+    const divisions = [
+      { id: now + 500, name: 'Marketing', headId: null, memberCount: 7 },
+      { id: now + 501, name: 'Teknologi', headId: null, memberCount: 14 },
+      { id: now + 502, name: 'Keuangan', headId: null, memberCount: 2 },
+      { id: now + 503, name: 'SDM', headId: null, memberCount: 3 },
+      { id: now + 504, name: 'Operasional', headId: null, memberCount: 8 },
+      { id: now + 505, name: 'Eksekutif', headId: null, memberCount: 4 },
+    ]
+
+    const teams = [
+      { id: now + 600, divisionId: now + 500, name: 'Tim Kreatif', adminId: null, memberIds: [] },
+      { id: now + 601, divisionId: now + 500, name: 'Tim Digital', adminId: null, memberIds: [] },
+      { id: now + 602, divisionId: now + 501, name: 'Tim Frontend', adminId: null, memberIds: [] },
+      { id: now + 603, divisionId: now + 501, name: 'Tim Backend', adminId: null, memberIds: [] },
+      { id: now + 604, divisionId: now + 501, name: 'Tim QA', adminId: null, memberIds: [] },
+      { id: now + 605, divisionId: now + 502, name: 'Tim Akuntansi', adminId: null, memberIds: [] },
+      { id: now + 606, divisionId: now + 503, name: 'Tim Rekrutmen', adminId: null, memberIds: [] },
+      { id: now + 607, divisionId: now + 504, name: 'Tim Logistik', adminId: null, memberIds: [] },
+      { id: now + 608, divisionId: now + 505, name: 'Tim Direksi', adminId: null, memberIds: [] },
+    ]
+
+    // Anggota: role + jabatan. Eksekutif & manajer untuk mode super_admin/admin,
+    // karyawan berbagai jabatan untuk mode user.
+    const members = [
+      // Eksekutif (super_admin)
+      { id: now + 700, name: 'Alexander Chen', email: 'superadmin1@luxio.id', role: 'super_admin', authority: 'super_admin', position: 'Chief Executive Officer', employmentStatus: 'Full-time', divisionId: now + 505, hasAccount: true },
+      { id: now + 701, name: 'Priya Sharma', email: 'superadmin2@luxio.id', role: 'super_admin', authority: 'super_admin', position: 'Chief Technology Officer', employmentStatus: 'Full-time', divisionId: now + 505, hasAccount: true },
+      { id: now + 702, name: 'Marcus Tan', email: 'superadmin3@luxio.id', role: 'super_admin', authority: 'super_admin', position: 'Chief Financial Officer', employmentStatus: 'Full-time', divisionId: now + 505, hasAccount: true },
+      { id: now + 703, name: 'Aiko Tanaka', email: 'superadmin4@luxio.id', role: 'super_admin', authority: 'super_admin', position: 'Chief Operating Officer', employmentStatus: 'Full-time', divisionId: now + 505, hasAccount: true },
+      // Admin / manajer
+      { id: now + 704, name: 'Budi Santoso', email: 'admin1@luxio.id', role: 'admin', authority: 'admin', position: 'Engineering Manager', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 705, name: 'Dewi Lestari', email: 'admin4@luxio.id', role: 'admin', authority: 'admin', position: 'HR Manager', employmentStatus: 'Full-time', divisionId: now + 503, hasAccount: true },
+      { id: now + 706, name: 'Rina Marlina', email: 'admin6@luxio.id', role: 'admin', authority: 'admin', position: 'Marketing Manager', employmentStatus: 'Full-time', divisionId: now + 500, hasAccount: true },
+      { id: now + 707, name: 'Hendra Gunawan', email: 'admin9@luxio.id', role: 'admin', authority: 'admin', position: 'Legal & Compliance Manager', employmentStatus: 'Full-time', divisionId: now + 504, hasAccount: true },
+      // Marketing
+      { id: now + 708, name: 'Maya Kusuma', email: 'user8@luxio.id', role: 'member', authority: 'member', position: 'Content Writer', employmentStatus: 'Full-time', divisionId: now + 500, hasAccount: true },
+      { id: now + 709, name: 'Intan Permata', email: 'user10@luxio.id', role: 'member', authority: 'member', position: 'Social Media Specialist', employmentStatus: 'Full-time', divisionId: now + 500, hasAccount: true },
+      { id: now + 710, name: 'Salsabila Nur', email: 'user27@luxio.id', role: 'member', authority: 'member', position: 'Copywriter', employmentStatus: 'Kontrak', divisionId: now + 500, hasAccount: true },
+      { id: now + 711, name: 'Galih Pratama', email: 'user7@luxio.id', role: 'member', authority: 'viewer', position: 'Desainer Grafis', employmentStatus: 'Full-time', divisionId: now + 500, hasAccount: true },
+      // Teknologi
+      { id: now + 712, name: 'Reza Alfarizi', email: 'user1@luxio.id', role: 'member', authority: 'member', position: 'Software Engineer', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 713, name: 'Nadia Zahra', email: 'user2@luxio.id', role: 'member', authority: 'member', position: 'Frontend Developer', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 714, name: 'Dimas Arya', email: 'user3@luxio.id', role: 'member', authority: 'member', position: 'Backend Developer', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 715, name: 'Vina Oktaviani', email: 'user4@luxio.id', role: 'member', authority: 'member', position: 'UI/UX Designer', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 716, name: 'Sarah Amelia', email: 'user6@luxio.id', role: 'member', authority: 'member', position: 'Quality Assurance', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 717, name: 'Gilang Ramadhan', email: 'user15@luxio.id', role: 'member', authority: 'member', position: 'Mobile Developer', employmentStatus: 'Kontrak', divisionId: now + 501, hasAccount: true },
+      { id: now + 718, name: 'Rizky Ananda', email: 'user5@luxio.id', role: 'member', authority: 'member', position: 'Data Analyst', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      // Keuangan
+      { id: now + 719, name: 'Bayu Saputra', email: 'user11@luxio.id', role: 'member', authority: 'member', position: 'Accountant', employmentStatus: 'Full-time', divisionId: now + 502, hasAccount: true },
+      { id: now + 720, name: 'Agus Prasetyo', email: 'admin3@luxio.id', role: 'admin', authority: 'admin', position: 'Finance Manager', employmentStatus: 'Full-time', divisionId: now + 502, hasAccount: true },
+      // SDM
+      { id: now + 721, name: 'Citra Ayu', email: 'user12@luxio.id', role: 'member', authority: 'member', position: 'Recruitment Specialist', employmentStatus: 'Full-time', divisionId: now + 503, hasAccount: true },
+      { id: now + 722, name: 'Melati Putri', email: 'user21@luxio.id', role: 'member', authority: 'member', position: 'Training & Development', employmentStatus: 'Part-time', divisionId: now + 503, hasAccount: true },
+      // Operasional
+      { id: now + 723, name: 'Joko Susilo', email: 'user18@luxio.id', role: 'member', authority: 'member', position: 'Logistics Coordinator', employmentStatus: 'Full-time', divisionId: now + 504, hasAccount: true },
+      { id: now + 724, name: 'Lukman Hakim', email: 'user20@luxio.id', role: 'member', authority: 'member', position: 'Procurement Officer', employmentStatus: 'Full-time', divisionId: now + 504, hasAccount: true },
+      { id: now + 725, name: 'Taufik Hidayat', email: 'user28@luxio.id', role: 'member', authority: 'member', position: 'Field Technician', employmentStatus: 'Kontrak', divisionId: now + 504, hasAccount: true },
+      { id: now + 726, name: 'Fitri Handayani', email: 'user14@luxio.id', role: 'member', authority: 'member', position: 'Business Analyst', employmentStatus: 'Full-time', divisionId: now + 504, hasAccount: true },
+      { id: now + 727, name: 'Eko Wahyudi', email: 'user13@luxio.id', role: 'member', authority: 'member', position: 'Customer Support', employmentStatus: 'Full-time', divisionId: now + 504, hasAccount: true },
+      // Tambahan karyawan (mode user)
+      { id: now + 728, name: 'Hana Safitri', email: 'user16@luxio.id', role: 'member', authority: 'member', position: 'Security Engineer', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 729, name: 'Irfan Maulana', email: 'user17@luxio.id', role: 'member', authority: 'member', position: 'System Administrator', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 730, name: 'Kartika Dewi', email: 'user19@luxio.id', role: 'member', authority: 'member', position: 'Public Relations', employmentStatus: 'Full-time', divisionId: now + 500, hasAccount: true },
+      { id: now + 731, name: 'Nanda Pradana', email: 'user22@luxio.id', role: 'member', authority: 'member', position: 'Database Administrator', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 732, name: 'Olivia Marbun', email: 'user23@luxio.id', role: 'member', authority: 'viewer', position: 'Research Assistant', employmentStatus: 'Magang', divisionId: now + 501, hasAccount: true },
+      { id: now + 733, name: 'Panji Wicaksono', email: 'user24@luxio.id', role: 'member', authority: 'member', position: 'Network Engineer', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 734, name: 'Queen Adelia', email: 'user25@luxio.id', role: 'member', authority: 'member', position: 'Event Coordinator', employmentStatus: 'Kontrak', divisionId: now + 500, hasAccount: true },
+      { id: now + 735, name: 'Rangga Pribadi', email: 'user26@luxio.id', role: 'member', authority: 'member', position: 'Data Scientist', employmentStatus: 'Full-time', divisionId: now + 501, hasAccount: true },
+      { id: now + 736, name: 'Umi Kalsum', email: 'user29@luxio.id', role: 'member', authority: 'viewer', position: 'Administrative Assistant', employmentStatus: 'Part-time', divisionId: now + 504, hasAccount: true },
+      { id: now + 737, name: 'Yoga Pratama', email: 'user30@luxio.id', role: 'member', authority: 'member', position: 'Project Coordinator', employmentStatus: 'Full-time', divisionId: now + 504, hasAccount: true },
+    ]
+
+    // Sebarkan anggota ke tim (berdasarkan divisi).
+    const dist = {}
+    members.forEach((m) => {
+      const teamOfDiv = teams.find((t) => t.divisionId === m.divisionId)
+      if (!teamOfDiv) return
+      if (!dist[teamOfDiv.id]) dist[teamOfDiv.id] = []
+      dist[teamOfDiv.id].push(m.id)
+    })
+    Object.keys(dist).forEach((tid) => {
+      const idx = teams.findIndex((t) => t.id === Number(tid))
+      if (idx >= 0) teams[idx].memberIds = dist[tid]
+    })
+
+    const state = {}
+    const existing = get()
+
+    if (existing.projects.length === 0) {
+      Object.assign(state, {
+        projects: [p1, p2, p3],
+        kanbanBoards: [board1, board2],
+        tasks: todoTasks,
+        themes,
+        privateNotes: { [userId]: notes },
+      })
+    }
+
+    if (existing.divisions.length === 0) {
+      Object.assign(state, { divisions, teams, members })
+    }
+
+    if (Object.keys(state).length > 0) {
+      set(state)
+    }
+  },
   // =====================================================================
 
   /**
@@ -1310,7 +1723,7 @@ export const useStore = create(
       name: 'luxio-store', // kunci localStorage untuk persist state
       // Versi state tersimpan. Naikkan versi (dan update `migrate`) jika
       // struktur state berubah di masa depan.
-      version: 2,
+      version: 3,
       // Bersihkan state lama dari build sebelumnya yang sempat rusak:
       // data v0 bisa punya appState 'landing' walau isAuthenticated true,
       // membuat user "logout" sendiri setelah refresh.
@@ -1334,6 +1747,18 @@ export const useStore = create(
             projects: [],
             tasks: [],
             kanbanBoards: [],
+          }
+        }
+        if (version < 3) {
+          // v2 bisa menyimpan appState 'pricing'/'faq'/'checkout' dari sesi
+          // publik sebelumnya sehingga setelah refresh halaman langsung terbuka
+          // ke Pricing, bukan Landing. Reset ke 'landing' untuk pengguna yang
+          // belum login; yang sudah login diarahkan ke app oleh App.jsx.
+          const s = persistedState && typeof persistedState === 'object' ? persistedState : {}
+          const authed = Boolean(s.isAuthenticated && s.currentUser)
+          return {
+            ...s,
+            appState: authed ? (s.appState === 'setup' ? 'setup' : 'app') : 'landing',
           }
         }
         return persistedState

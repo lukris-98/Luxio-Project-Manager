@@ -6,6 +6,7 @@ import TargetTodo from '../components/TargetTodo'
 import TargetKanban from '../components/TargetKanban'
 import TargetStats from '../components/TargetStats'
 import ConfettiBurst from '../components/ConfettiBurst'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { deadlineText } from '../utils/deadline'
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
@@ -259,31 +260,13 @@ export default function ProjectDetail() {
 
         {/* Konfirmasi hapus target */}
         {showDeleteConfirm && (
-          <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Hapus Target</h2>
-                <button className="close-btn" onClick={() => setShowDeleteConfirm(false)}>
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="modal-body">
-                <p className="delete-warning">
-                  Yakin ingin menghapus target <strong>"{project.name}"</strong>?
-                  Semua tahap kanban & to-do list di dalamnya akan ikut terhapus.
-                  Tindakan ini tidak bisa dibatalkan.
-                </p>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)}>
-                  Batal
-                </button>
-                <button className="btn btn-danger" onClick={handleDelete}>
-                  <Trash2 size={16} /> Ya, Hapus
-                </button>
-              </div>
-            </div>
-          </div>
+          <DeleteConfirmModal
+            title="Hapus Target"
+            itemName={project.name}
+            message={`Semua tahap kanban & to-do list di dalamnya akan ikut terhapus. Tindakan ini tidak bisa dibatalkan.`}
+            onConfirm={handleDelete}
+            onClose={() => setShowDeleteConfirm(false)}
+          />
         )}
       </motion.div>
     </Layout>

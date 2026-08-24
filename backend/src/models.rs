@@ -116,6 +116,8 @@ pub struct RegisterRequest {
     pub email: String,
     pub password: String,
     pub name: String,
+    #[serde(default)]
+    pub username: Option<String>,
 }
 
 /// Body request untuk endpoint POST /api/auth/login.
@@ -369,6 +371,8 @@ pub struct UpdateProfileRequest {
     #[serde(default)]
     pub email: Option<String>,
     #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
     pub phone: Option<String>,
     #[serde(default)]
     pub gender: Option<String>,
@@ -401,6 +405,8 @@ pub struct ProfileResponse {
     pub email_verified: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
     #[serde(default)]
     pub phone: String,
     #[serde(default)]
@@ -496,10 +502,10 @@ pub struct ChatGroupCreateRequest {
     pub member_ids: Vec<String>,
 }
 
-/// Body request POST /api/chat/contacts — tambah kontak via user code.
+/// Body request POST /api/chat/contacts — tambah kontak via username unik.
 #[derive(Debug, Deserialize)]
 pub struct ContactAddRequest {
-    pub user_code: String,
+    pub username: String,
 }
 
 /// Body request GET /api/chat/messages — query param percakapan.

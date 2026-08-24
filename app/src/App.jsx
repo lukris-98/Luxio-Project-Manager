@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useStore } from './store/useStore'
+import { getAppThemeConfig, normalizeAppTheme, useStore } from './store/useStore'
 // =====================================================================
 // App.jsx — Router utama aplikasi (manual, belum pakai react-router).
 // =====================================================================
@@ -24,6 +24,7 @@ import MyTasks from './pages/MyTasks'
 import Kanban from './pages/Kanban'
 import TodoList from './pages/TodoList'
 import PrivateNote from './pages/PrivateNote'
+import Vault from './pages/Vault'
 import Calendar from './pages/Calendar'
 import Team from './pages/Team'
 import Settings from './pages/Settings'
@@ -37,15 +38,24 @@ import AttendanceAdmin from './pages/AttendanceAdmin'
 import NotificationsPage from './pages/NotificationsPage'
 
 function App() {
-  const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
+  const { appState, currentPage, isAuthenticated, theme, setAppState, seedOwnerDummyData } = useStore()
+
+  // Seed data demo untuk owner — sekali, saat sesi dipulihkan dari
+  // localStorage (mis. refresh) atau setelah login via alur lain.
+  useEffect(() => {
+    if (isAuthenticated) seedOwnerDummyData()
+  }, [isAuthenticated, seedOwnerDummyData])
 
   // Terapkan tema ke seluruh dokumen (termasuk halaman pre-app seperti
   // Landing/Setup) dan warna asli komponen sistem (scrollbar, dsb).
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    document.documentElement.style.colorScheme = theme
+    const activeTheme = normalizeAppTheme(theme)
+    const themeConfig = getAppThemeConfig(activeTheme)
+
+    document.documentElement.setAttribute('data-theme', activeTheme)
+    document.documentElement.style.colorScheme = themeConfig.scheme
     const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0C0C0E' : '#F1F1F3')
+    if (meta) meta.setAttribute('content', themeConfig.color)
   }, [theme])
 
   // Bila dibuka dari link konfirmasi email (?token=...), arahkan ke halaman
@@ -56,6 +66,16 @@ function App() {
       setAppState('auth')
     }
   }, [setAppState])
+
+  // Saat refresh: jangan tertahan di halaman publik (pricing/faq/checkout)
+  // yang tersimpan dari sesi sebelumnya. Pengguna yang belum login kembali ke
+  // Landing; yang sudah login otomatis diarahkan ke halaman app oleh logika
+  // render di bawah. Halaman publik tetap bisa dibuka lewat navigasi.
+  useEffect(() => {
+    if (['pricing', 'faq', 'checkout'].includes(appState)) {
+      setAppState('landing')
+    }
+  }, [appState, setAppState])
 
   const renderApp = () => {
     switch (currentPage) {
@@ -73,6 +93,8 @@ function App() {
         return <TodoList />
       case 'private-note':
         return <PrivateNote />
+      case 'vault':
+        return <Vault />
       case 'calendar':
         return <Calendar />
       case 'team':

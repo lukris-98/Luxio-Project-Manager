@@ -1,11 +1,14 @@
 import { useStore } from '../store/useStore'
 import Layout from '../components/Layout'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { CheckSquare, Clock, AlertCircle, Trash2 } from 'lucide-react'
 import './MyTasks.css'
 
 export default function MyTasks() {
   const { tasks, deleteTask } = useStore()
+  const [deleteTarget, setDeleteTarget] = useState(null)
   
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -78,7 +81,7 @@ export default function MyTasks() {
 
               <button
                 className="task-delete"
-                onClick={() => deleteTask(task.id)}
+                onClick={() => setDeleteTarget(task)}
                 title="Hapus task"
                 aria-label="Hapus task"
               >
@@ -94,6 +97,20 @@ export default function MyTasks() {
           )}
         </motion.div>
       </motion.div>
+
+      {/* Konfirmasi hapus task */}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title="Hapus Task"
+          itemName={deleteTarget.title}
+          message="Task ini akan dihapus permanen. Tindakan ini tidak bisa dibatalkan."
+          onConfirm={() => {
+            deleteTask(deleteTarget.id)
+            setDeleteTarget(null)
+          }}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
     </Layout>
   )
 }

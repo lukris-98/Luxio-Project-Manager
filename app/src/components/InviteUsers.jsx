@@ -8,7 +8,8 @@ import './InviteUsers.css'
 // InviteUsers — Undang user untuk berkolaborasi pada satu item
 // (target/kanban/todo/catatan).
 // Menampilkan anggota perusahaan + pencarian global user (by username/
-// nama/email) sehingga siapapun bisa diundang.
+// nama/email) sehingga siapapun bisa diundang. Username bersifat unik
+// per akun dan menjadi identitas publik (pengganti kode LUX).
 // =====================================================================
 
 export default function InviteUsers({ collaborators = [], onToggle, disabled }) {
@@ -102,7 +103,7 @@ export default function InviteUsers({ collaborators = [], onToggle, disabled }) 
                           {u.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                         </span>
                         <span className="invite-name">{u.name}</span>
-                        {u.user_code && <span className="invite-code">@{u.user_code}</span>}
+                        {u.username ? <span className="invite-code">@{u.username}</span> : u.user_code ? <span className="invite-code">@{u.user_code}</span> : null}
                         {u.company_name && <span className="invite-company">{u.company_name}</span>}
                         {checked && <Check size={14} className="invite-check" />}
                       </label>

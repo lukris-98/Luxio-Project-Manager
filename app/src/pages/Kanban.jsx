@@ -7,6 +7,7 @@ import ThemeSelect from '../components/ThemeSelect'
 import LabelFilterBar from '../components/LabelFilterBar'
 import StageEditor from '../components/StageEditor'
 import DeadlinePicker from '../components/DeadlinePicker'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { motion } from 'framer-motion'
 import { Plus, X, FolderOpen, KanbanSquare } from 'lucide-react'
 import './Kanban.css'
@@ -17,6 +18,7 @@ export default function Kanban() {
   const { currentUser, kanbanBoards, addKanbanBoard, deleteKanbanBoard, toggleBoardCollaborator, selectedBoardId, labelFilter } = useStore()
   const role = useEffectiveRole()
   const [showNewBoard, setShowNewBoard] = useState(false)
+  const [deleteBoard, setDeleteBoard] = useState(null)
   const [sortBy, setSortBy] = useState('created-desc')
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -186,27 +188,41 @@ export default function Kanban() {
                   <span className="kanban-theme-count">{boards.length} board</span>
                 </div>
                 <div className="kanban-board-cards">
-                  {boards.map((board) => (
-                    <button
-                      key={board.id}
-                      className={`kanban-board-card ${currentBoard?.id === board.id ? 'active' : ''}`}
-                      onClick={() => setSelectedBoard(board)}
-                    >
-                      <span className="kanban-board-card-name">{board.name}</span>
-                      <span className="kanban-board-card-meta">
-                        {board.columns.reduce((n, c) => n + c.tasks.length, 0)} task
-                      </span>
-                      {canCreateBoard && (
-                        <span
-                          className="kanban-board-card-delete"
-                          onClick={(e) => { e.stopPropagation(); deleteKanbanBoard(board.id) }}
-                          aria-label="Hapus board"
-                        >
-                          <X size={12} />
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                  {boards.map((board) => {
+                    const total = board.columns.reduce((n, c) => n + c.tasks.length, 0)
+                    const doneCol = board.columns.find((c) => /done|selesai|complete/i.test(c.name))
+                    const doneCount = doneCol ? doneCol.tasks.length : 0
+                    const progress = total > 0 ? Math.round((doneCount / total) * 100) : 0
+                    const color = progress >= 100 ? '#16A34A' : progress >= 70 ? '#EAB308' : progress >= 30 ? '#F97316' : '#DC2626'
+                    const r = 14
+                    const circ = 2 * Math.PI * r
+                    const offset = circ - (progress / 100) * circ
+                    return (
+                      <button
+                        key={board.id}
+                        className={`kanban-board-card ${currentBoard?.id === board.id ? 'active' : ''}`}
+                        onClick={() => setSelectedBoard(board)}
+                      >
+                        <span className="kanban-board-card-name">{board.name}</span>
+                        <span className="kanban-board-card-meta">{total} task</span>
+                        {total > 0 && (
+                          <div className="kanban-progress-row">
+                            <svg width="36" height="36" viewBox="0 0 36 36" className="kanban-progress-pie">
+                              <circle cx="18" cy="18" r={r} fill="none" stroke="var(--bg-tertiary)" strokeWidth="4" />
+                              <circle cx="18" cy="18" r={r} fill="none" stroke={color} strokeWidth="4"
+                                strokeDasharray={circ} strokeDashoffset={offset}
+                                transform="rotate(-90 18 18)" strokeLinecap="round" />
+                            </svg>
+                            <span className="kanban-progress-text" style={{ color }}>{progress}%</span>
+                          </div>
+                        )}
+                        {canCreateBoard && (
+                          <span className="kanban-board-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteBoard(board) }} aria-label="Hapus board">
+                            <X size={12} />
+                          </span>
+                        )}
+                      </button>
+                    )})}
                 </div>
               </div>
             ))
@@ -296,6 +312,20 @@ export default function Kanban() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Konfirmasi hapus board */}
+        {deleteBoard && (
+          <DeleteConfirmModal
+            title="Hapus Board"
+            itemName={deleteBoard.name}
+            message="Semua kolom & task di dalam board akan ikut terhapus. Tindakan ini tidak bisa dibatalkan."
+            onConfirm={() => {
+              deleteKanbanBoard(deleteBoard.id)
+              setDeleteBoard(null)
+            }}
+            onClose={() => setDeleteBoard(null)}
+          />
         )}
       </motion.div>
     </Layout>

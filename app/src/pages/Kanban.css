@@ -109,6 +109,22 @@
   color: var(--text-muted);
 }
 
+.kanban-progress-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.kanban-progress-pie {
+  flex-shrink: 0;
+}
+
+.kanban-progress-text {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
 .kanban-board-card-delete {
   position: absolute;
   top: var(--space-2);

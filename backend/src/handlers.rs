@@ -99,6 +99,48 @@ fn validate_len(field: &str, _label: &str, max: usize) -> Result<(), StatusCode>
     Ok(())
 }
 
+/// Normalisasi username: huruf kecil, hanya alfanumerik + _ - .
+fn sanitize_username(input: &str) -> String {
+    let cleaned: String = input
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let cleaned = cleaned.trim_matches('_').trim_matches('-').to_string();
+    if cleaned.is_empty() {
+        "user".to_string()
+    } else {
+        cleaned.chars().take(30).collect()
+    }
+}
+
+/// Pastikan username unik di tabel users. Bentrok => tambah suffix angka.
+async fn ensure_unique_username(db: &sqlx::PgPool, base: &str) -> Result<String, StatusCode> {
+    let candidate = sanitize_username(base);
+    let mut attempt = candidate.clone();
+    for i in 1..=50 {
+        let dup = sqlx::query("SELECT id FROM users WHERE username = $1")
+            .bind(&attempt)
+            .fetch_optional(db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        if dup.is_none() {
+            return Ok(attempt);
+        }
+        attempt = format!("{}{}", candidate, i);
+    }
+    // Jaring pengaman terakhir.
+    Err(StatusCode::INTERNAL_SERVER_ERROR)
+}
+
 // ---------- HASHING ----------
 
 /// Hash password dengan Argon2id (standar industri untuk password).
@@ -281,9 +323,19 @@ pub async fn register(
     let now = Utc::now();
     let token_expires = now + Duration::hours(24);
 
+    // username unik (opsional saat register; fallback ke email prefix).
+    let username = match payload.username.as_deref().map(str::trim).filter(|u| !u.is_empty()) {
+        Some(u) => u.to_string(),
+        None => payload.email.split('@').next().unwrap_or("user").to_lowercase(),
+    };
+    let username = sanitize_username(&username);
+
+    // Pastikan username belum dipakai (bentrok => tambah suffix angka).
+    let username = ensure_unique_username(&state.db, &username).await?;
+
     sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name, role, plan, created_at, email_verified, verification_token, verification_expires)
-         VALUES ($1, $2, $3, $4, $5, 'personal', $6, FALSE, $7, $8)",
+        "INSERT INTO users (id, email, password_hash, name, role, plan, created_at, email_verified, verification_token, verification_expires, username)
+         VALUES ($1, $2, $3, $4, $5, 'personal', $6, FALSE, $7, $8, $9)",
     )
     .bind(&user_id)
     .bind(payload.email.trim())
@@ -293,6 +345,7 @@ pub async fn register(
     .bind(&now)
     .bind(&verification_token)
     .bind(token_expires)
+    .bind(&username)
     .execute(&state.db)
     .await
     .map_err(|e| {
@@ -1362,7 +1415,7 @@ async fn profile_for_user(
     is_admin_action: bool,
 ) -> Result<Json<ProfileResponse>, StatusCode> {
     let row = sqlx::query(
-        "SELECT id, email, name, company_id, role, plan, email_verified, user_code,
+        "SELECT id, email, name, company_id, role, plan, email_verified, user_code, username,
                 phone, gender, address, position, join_date, employment_status,
                 birth_date, education, salary,
                 edit_count, edit_count_month, admin_edit_count, admin_edit_month,
@@ -1400,6 +1453,7 @@ async fn profile_for_user(
         plan: row.get("plan"),
         email_verified: Some(row.get("email_verified")),
         user_code: row.get("user_code"),
+        username: row.get("username"),
         phone: row.get("phone"),
         gender: row.get("gender"),
         address: row.get("address"),
@@ -1540,6 +1594,7 @@ pub async fn update_profile(
     let fields = [
         ("name", payload.name.as_deref().unwrap_or(name.as_str())),
         ("email", email.as_str()),
+        ("username", payload.username.as_deref().unwrap_or("")),
         ("phone", payload.phone.as_deref().unwrap_or("")),
         ("gender", payload.gender.as_deref().unwrap_or("")),
         ("address", payload.address.as_deref().unwrap_or("")),
@@ -1551,6 +1606,26 @@ pub async fn update_profile(
         ("salary", payload.salary.as_deref().unwrap_or("")),
     ];
 
+    // Username unik bila diubah.
+    if let Some(u) = &payload.username {
+        let username = sanitize_username(u);
+        if username.is_empty() {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        let dup = sqlx::query("SELECT id FROM users WHERE username = $1 AND id != $2")
+            .bind(&username)
+            .bind(&target_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        if dup.is_some() {
+            return Err(StatusCode::CONFLICT);
+        }
+    }
+
     // Pertahankan field lama yang TIDAK dikirim (jangan timpa dengan '').
     let mut set_clauses: Vec<String> = Vec::new();
     let mut binds: Vec<String> = Vec::new();
@@ -1558,6 +1633,7 @@ pub async fn update_profile(
         let has_some = match *col {
             "name" => payload.name.is_some(),
             "email" => payload.email.is_some(),
+            "username" => payload.username.is_some(),
             "phone" => payload.phone.is_some(),
             "gender" => payload.gender.is_some(),
             "address" => payload.address.is_some(),
@@ -1571,7 +1647,12 @@ pub async fn update_profile(
         };
         if has_some || *col == "name" || *col == "email" {
             set_clauses.push(format!("{col} = ${}", binds.len() + 1));
-            binds.push(val.to_string());
+            let val = if *col == "username" {
+                sanitize_username(val)
+            } else {
+                val.to_string()
+            };
+            binds.push(val);
         }
     }
 
@@ -2387,12 +2468,12 @@ pub async fn search_users(
 
     let pattern = format!("%{}%", q);
     let rows = sqlx::query(
-        "SELECT u.id, u.name, u.email, u.user_code, u.position,
+        "SELECT u.id, u.name, u.email, u.username, u.position,
                 c.name AS company_name, u.role
          FROM users u
          LEFT JOIN companies c ON c.id = u.company_id
          WHERE u.id != $1
-           AND (LOWER(u.name) LIKE $2 OR LOWER(u.email) LIKE $2 OR u.user_code ILIKE $2)
+           AND (LOWER(u.username) LIKE $2 OR LOWER(u.name) LIKE $2 OR LOWER(u.email) LIKE $2)
          ORDER BY u.name
          LIMIT 20",
     )
@@ -2412,7 +2493,8 @@ pub async fn search_users(
                 "id": r.get::<String, _>("id"),
                 "name": r.get::<String, _>("name"),
                 "email": r.get::<String, _>("email"),
-                "user_code": r.get::<Option<String>, _>("user_code"),
+                "user_code": r.get::<Option<String>, _>("username"),
+                "username": r.get::<Option<String>, _>("username"),
                 "position": r.get::<String, _>("position"),
                 "company_name": r.get::<Option<String>, _>("company_name"),
                 "role": r.get::<String, _>("role"),
@@ -2433,7 +2515,7 @@ pub async fn get_public_profile(
     let actor_id = require_auth(&state, &headers).await?;
 
     let row = sqlx::query(
-        "SELECT u.id, u.name, u.email, u.user_code, u.position, u.role, u.plan,
+        "SELECT u.id, u.name, u.email, u.username, u.position, u.role, u.plan,
                 c.name AS company_name, c.industry AS company_industry
          FROM users u
          LEFT JOIN companies c ON c.id = u.company_id
@@ -2467,7 +2549,8 @@ pub async fn get_public_profile(
     Ok(Json(json!({
         "id": row.get::<String, _>("id"),
         "name": row.get::<String, _>("name"),
-        "user_code": row.get::<Option<String>, _>("user_code"),
+        "user_code": row.get::<Option<String>, _>("username"),
+        "username": row.get::<Option<String>, _>("username"),
         "position": row.get::<String, _>("position"),
         "role": row.get::<String, _>("role"),
         "plan": row.get::<String, _>("plan"),
@@ -2485,7 +2568,7 @@ pub async fn chat_contacts(
 ) -> Result<Json<Value>, StatusCode> {
     let user_id = require_auth(&state, &headers).await?;
     let rows = sqlx::query(
-        "SELECT u.id, u.name, u.email, u.user_code, u.phone, u.position
+        "SELECT u.id, u.name, u.email, u.username, u.phone, u.position
          FROM contacts c JOIN users u ON u.id = c.contact_user_id
          WHERE c.user_id = $1 ORDER BY u.name",
     )
@@ -2504,7 +2587,8 @@ pub async fn chat_contacts(
                 "id": r.get::<String, _>("id"),
                 "name": r.get::<String, _>("name"),
                 "email": r.get::<String, _>("email"),
-                "user_code": r.get::<Option<String>, _>("user_code"),
+                "user_code": r.get::<Option<String>, _>("username"),
+                "username": r.get::<Option<String>, _>("username"),
                 "phone": r.get::<String, _>("phone"),
                 "position": r.get::<String, _>("position"),
             })
@@ -2521,12 +2605,12 @@ pub async fn chat_add_contact(
     Json(payload): Json<ContactAddRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     let user_id = require_auth(&state, &headers).await?;
-    let code = payload.user_code.trim().to_string();
+    let code = payload.username.trim().to_lowercase();
     if code.is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let target = sqlx::query("SELECT id, name, email, user_code FROM users WHERE user_code = $1")
+    let target = sqlx::query("SELECT id, name, email, user_code, username FROM users WHERE username = $1")
         .bind(&code)
         .fetch_optional(&state.db)
         .await
@@ -2565,6 +2649,7 @@ pub async fn chat_add_contact(
             "name": target.get::<String, _>("name"),
             "email": target.get::<String, _>("email"),
             "user_code": target.get::<Option<String>, _>("user_code"),
+            "username": target.get::<Option<String>, _>("username"),
         }
     })))
 }
@@ -2647,8 +2732,7 @@ pub async fn agent_config(
 // Kredensial akun pemilik website (OWNER) diambil dari environment,
 // JANGAN di-hardcode di source. Akun ini dibuat otomatis saat server start
 // dan berhak mengelola seluruh akun di sistem.
-const OWNER_EMAIL_DEFAULT: &str = "master@diarsipin.web.id";
-const OWNER_NAME_DEFAULT: &str = "Master Owner";
+const OWNER_EMAIL_DEFAULT: &str = "master@diarsipin.web.id";const OWNER_NAME_DEFAULT: &str = "Master Owner";
 const OWNER_ROLE: &str = "owner";
 const OWNER_PLAN: &str = "organisasi";
 
@@ -2757,6 +2841,132 @@ pub async fn seed_owner(db: &PgPool) {
     }
 }
 
+// ---------- SEED AKUN DUMMY (demo) ----------
+
+/// Password demo untuk seluruh akun dummy. Boleh di-override lewat env
+/// `DEMO_PASSWORD`; default hanya untuk pengembangan lokal.
+fn demo_password() -> String {
+    std::env::var("DEMO_PASSWORD").unwrap_or_else(|_| "Luxio123".to_string())
+}
+
+/// Buat akun login dummy dalam jumlah banyak (untuk demo). Semua akun
+/// dibuat email_verified = TRUE sehingga langsung bisa login (2FA via email
+/// atau kode dev di console). Dipanggil dari `lib.rs::run()` setelah seed_owner.
+///
+/// Struktur akun:
+///   - super_admin (plan "organisasi")  → jabatan eksekutif kelas dunia.
+///   - admin       (plan "grup")        → manajer tiap divisi.
+///   - user/member (plan "personal")    → karyawan dengan berbagai jabatan.
+pub async fn seed_dummy_accounts(db: &PgPool) {
+    let password = demo_password();
+    let password_hash = match hash_password(&password) {
+        Ok(h) => h,
+        Err(_) => {
+            eprintln!("[ERROR] Gagal hash password demo");
+            return;
+        }
+    };
+
+    // (nama, email, plan, jabatan/position)
+    let accounts: &[(&str, &str, &str, &str)] = &[
+        // ---------- SUPER ADMIN (eksekutif kelas dunia) ----------
+        ("Alexander Chen", "superadmin1@luxio.id", "organisasi", "Chief Executive Officer"),
+        ("Priya Sharma", "superadmin2@luxio.id", "organisasi", "Chief Technology Officer"),
+        ("Marcus Tan", "superadmin3@luxio.id", "organisasi", "Chief Financial Officer"),
+        ("Aiko Tanaka", "superadmin4@luxio.id", "organisasi", "Chief Operating Officer"),
+        ("Rahmat Wijaya", "superadmin5@luxio.id", "organisasi", "Chief Marketing Officer"),
+        ("Emily Johnson", "superadmin6@luxio.id", "organisasi", "Chief Human Resources Officer"),
+        ("David Kim", "superadmin7@luxio.id", "organisasi", "VP of Engineering"),
+        ("Sofia Rossi", "superadmin8@luxio.id", "organisasi", "VP of Product"),
+        ("James Wong", "superadmin9@luxio.id", "organisasi", "VP of Sales"),
+        ("Anya Petrova", "superadmin10@luxio.id", "organisasi", "VP of Operations"),
+        // ---------- ADMIN (manajer divisi) ----------
+        ("Budi Santoso", "admin1@luxio.id", "grup", "Engineering Manager"),
+        ("Siti Rahayu", "admin2@luxio.id", "grup", "Product Manager"),
+        ("Agus Prasetyo", "admin3@luxio.id", "grup", "Finance Manager"),
+        ("Dewi Lestari", "admin4@luxio.id", "grup", "HR Manager"),
+        ("Andi Kurniawan", "admin5@luxio.id", "grup", "Sales Manager"),
+        ("Rina Marlina", "admin6@luxio.id", "grup", "Marketing Manager"),
+        ("Fajar Nugroho", "admin7@luxio.id", "grup", "IT Manager"),
+        ("Lia Anggraini", "admin8@luxio.id", "grup", "Customer Success Manager"),
+        ("Hendra Gunawan", "admin9@luxio.id", "grup", "Legal & Compliance Manager"),
+        ("Putri Maharani", "admin10@luxio.id", "grup", "Supply Chain Manager"),
+        // ---------- USER / MEMBER (berbagai jabatan) ----------
+        ("Reza Alfarizi", "user1@luxio.id", "personal", "Software Engineer"),
+        ("Nadia Zahra", "user2@luxio.id", "personal", "Frontend Developer"),
+        ("Dimas Arya", "user3@luxio.id", "personal", "Backend Developer"),
+        ("Vina Oktaviani", "user4@luxio.id", "personal", "UI/UX Designer"),
+        ("Rizky Ananda", "user5@luxio.id", "personal", "Data Analyst"),
+        ("Sarah Amelia", "user6@luxio.id", "personal", "Quality Assurance"),
+        ("Galih Pratama", "user7@luxio.id", "personal", "DevOps Engineer"),
+        ("Maya Kusuma", "user8@luxio.id", "personal", "Content Writer"),
+        ("Arif Hidayat", "user9@luxio.id", "personal", "Graphic Designer"),
+        ("Intan Permata", "user10@luxio.id", "personal", "Social Media Specialist"),
+        ("Bayu Saputra", "user11@luxio.id", "personal", "Accountant"),
+        ("Citra Ayu", "user12@luxio.id", "personal", "Recruitment Specialist"),
+        ("Eko Wahyudi", "user13@luxio.id", "personal", "Customer Support"),
+        ("Fitri Handayani", "user14@luxio.id", "personal", "Business Analyst"),
+        ("Gilang Ramadhan", "user15@luxio.id", "personal", "Mobile Developer"),
+        ("Hana Safitri", "user16@luxio.id", "personal", "Security Engineer"),
+        ("Irfan Maulana", "user17@luxio.id", "personal", "System Administrator"),
+        ("Joko Susilo", "user18@luxio.id", "personal", "Logistics Coordinator"),
+        ("Kartika Dewi", "user19@luxio.id", "personal", "Public Relations"),
+        ("Lukman Hakim", "user20@luxio.id", "personal", "Procurement Officer"),
+        ("Melati Putri", "user21@luxio.id", "personal", "Training & Development"),
+        ("Nanda Pradana", "user22@luxio.id", "personal", "Database Administrator"),
+        ("Olivia Marbun", "user23@luxio.id", "personal", "Research Assistant"),
+        ("Panji Wicaksono", "user24@luxio.id", "personal", "Network Engineer"),
+        ("Queen Adelia", "user25@luxio.id", "personal", "Event Coordinator"),
+        ("Rangga Pribadi", "user26@luxio.id", "personal", "Data Scientist"),
+        ("Salsabila Nur", "user27@luxio.id", "personal", "Copywriter"),
+        ("Taufik Hidayat", "user28@luxio.id", "personal", "Field Technician"),
+        ("Umi Kalsum", "user29@luxio.id", "personal", "Administrative Assistant"),
+        ("Yoga Pratama", "user30@luxio.id", "personal", "Project Coordinator"),
+    ];
+
+    for (name, email, plan, position) in accounts {
+        let existing = sqlx::query("SELECT id FROM users WHERE email = $1")
+            .bind(email)
+            .fetch_optional(db)
+            .await
+            .ok()
+            .flatten();
+        if existing.is_some() {
+            continue;
+        }
+
+        let id = Uuid::new_v4().to_string();
+        let username = match ensure_unique_username(db, email.split('@').next().unwrap_or("user")).await {
+            Ok(u) => u,
+            Err(_) => continue,
+        };
+        let role = role_for_plan(plan).to_string();
+
+        let res = sqlx::query(
+            "INSERT INTO users (id, email, password_hash, name, role, plan, position, username, email_verified, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9)",
+        )
+        .bind(&id)
+        .bind(email)
+        .bind(&password_hash)
+        .bind(name)
+        .bind(&role)
+        .bind(plan)
+        .bind(position)
+        .bind(&username)
+        .bind(Utc::now())
+        .execute(db)
+        .await;
+
+        match res {
+            Ok(_) => {}
+            Err(e) => eprintln!("[DB ERROR] Gagal membuat akun demo {}: {}", email, e),
+        }
+    }
+
+    tracing::info!(event = "dummy_accounts_seeded", count = accounts.len(), "akun dummy siap (password demo)");
+}
+
 /// Cek apakah `user_id` adalah akun OWNER (pemilik website).
 async fn is_owner(db: &PgPool, user_id: &str) -> Result<bool, sqlx::Error> {
     let row = sqlx::query("SELECT role FROM users WHERE id = $1")
@@ -2862,9 +3072,14 @@ pub async fn admin_create_user(
     let now = Utc::now();
     let plan = payload.plan.clone().unwrap_or_else(|| "personal".to_string());
     let role = role_for_plan(&plan);
+    let username = ensure_unique_username(
+        &state.db,
+        payload.email.split('@').next().unwrap_or("user"),
+    )
+    .await?;
 
     sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name, role, plan, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO users (id, email, password_hash, name, role, plan, created_at, username) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
     )
     .bind(&id)
     .bind(payload.email.trim())
@@ -2873,6 +3088,7 @@ pub async fn admin_create_user(
     .bind(role)
     .bind(&plan)
     .bind(&now)
+    .bind(&username)
     .execute(&state.db)
     .await
     .map_err(|e| {
@@ -3207,10 +3423,15 @@ pub async fn register_member(
     let verification_token = Uuid::new_v4().to_string();
     let now = Utc::now();
     let role = payload.role.clone().unwrap_or_else(|| "member".to_string());
+    let username = ensure_unique_username(
+        &state.db,
+        payload.email.split('@').next().unwrap_or("user"),
+    )
+    .await?;
 
     sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name, role, plan, company_id, created_at, email_verified, verification_token, verification_expires)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, $9, $10)",
+        "INSERT INTO users (id, email, password_hash, name, role, plan, company_id, created_at, email_verified, verification_token, verification_expires, username)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, $9, $10, $11)",
     )
     .bind(&user_id)
     .bind(payload.email.trim())
@@ -3222,6 +3443,7 @@ pub async fn register_member(
     .bind(&now)
     .bind(&verification_token)
     .bind(now + Duration::hours(24))
+    .bind(&username)
     .execute(&state.db)
     .await
     .map_err(|e| {

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useStore } from '../store/useStore'
+import { getAppThemeFamily, getAppThemeMode, makeAppTheme, useStore } from '../store/useStore'
 import Layout from '../components/Layout'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { motion } from 'framer-motion'
-import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye } from 'lucide-react'
+import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, Palette, Trash2 } from 'lucide-react'
 import { api } from '../services/api'
 import './Settings.css'
 
@@ -20,18 +21,33 @@ import './Settings.css'
 const GENDER_OPTIONS = ['', 'Laki-laki', 'Perempuan']
 const STATUS_OPTIONS = ['', 'Full-time', 'Part-time', 'Kontrak', 'Magang', 'Freelance']
 const EDU_OPTIONS = ['', 'SMA/SMK', 'D3', 'S1', 'S2', 'S3']
+const THEME_FAMILY_OPTIONS = [
+  { value: 'luxio', label: 'Luxio' },
+  { value: 'main-white', label: 'Main White' },
+]
+const THEME_MODE_OPTIONS = [
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+]
 
 export default function Settings() {
   const {
     currentUser, setAppState, userPin, setUserPin, changePin,
-    profile, loadProfile, updateProfile,
+    profile, loadProfile, updateProfile, theme, setTheme,
+    requirePinForDelete, setRequirePinForDelete,
   } = useStore()
+
+  const themeFamily = getAppThemeFamily(theme)
+  const themeMode = getAppThemeMode(theme)
+  const setThemeFamily = (family) => setTheme(makeAppTheme(family, themeMode))
+  const setThemeMode = (mode) => setTheme(makeAppTheme(themeFamily, mode))
 
   const role = currentUser?.role || 'user'
   const canEditOthers = role === 'owner' || role === 'super_admin' || role === 'admin'
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   const [form, setForm] = useState({
-    name: '', email: '', phone: '', gender: '', address: '',
+    name: '', email: '', username: '', phone: '', gender: '', address: '',
     position: '', joinDate: '', employmentStatus: '', birthDate: '',
     education: '', salary: '',
   })
@@ -59,6 +75,7 @@ export default function Settings() {
     setForm({
       name: p.name || '',
       email: p.email || '',
+      username: p.username || '',
       phone: p.phone || '',
       gender: p.gender || '',
       address: p.address || '',
@@ -120,6 +137,7 @@ export default function Settings() {
       ...(isEditingOther ? { user_id: selectedUserId } : {}),
       name: form.name.trim(),
       email: form.email.trim(),
+      username: form.username.trim(),
       phone: form.phone.trim(),
       gender: form.gender,
       address: form.address.trim(),
@@ -231,6 +249,48 @@ export default function Settings() {
             </span>
           </motion.div>
 
+          {/* Tampilan */}
+          <motion.div className="settings-section" variants={itemVariants}>
+            <div className="section-header">
+              <Palette size={18} />
+              <h2>Tampilan</h2>
+            </div>
+            <div className="settings-card">
+              <div className="settings-item column-item">
+                <div>
+                  <span className="item-label">Tema aplikasi</span>
+                  <p className="item-desc">Pilih keluarga tema dan mode warna untuk seluruh aplikasi.</p>
+                </div>
+                <div className="settings-theme-controls">
+                  <div className="input-group">
+                    <label className="input-label">Tema</label>
+                    <select
+                      className="input settings-theme-select"
+                      value={themeFamily}
+                      onChange={(e) => setThemeFamily(e.target.value)}
+                    >
+                      {THEME_FAMILY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Mode</label>
+                    <select
+                      className="input settings-theme-select"
+                      value={themeMode}
+                      onChange={(e) => setThemeMode(e.target.value)}
+                    >
+                      {THEME_MODE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
           {/* Profil lengkap */}
           <motion.div className="settings-section" variants={itemVariants}>
             <div className="section-header">
@@ -271,14 +331,17 @@ export default function Settings() {
                   <ProfileField label="Email" name="email" type="email" placeholder="nama@email.com" />
                 </div>
                 <div className="profile-form-row">
+                  <ProfileField label="Username" name="username" placeholder="mis. joko123 (unik)" />
                   <ProfileField label="No. HP / WhatsApp" name="phone" placeholder="08xxxxxxxxxx" />
-                  <ProfileField label="Jenis Kelamin" name="gender" options={GENDER_OPTIONS} />
                 </div>
                 <div className="profile-form-row">
+                  <ProfileField label="Jenis Kelamin" name="gender" options={GENDER_OPTIONS} />
                   <ProfileField label="Tanggal Lahir" name="birthDate" type="date" />
-                  <ProfileField label="Pendidikan Terakhir" name="education" options={EDU_OPTIONS} />
                 </div>
-                <ProfileField label="Alamat" name="address" placeholder="Alamat lengkap domisili" />
+                <div className="profile-form-row">
+                  <ProfileField label="Pendidikan Terakhir" name="education" options={EDU_OPTIONS} />
+                  <ProfileField label="Alamat" name="address" placeholder="Alamat lengkap domisili" />
+                </div>
                 <div className="profile-form-row">
                   <ProfileField label="Posisi / Jabatan" name="position" placeholder="mis. Frontend Developer" />
                   <ProfileField label="Status Kepegawaian" name="employmentStatus" options={STATUS_OPTIONS} />
@@ -366,6 +429,10 @@ export default function Settings() {
               <h2>Data Login</h2>
             </div>
             <div className="settings-card">
+              <div className="settings-item">
+                <span className="item-label">Username</span>
+                <span className="item-value">@{profile?.username || currentUser?.username || 'Belum di-set'}</span>
+              </div>
               <div className="settings-item">
                 <span className="item-label">Email login</span>
                 <span className="item-value">{currentUser?.email || '-'}</span>
@@ -466,31 +533,67 @@ export default function Settings() {
             <div className="settings-card">
               <div className="settings-item">
                 <div>
+                  <span className="item-label">Verifikasi Penghapusan</span>
+                  <p className="item-desc">
+                    Wajib diisi sebelum menghapus akun, target, kanban, maupun to-do.
+                  </p>
+                </div>
+              </div>
+              <div className="settings-item delete-verify-setting">
+                <label className={`verify-option ${requirePinForDelete ? 'active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={requirePinForDelete}
+                    onChange={(e) => setRequirePinForDelete(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Wajib masukkan PIN akun saat menghapus</strong>
+                    <small>
+                      Jika dicentang: setiap penghapusan (akun, target, kanban, to-do) memerlukan PIN akun yang sedang dipakai.
+                      Jika tidak dicentang: cukup ketik <strong>DELETE</strong> (huruf besar).
+                    </small>
+                  </span>
+                </label>
+              </div>
+              <div className="settings-item">
+                <div>
                   <span className="item-label">Mulai dari awal</span>
                   <p className="item-desc">Hapus semua data dan mulai setup lagi</p>
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={() => {
-                  if (confirm('Mau mulai dari awal? Semua data akan dihapus.')) {
-                    setAppState('setup')
-                    useStore.setState({
-                      setupStep: 0,
-                      companyInfo: { name: '', industry: '', size: '', type: '' },
-                      divisions: [],
-                      members: [],
-                      currentUser: null,
-                      isAuthenticated: false,
-                      projects: [],
-                      tasks: []
-                    })
-                  }
-                }}>
-                  Reset
+                <button className="btn btn-danger btn-sm" onClick={() => setShowResetConfirm(true)}>
+                  <Trash2 size={14} /> Reset
                 </button>
               </div>
             </div>
           </motion.div>
         </div>
       </motion.div>
+
+      {/* Konfirmasi reset (mulai dari awal) */}
+      {showResetConfirm && (
+        <DeleteConfirmModal
+          title="Mulai dari Awal"
+          message="Semua data (target, kanban, to-do, catatan, anggota) akan dihapus dan kamu kembali ke alur setup."
+          confirmLabel="Ya, Reset Semua"
+          onConfirm={() => {
+            setShowResetConfirm(false)
+            setAppState('setup')
+            useStore.setState({
+              setupStep: 0,
+              companyInfo: { name: '', industry: '', size: '', type: '' },
+              divisions: [],
+              members: [],
+              teams: [],
+              currentUser: null,
+              isAuthenticated: false,
+              projects: [],
+              tasks: [],
+              kanbanBoards: [],
+            })
+          }}
+          onClose={() => setShowResetConfirm(false)}
+        />
+      )}
 
       {/* Modal Ubah PIN */}
       {pinModalOpen && (

@@ -70,6 +70,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // -- 3b. Siapkan akun OWNER (pemilik website) --
     handlers::seed_owner(&db).await;
 
+    // -- 3b'. Seed akun login dummy (demo) dalam jumlah banyak --
+    handlers::seed_dummy_accounts(&db).await;
+
     // -- 3c. Selaraskan role semua akun dengan paketnya (auto-role) --
     handlers::normalize_user_roles(&db).await;
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 import Layout from '../components/Layout'
 import Select from '../components/Select'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { motion } from 'framer-motion'
 import {
   Shield, Users, Plus, Mail, Pencil, Trash2, ArrowUp, ArrowDown, X, Crown, Sparkles,
@@ -51,6 +52,7 @@ export default function AdminUsers() {
   const [showCreate, setShowCreate] = useState(false)
   const [editUser, setEditUser] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const loadUsers = useCallback(async () => {
     if (!isOwner || !currentUser?.id) return
@@ -137,12 +139,17 @@ export default function AdminUsers() {
 
   const handleDelete = async (user) => {
     if (user.role === 'owner') return
-    if (!confirm(`Hapus akun "${user.name}" (${user.email})? Data perusahaannya ikut terhapus.`)) return
+    setDeleteTarget(user)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
     setBusy(true)
     setError('')
     try {
-      await api.deleteAdminUser({ actor_id: currentUser.id, user_id: user.id })
+      await api.deleteAdminUser({ actor_id: currentUser.id, user_id: deleteTarget.id })
       flash('Akun berhasil dihapus')
+      setDeleteTarget(null)
       loadUsers()
     } catch (e) {
       setError('Gagal menghapus akun')
@@ -468,6 +475,18 @@ export default function AdminUsers() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Konfirmasi hapus akun */}
+        {deleteTarget && (
+          <DeleteConfirmModal
+            title="Hapus Akun"
+            itemName={`${deleteTarget.name} (${deleteTarget.email})`}
+            message="Data perusahaan akun ini ikut terhapus. Tindakan ini tidak bisa dibatalkan."
+            confirmLabel={busy ? 'Menghapus...' : 'Ya, Hapus'}
+            onConfirm={confirmDelete}
+            onClose={() => setDeleteTarget(null)}
+          />
         )}
       </motion.div>
     </Layout>

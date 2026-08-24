@@ -37,6 +37,14 @@
   background: rgba(241, 241, 243, 0.9);
 }
 
+[data-theme="main-white-light"] .main-nav {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+[data-theme="main-white-dark"] .main-nav {
+  background: rgba(0, 0, 0, 0.9);
+}
+
 .nav-inner {
   max-width: 1200px;
   margin: 0 auto;

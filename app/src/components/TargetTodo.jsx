@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store/useStore'
 import Select from './Select'
 import DeadlinePicker from './DeadlinePicker'
+import DeleteConfirmModal from './DeleteConfirmModal'
 import { Plus, Trash2, Check, CalendarClock, X } from 'lucide-react'
 import { deadlineText } from '../utils/deadline'
 import '../pages/TodoList.css'
@@ -28,6 +29,7 @@ const emptyTodo = {
 export default function TargetTodo({ projectId, theme, tasks: tasksProp }) {
   const { tasks, addTask, toggleTaskStatus, deleteTask, currentUser } = useStore()
   const [newTodo, setNewTodo] = useState(emptyTodo)
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [filter, setFilter] = useState('all') // all, pending, completed
 
@@ -191,7 +193,7 @@ export default function TargetTodo({ projectId, theme, tasks: tasksProp }) {
 
               <button
                 className="todo-delete"
-                onClick={() => deleteTask(task.id)}
+                onClick={() => setDeleteTaskTarget(task)}
               >
                 <Trash2 size={14} />
               </button>
@@ -217,6 +219,20 @@ export default function TargetTodo({ projectId, theme, tasks: tasksProp }) {
             {completedCount} dari {projectTasks.length} selesai
           </span>
         </div>
+      )}
+
+      {/* Konfirmasi hapus task */}
+      {deleteTaskTarget && (
+        <DeleteConfirmModal
+          title="Hapus To-do"
+          itemName={deleteTaskTarget.title}
+          message="Tugas ini akan dihapus permanen. Tindakan ini tidak bisa dibatalkan."
+          onConfirm={() => {
+            deleteTask(deleteTaskTarget.id)
+            setDeleteTaskTarget(null)
+          }}
+          onClose={() => setDeleteTaskTarget(null)}
+        />
       )}
     </>
   )

@@ -420,21 +420,22 @@
   gap: var(--space-2);
   width: 100%;
   padding: var(--space-2);
-  background: none;
-  border: none;
-  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm, 8px);
+  color: #fff;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
 }
 
 .profile-btn:hover {
-  background: var(--bg-tertiary);
+  background: rgba(0, 0, 0, 0.42);
 }
 
 .profile-chevron {
   margin-left: auto;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.7);
   flex-shrink: 0;
   transition: transform 0.2s;
 }
@@ -503,7 +504,7 @@
   justify-content: center;
   font-size: 0.6875rem;
   font-weight: 700;
-  color: #000;
+  color: #fff;
   border: none;
   border-radius: 50%;
   flex-shrink: 0;
@@ -523,12 +524,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-primary);
+  color: #fff;
 }
 
 .user-role {
   font-size: 0.6875rem;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.7);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -935,7 +936,7 @@
   justify-content: center;
   font-size: 0.625rem;
   font-weight: 700;
-  color: #000;
+  color: #fff;
   border: none;
   border-radius: 50%;
 }
