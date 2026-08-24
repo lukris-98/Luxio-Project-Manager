@@ -166,6 +166,10 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/admin/users", post(handlers::admin_create_user))
         .route("/api/admin/users", put(handlers::admin_update_user))
         .route("/api/admin/users", delete(handlers::admin_delete_user))
+        // Notifikasi in-app (owner/super_admin/admin kirim; semua user terima)
+        .route("/api/notifications", get(handlers::list_notifications))
+        .route("/api/notifications/read", post(handlers::read_notifications))
+        .route("/api/notifications/send", post(handlers::send_notification))
         // Layer: batas body -> security headers -> CORS -> tracing
         .layer(RequestBodyLimitLayer::new(2 * 1024 * 1024))
         .layer(SetResponseHeaderLayer::overriding(

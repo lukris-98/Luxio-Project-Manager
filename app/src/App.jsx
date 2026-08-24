@@ -34,6 +34,7 @@ import AgentChat from './pages/AgentChat'
 import OwnerDashboard from './pages/OwnerDashboard'
 import AttendancePage from './pages/AttendancePage'
 import AttendanceAdmin from './pages/AttendanceAdmin'
+import NotificationsPage from './pages/NotificationsPage'
 
 function App() {
   const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
@@ -44,7 +45,7 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme)
     document.documentElement.style.colorScheme = theme
     const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0C0C0E' : '#FAFAFA')
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0C0C0E' : '#F1F1F3')
   }, [theme])
 
   // Bila dibuka dari link konfirmasi email (?token=...), arahkan ke halaman
@@ -92,6 +93,8 @@ function App() {
         return <AttendancePage />
       case 'attendance-admin':
         return <AttendanceAdmin />
+      case 'send-notification':
+        return <NotificationsPage />
       default:
         return <Dashboard />
     }

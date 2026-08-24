@@ -1,0 +1,46 @@
+/* ThemeSelect — pilih/buat tema-window */
+
+.theme-select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.theme-select-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.theme-select-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.theme-select-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.theme-select-add:hover {
+  border-color: var(--accent);
+}
+
+.theme-select-create {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.theme-select-create .input {
+  flex: 1;
+  min-width: 0;
+}

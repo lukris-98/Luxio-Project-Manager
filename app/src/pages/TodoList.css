@@ -6,7 +6,16 @@
 }
 
 .todo-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: var(--space-5);
+}
+
+.todo-page .page-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .todo-page .page-header-left h1 {
@@ -17,6 +26,37 @@
 .todo-page .page-header-left p {
   color: var(--text-muted);
   font-size: 0.9375rem;
+}
+
+/* Tema/window di halaman todo */
+.todo-theme-section {
+  margin-bottom: var(--space-6);
+}
+
+.todo-theme-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.todo-theme-head svg {
+  color: var(--accent);
+}
+
+.todo-theme-head h2 {
+  font-size: 1.0625rem;
+  margin: 0;
+}
+
+.todo-theme-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
 }
 
 /* Add Todo */

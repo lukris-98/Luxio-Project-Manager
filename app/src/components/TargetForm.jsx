@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore, useEffectiveRole } from '../store/useStore'
 import Select from './Select'
+import ThemeSelect from './ThemeSelect'
 import StageEditor from './StageEditor'
 import DeadlinePicker from './DeadlinePicker'
 import { X, KanbanSquare, ListTodo, Target, Sparkles } from 'lucide-react'
@@ -59,6 +60,7 @@ export default function TargetForm({ onClose, onCreated }) {
     name: '',
     description: '',
     viewType: 'kanban',
+    theme: '',
     divisionId: '',
     assigneeId: '',
     type: 'project',
@@ -66,11 +68,22 @@ export default function TargetForm({ onClose, onCreated }) {
     deadlineType: 'deadline',
     deadline: '',
     deadlineLabel: '',
+    // Kolaborator (multi-user): daftar member yang ikut mengerjakan target.
+    collaboratorIds: [],
     // Alur kanban: daftar tahap, tiap tahap punya daftar to-do.
     stages: [{ id: 1, name: '', todos: [] }],
   })
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
+
+  const toggleCollaborator = (memberId) => {
+    setForm((f) => ({
+      ...f,
+      collaboratorIds: f.collaboratorIds.includes(memberId)
+        ? f.collaboratorIds.filter((id) => id !== memberId)
+        : [...f.collaboratorIds, memberId],
+    }))
+  }
 
   const canSubmit = form.name.trim().length > 0
 
@@ -80,11 +93,13 @@ export default function TargetForm({ onClose, onCreated }) {
       name: form.name.trim(),
       description: form.description.trim(),
       viewType: form.viewType,
+      theme: form.theme,
       priority: form.priority,
       deadlineType: form.deadlineType,
       deadline: form.deadline,
       deadlineLabel: form.deadlineLabel,
       createdBy: currentUser?.id,
+      collaboratorIds: form.collaboratorIds,
       // Alur kanban dibawa ke store (kolom = tahap, task = to-do).
       ...(form.viewType === 'kanban' ? { stages: form.stages } : {}),
       // Admin/super boleh pilih divisi & assignee; member diassign ke diri sendiri.
@@ -139,6 +154,16 @@ export default function TargetForm({ onClose, onCreated }) {
             />
           </div>
 
+          <div className="input-group">
+            <label className="input-label">Label</label>
+            <ThemeSelect
+              value={form.theme}
+              onChange={(v) => set('theme', v)}
+              placeholder="Pilih label atau buat baru..."
+            />
+            <p className="field-hint">Kelompokkan target dalam satu label, mis. "Project Rumah".</p>
+          </div>
+
           {/* Cara kelola — kartu pilihan */}
           <div className="input-group">
             <label className="input-label">Cara Kelola</label>
@@ -183,6 +208,35 @@ export default function TargetForm({ onClose, onCreated }) {
                   onChange={(v) => set('assigneeId', v)}
                   options={members.map((m) => ({ value: m.id, label: m.name }))}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Kolaborator multi-user — siapa saja yang ikut mengerjakan target ini */}
+          {isAdmin && members.length > 0 && (
+            <div className="input-group">
+              <label className="input-label">Kolaborator (multi-user)</label>
+              <p className="field-hint">
+                Pilih anggota yang ikut mengerjakan target ini. Bisa lebih dari satu.
+              </p>
+              <div className="collab-picker">
+                {members.map((m) => {
+                  const checked = form.collaboratorIds.includes(m.id)
+                  const isAssignee = m.id === form.assigneeId
+                  return (
+                    <label key={m.id} className={`collab-chip ${checked ? 'active' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked || isAssignee}
+                        onChange={() => toggleCollaborator(m.id)}
+                      />
+                      <span className="collab-chip-avatar">
+                        {m.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </span>
+                      <span className="collab-chip-name">{m.name}</span>
+                    </label>
+                  )
+                })}
               </div>
             </div>
           )}

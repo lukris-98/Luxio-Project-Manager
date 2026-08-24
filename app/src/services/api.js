@@ -225,4 +225,9 @@ export const api = {
   // Dashboard absensi admin (filter per tim).
   getAttendanceAdmin: (companyId, teamId) =>
     get('/api/attendance/admin', teamId ? { company_id: companyId, team_id: teamId } : { company_id: companyId }),
+
+  // ---- Notifikasi in-app ----
+  getNotifications: () => get('/api/notifications'),
+  readNotifications: (ids, all) => post('/api/notifications/read', all ? { all: true } : { ids }),
+  sendNotification: (data) => post('/api/notifications/send', data),
 }

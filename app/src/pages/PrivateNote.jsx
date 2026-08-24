@@ -2,7 +2,10 @@ import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 import DOMPurify from 'dompurify'
 import Layout from '../components/Layout'
-import { Plus, X, Lock, LockOpen, Save, Trash2, KeyRound, FileText, Check, Bold, Italic, Underline, Highlighter, List, ListOrdered, History } from 'lucide-react'
+import InviteUsers from '../components/InviteUsers'
+import ThemeSelect from '../components/ThemeSelect'
+import LabelFilterBar from '../components/LabelFilterBar'
+import { Plus, X, Lock, LockOpen, Save, Trash2, KeyRound, FileText, Check, Bold, Italic, Underline, Highlighter, List, ListOrdered, FolderOpen, ArrowLeft } from 'lucide-react'
 import './PrivateNote.css'
 
 const MODAL = { none: 0, ask: 1, set: 2, unlock: 3, manage: 4, delete: 5 }
@@ -27,7 +30,7 @@ const stripHtml = (html) => {
 export default function PrivateNote() {
   const {
     currentUser, privateNotes, addPrivateNote, updatePrivateNote, deletePrivateNote,
-    closePrivateNote, openPrivateNote, userPin,
+    userPin, selectedNoteId, setSelectedNoteId, toggleNoteCollaborator, setNoteTheme, themes, labelFilter,
   } = useStore()
   const userId = currentUser?.id
 
@@ -36,9 +39,10 @@ export default function PrivateNote() {
     return privateNotes[userId] || []
   }, [userId, privateNotes])
 
-  // Tab hanya menampilkan catatan yang masih terbuka (belum ditutup).
-  const openNotes = useMemo(() => notes.filter((n) => !n.closed), [notes])
-  const closedCount = notes.length - openNotes.length
+  const [sortBy, setSortBy] = useState('created-desc')
+  const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const [activeId, setActiveId] = useState(null)
   const [unlocked, setUnlocked] = useState(() => new Set())
@@ -50,7 +54,8 @@ export default function PrivateNote() {
   const [pinConfirm, setPinConfirm] = useState('')
   const [pinError, setPinError] = useState('')
   const [toast, setToast] = useState('')
-  const [listOpen, setListOpen] = useState(false)
+  const [showNewForm, setShowNewForm] = useState(false)
+  const [newTheme, setNewTheme] = useState('')
   const [fmt, setFmt] = useState({ bold: false, italic: false, underline: false, ul: false, ol: false })
 
   // State modal hapus: wajib ketik DELETE, lalu PIN catatan (jika ada).
@@ -61,28 +66,61 @@ export default function PrivateNote() {
 
   const contentRef = useRef(null)
 
+  // Filter & urutkan catatan berdasarkan label, tanggal, nama, dan pencarian.
+  const filteredNotes = useMemo(() => {
+    let list = notes.filter((n) => {
+      if (labelFilter === null) return true
+      const l = (n.theme || '').trim()
+      if (labelFilter === '') return !l
+      return l === labelFilter
+    })
+    const q = search.trim().toLowerCase()
+    if (q) {
+      list = list.filter((n) =>
+        (n.title || '').toLowerCase().includes(q) ||
+        stripHtml(n.content).toLowerCase().includes(q)
+      )
+    }
+    const fromT = dateFrom ? new Date(dateFrom).getTime() : null
+    const toT = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : null
+    if (fromT || toT) {
+      list = list.filter((n) => {
+        const t = n.createdAt || n.updatedAt || 0
+        if (fromT && t < fromT) return false
+        if (toT && t > toT) return false
+        return true
+      })
+    }
+    return [...list].sort((a, b) => {
+      const ta = a.createdAt || a.updatedAt || 0
+      const tb = b.createdAt || b.updatedAt || 0
+      if (sortBy === 'created-asc') return ta - tb
+      if (sortBy === 'created-desc') return tb - ta
+      if (sortBy === 'name-asc') return (a.title || '').localeCompare(b.title || '')
+      return (b.title || '').localeCompare(a.title || '')
+    })
+  }, [notes, labelFilter, search, dateFrom, dateTo, sortBy])
+
+  const noteLabelOptions = notes.map((n) => (n.theme || '').trim())
+
   const active = notes.find((n) => n.id === activeId) || null
   const isLocked = active != null && active.pin && !unlocked.has(active.id)
 
-  // Auto-pilih catatan terbuka terbaru saat halaman dibuka / tab ditutup.
+  // Bila dibuka dari sidebar (selectedNoteId), pilih catatan itu.
   useEffect(() => {
-    if (openNotes.length === 0) {
-      setActiveId(null)
-      return
+    if (selectedNoteId && notes.some((n) => n.id === selectedNoteId)) {
+      setActiveId(selectedNoteId)
+      setSelectedNoteId(null)
     }
-    if (!openNotes.some((n) => n.id === activeId)) {
-      const latest = [...openNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]
-      setActiveId(latest.id)
-    }
-  }, [openNotes, activeId])
+  }, [selectedNoteId, notes, setSelectedNoteId])
 
+  // Muat isi catatan aktif ke editor.
   useEffect(() => {
     const n = notes.find((x) => x.id === activeId)
     setTitle(n?.title || '')
     setContentHtml(n?.content || '')
     if (contentRef.current) {
       const html = n?.content || ''
-      // Selalu sanitasi sebelum disuntikkan ke DOM (cegah XSS).
       contentRef.current.innerHTML = sanitizeHtml(html)
     }
   }, [activeId, notes])
@@ -120,8 +158,6 @@ export default function PrivateNote() {
     if (contentRef.current) setContentHtml(sanitizeHtml(contentRef.current.innerHTML))
   }
 
-  // Cegah XSS lewat paste: baca clipboard HTML, sanitasi, lalu sisipkan
-  // sebagai teks (format editor lama via execCommand, isi aman).
   const handlePaste = (e) => {
     e.preventDefault()
     const html = e.clipboardData?.getData('text/html') || ''
@@ -165,25 +201,12 @@ export default function PrivateNote() {
     }
   }
 
-  const openFromList = (n) => {
-    if (n.closed) openPrivateNote(n.id)
-    openNote(n.id)
-  }
-
+  // Buat catatan baru dalam tema tertentu.
   const handleAdd = () => {
-    const id = addPrivateNote({})
+    const id = addPrivateNote({ theme: newTheme })
     setActiveId(id)
-  }
-
-  // [x] pada tab hanya menutup tab (catatan tetap tersimpan, dibuka lagi dari Riwayat).
-  const handleCloseTab = (id) => {
-    if (id === activeId) setActiveId(null)
-    closePrivateNote(id)
-    setUnlocked((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
+    setShowNewForm(false)
+    setNewTheme('')
   }
 
   const resetDeleteState = () => {
@@ -235,13 +258,27 @@ export default function PrivateNote() {
     if (!active) return
     updatePrivateNote(active.id, { title: title.trim(), content: contentHtml })
     showToast('Catatan tersimpan')
-    if (!active.pin) {
-      setModalNoteId(active.id)
-      setPin('')
-      setPinConfirm('')
-      setPinError('')
-      setModal(MODAL.ask)
-    }
+  }
+
+  // Simpan lalu tawarkan pilihan PIN: pakai PIN akun yang ada atau buat baru.
+  const handleSaveWithPin = () => {
+    if (!active) return
+    updatePrivateNote(active.id, { title: title.trim(), content: contentHtml })
+    setModalNoteId(active.id)
+    setPin('')
+    setPinConfirm('')
+    setPinError('')
+    setModal(MODAL.ask)
+  }
+
+  // Pakai PIN akun (userPin) sebagai PIN catatan ini.
+  const handleUseAccountPin = () => {
+    if (!userPin) return
+    updatePrivateNote(modalNoteId, { pin: userPin, locked: true })
+    setUnlocked((prev) => new Set(prev).add(modalNoteId))
+    setModal(MODAL.none)
+    setPin('')
+    showToast('Catatan terkunci PIN akun')
   }
 
   const closeModal = () => {
@@ -301,75 +338,72 @@ export default function PrivateNote() {
     setModal(MODAL.set)
   }
 
-  const sortedNotes = useMemo(() => [...notes].sort((a, b) => b.updatedAt - a.updatedAt), [notes])
+  // Kelompokkan catatan per label (dari hasil filter).
+  const groups = {}
+  ;['', ...themes].forEach((key) => { groups[key] = [] })
+  filteredNotes.forEach((n) => {
+    const key = (n.theme || '').trim()
+    if (!groups[key]) groups[key] = []
+    groups[key].push(n)
+  })
+  const orderedGroups = Object.entries(groups).sort(([a], [b]) => {
+    if (a === '') return -1
+    if (b === '') return 1
+    return a.localeCompare(b)
+  })
 
   return (
     <Layout>
       <div className="note-page">
         <div className="page-header note-page-header">
           <div className="page-header-left">
-            <h1>Catatan Pribadi</h1>
+            <h1>Catatan</h1>
             <p>Catatan pribadi kamu, bisa dikunci PIN per catatan</p>
           </div>
-          {notes.length > 0 && (
-            <button className="btn btn-secondary note-list-btn" onClick={() => setListOpen(true)}>
-              <History size={16} /> Riwayat Catatan
+          <div className="page-header-right">
+            {active && (
+              <InviteUsers
+                collaborators={active?.collaboratorIds || []}
+                onToggle={(id) => toggleNoteCollaborator(active.id, id)}
+              />
+            )}
+            <button className="btn btn-primary" onClick={() => setShowNewForm(true)}>
+              <Plus size={16} /> Catatan Baru
             </button>
-          )}
+          </div>
         </div>
 
-        <div className="note-tabs">
-          {openNotes.map((n) => (
-            <div key={n.id} className={`note-tab ${n.id === activeId ? 'active' : ''}`}>
-              <button
-                className="note-tab-main"
-                onClick={() => openNote(n.id)}
-                title={n.title || 'Tanpa judul'}
-              >
-                {n.pin ? <Lock size={12} className="note-tab-lock" /> : null}
-                <span className="note-tab-title">{n.title || 'Tanpa judul'}</span>
-              </button>
-              <button
-                className="note-tab-close"
-                onClick={(e) => { e.stopPropagation(); handleCloseTab(n.id) }}
-                title="Tutup tab (catatan tetap tersimpan)"
-              >
-                <X size={14} />
-              </button>
+        {/* Form catatan baru dengan pilihan tema */}
+        {showNewForm && (
+          <div className="note-new-form">
+            <div className="input-group">
+              <label className="input-label">Label</label>
+              <ThemeSelect value={newTheme} onChange={setNewTheme} />
+              <p className="field-hint">Kelompokkan catatan dalam label, mis. "Pekerjaan".</p>
             </div>
-          ))}
-          <button className="note-tab-add" onClick={handleAdd} title="Catatan baru">
-            <Plus size={16} />
-          </button>
-        </div>
-
-        {openNotes.length === 0 ? (
-          <div className="note-empty">
-            <History size={40} />
-            <h3>{notes.length > 0 ? 'Belum ada tab terbuka' : 'Belum ada catatan'}</h3>
-            <p>
-              {notes.length > 0
-                ? 'Catatan yang ditutup tidak hilang — buka lagi dari Riwayat.'
-                : 'Buat catatan pribadi pertama kamu.'}
-            </p>
-            <div className="note-empty-actions">
-              {closedCount > 0 && (
-                <button className="btn btn-secondary" onClick={() => setListOpen(true)}>
-                  <History size={16} /> Buka dari Riwayat ({closedCount})
-                </button>
-              )}
+            <div className="note-new-actions">
+              <button className="btn btn-secondary" onClick={() => setShowNewForm(false)}>Batal</button>
               <button className="btn btn-primary" onClick={handleAdd}>
                 <Plus size={16} /> Buat Catatan
               </button>
             </div>
           </div>
+        )}
+
+        {notes.length === 0 && themes.length === 0 ? (
+          <div className="note-empty">
+            <FileText size={40} />
+            <h3>Belum ada catatan</h3>
+            <p>Buat catatan pribadi pertama kamu.</p>
+            <button className="btn btn-primary" onClick={() => setShowNewForm(true)}>
+              <Plus size={16} /> Buat Catatan
+            </button>
+          </div>
         ) : active == null ? (
           <div className="note-empty">
             <FileText size={40} />
             <h3>Pilih atau buat catatan</h3>
-            <button className="btn btn-primary" onClick={handleAdd}>
-              <Plus size={16} /> Buat Catatan
-            </button>
+            <p>Klik salah satu catatan untuk membuka editor.</p>
           </div>
         ) : isLocked ? (
           <div className="note-locked">
@@ -386,12 +420,20 @@ export default function PrivateNote() {
               autoFocus
             />
             {pinError && <span className="note-pin-error">{pinError}</span>}
-            <button className="btn btn-primary" onClick={handleUnlock}>
-              <LockOpen size={16} /> Buka
-            </button>
+            <div className="note-locked-actions">
+              <button className="btn btn-ghost" onClick={() => setActiveId(null)}>
+                <ArrowLeft size={16} /> Batal
+              </button>
+              <button className="btn btn-primary" onClick={handleUnlock}>
+                <LockOpen size={16} /> Buka
+              </button>
+            </div>
           </div>
         ) : (
           <div className="note-editor">
+            <button className="btn btn-ghost btn-sm note-back-btn" onClick={() => setActiveId(null)}>
+              <ArrowLeft size={14} /> Daftar Catatan
+            </button>
             <input
               className="input note-title-input"
               placeholder="Judul catatan"
@@ -464,6 +506,9 @@ export default function PrivateNote() {
                 {active.pin ? <KeyRound size={16} /> : <Lock size={16} />}
                 {active.pin ? 'PIN' : 'Tambah PIN'}
               </button>
+              <button className="btn btn-secondary" onClick={handleSaveWithPin}>
+                <Lock size={16} /> Simpan dengan PIN
+              </button>
               <button className="btn btn-primary" onClick={handleSave}>
                 <Save size={16} /> Simpan
               </button>
@@ -474,63 +519,67 @@ export default function PrivateNote() {
           </div>
         )}
 
+        {/* Daftar catatan per label — tampil bila tidak sedang mengedit */}
+        {active == null && notes.length > 0 && (
+          <>
+            <LabelFilterBar
+              labels={noteLabelOptions}
+              search={search}
+              setSearch={setSearch}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              dateFrom={dateFrom}
+              setDateFrom={setDateFrom}
+              dateTo={dateTo}
+              setDateTo={setDateTo}
+              placeholder="Cari catatan..."
+            />
+            <div className="note-theme-list">
+            {orderedGroups.map(([theme, themeNotes]) => (
+              <div key={theme || '__none__'} className="note-theme-section">
+                <div className="note-theme-head">
+                  <FolderOpen size={16} />
+                  <h2>{theme || 'Tanpa Label'}</h2>
+                  <span className="note-theme-count">{themeNotes.length} catatan</span>
+                </div>
+                <div className="note-card-grid">
+                  {themeNotes.map((n) => (
+                    <div key={n.id} className="note-card" onClick={() => openNote(n.id)}>
+                      <div className="note-card-title">
+                        {n.pin && <Lock size={12} className="note-tab-lock" />}
+                        <span className="note-card-title-text">{n.title || 'Tanpa judul'}</span>
+                      </div>
+                      <p className="note-card-snippet">{stripHtml(n.content) || 'Kosong'}</p>
+                      <div className="note-card-meta">
+                        <span>
+                          {new Date(n.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                        </span>
+                        <button
+                          className="note-card-delete"
+                          onClick={(e) => { e.stopPropagation(); openDeleteModal(n.id) }}
+                          title="Hapus catatan"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {filteredNotes.length === 0 && (
+              <div className="note-empty">
+                <FileText size={40} />
+                <h3>Tidak ada catatan yang cocok</h3>
+                <p>Coba ubah filter label, tanggal, atau kata kunci pencarian</p>
+              </div>
+            )}
+            </div>
+          </>
+        )}
+
         {toast && <div className="note-toast"><Check size={16} /> {toast}</div>}
       </div>
-
-      {listOpen && (
-        <div className="note-modal-overlay" onClick={() => setListOpen(false)}>
-          <div className="note-modal note-list-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="note-modal-head">
-              <History size={18} />
-              <h3>Riwayat Catatan ({notes.length})</h3>
-            </div>
-            {closedCount > 0 && (
-              <p className="note-modal-desc">
-                {closedCount} catatan ditutup. Klik untuk membuka kembali.
-              </p>
-            )}
-            <div className="note-list">
-              {sortedNotes.map((n) => (
-                <div
-                  key={n.id}
-                  className={`note-list-item ${n.id === activeId ? 'active' : ''} ${n.closed ? 'closed' : ''}`}
-                >
-                  <button
-                    className="note-list-open"
-                    onClick={() => { setListOpen(false); openFromList(n) }}
-                  >
-                    <div className="note-list-info">
-                      <span className="note-list-title">
-                        {n.closed && <span className="note-list-closed-badge">Ditutup</span>}
-                        {n.title || 'Tanpa judul'}
-                      </span>
-                      <span className="note-list-snippet">{stripHtml(n.content) || 'Kosong'}</span>
-                    </div>
-                    <div className="note-list-meta">
-                      {n.pin && <Lock size={12} className="note-tab-lock" />}
-                      <span className="note-list-date">
-                        {new Date(n.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                      </span>
-                    </div>
-                  </button>
-                  <button
-                    className="note-list-delete"
-                    title="Hapus catatan"
-                    onClick={(e) => { e.stopPropagation(); openDeleteModal(n.id) }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="note-modal-actions">
-              <button className="btn btn-secondary" onClick={() => setListOpen(false)}>
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {modal !== MODAL.none && (
         <div className="note-modal-overlay" onClick={modal === MODAL.delete ? closeDeleteModal : closeModal}>
@@ -586,17 +635,25 @@ export default function PrivateNote() {
               <>
                 <div className="note-modal-head">
                   <Lock size={18} />
-                  <h3>Kunci catatan?</h3>
+                  <h3>Simpan dengan PIN</h3>
                 </div>
                 <p className="note-modal-desc">
-                  Tambahkan PIN untuk catatan ini? Hanya kamu yang bisa membukanya.
+                  Pilih cara mengunci catatan ini. Kamu bisa pakai PIN akun yang
+                  sudah ada, atau buat PIN baru khusus catatan ini.
                 </p>
-                <div className="note-modal-actions">
-                  <button className="btn btn-secondary" onClick={closeModal}>
-                    Tidak
+                <div className="note-pin-options">
+                  {userPin && (
+                    <button className="btn btn-primary note-pin-option" onClick={handleUseAccountPin}>
+                      <KeyRound size={16} /> Gunakan PIN yang ada
+                    </button>
+                  )}
+                  <button className="btn btn-secondary note-pin-option" onClick={goAskToSet}>
+                    <Lock size={16} /> Buat PIN baru
                   </button>
-                  <button className="btn btn-primary" onClick={goAskToSet}>
-                    <Lock size={16} /> Ya, tambahkan PIN
+                </div>
+                <div className="note-modal-actions">
+                  <button className="btn btn-ghost" onClick={closeModal}>
+                    Batal
                   </button>
                 </div>
               </>

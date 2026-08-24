@@ -65,6 +65,7 @@
 .auth-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
   overflow: hidden;
 }
 

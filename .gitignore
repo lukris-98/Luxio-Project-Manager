@@ -24,3 +24,9 @@ npm-debug.log*
 
 # Misc
 *.local
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  

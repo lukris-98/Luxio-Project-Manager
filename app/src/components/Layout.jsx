@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
+import { api } from '../services/api'
 import ReminderWatcher from './ReminderWatcher'
 import HeadlineMarquee from './HeadlineMarquee'
+import InstallAppButton from './InstallAppButton'
 import { requestNotificationPermission } from '../utils/notify'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList 
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, Megaphone, ChevronRight, StickyNote, KanbanSquare, ListTodo 
 } from 'lucide-react'
 import './Layout.css'
 
@@ -22,12 +24,106 @@ const ROLE_LABELS = {
 
 const ROLE_OPTIONS = ['owner', 'super_admin', 'admin', 'user']
 
+// Warna aksen tiap ikon sidebar (mengikuti warna brand, dibedakan per item).
+const NAV_COLORS = {
+  dashboard: 'var(--accent)',
+  projects: '#F87171',
+  kanban: '#A78BFA',
+  'todo-list': '#4ADE80',
+  'private-note': '#FACC15',
+  calendar: '#22D3EE',
+  'my-tasks': '#34D399',
+  team: '#60A5FA',
+  chat: '#22D3EE',
+  agent: '#F472B6',
+  upgrade: '#FB923C',
+  'admin-users': '#FBBF24',
+  'owner-dashboard': '#A78BFA',
+  attendance: '#4ADE80',
+  'attendance-admin': '#60A5FA',
+  'send-notification': '#22D3EE',
+}
+
+// Link yang punya dropdown berisi item-nya (max 3 terlihat, scroll bila lebih).
+const DROPDOWN_IDS = new Set(['projects', 'kanban', 'todo-list', 'private-note'])
+
+// Ambil huruf awal untuk avatar.
+const initials = (name = '') =>
+  name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'U'
+
+// Warna avatar kolaborator (dari palet brand).
+const AVATAR_COLORS = ['#FF6B35', '#22D3EE', '#A78BFA', '#4ADE80', '#FACC15', '#F472B6', '#60A5FA', '#F87171']
+const colorFor = (id) => AVATAR_COLORS[String(id).length % AVATAR_COLORS.length]
+
+// Bangun daftar dropdown tiap link sidebar.
+// Dropdown kini menampilkan NAMA LABEL saja (bukan item per item).
+//  - projects     : label dari seluruh target (project).
+//  - kanban       : label dari board kanban + target bertipe kanban.
+//  - todo-list    : label dari seluruh task (global + per target).
+//  - private-note : label dari catatan pribadi user yang login.
+const PAGE_BY_ITEM = {
+  projects: 'projects',
+  kanban: 'kanban',
+  'todo-list': 'todo-list',
+  'private-note': 'private-note',
+}
+
+function buildDropdownItems(itemId, { projects, kanbanBoards, tasks, privateNotes, currentUser }) {
+  const labelSet = new Set()
+  const pushLabel = (items) =>
+    items.forEach((x) => {
+      const l = (x.theme || '').trim()
+      if (l) labelSet.add(l)
+      else labelSet.add('')
+    })
+
+  switch (itemId) {
+    case 'projects':
+      pushLabel(projects)
+      break
+    case 'kanban': {
+      pushLabel(kanbanBoards)
+      const kanbanProjects = projects.filter(
+        (p) => p.viewType === 'kanban' && !kanbanBoards.some((b) => b.projectId === p.id)
+      )
+      pushLabel(kanbanProjects)
+      break
+    }
+    case 'todo-list':
+      pushLabel(tasks)
+      break
+    case 'private-note': {
+      const userId = currentUser?.id
+      pushLabel(userId != null ? privateNotes[userId] || [] : [])
+      break
+    }
+    default:
+      return []
+  }
+
+  const labels = [...labelSet].sort((a, b) => {
+    if (a === '') return -1
+    if (b === '') return 1
+    return a.localeCompare(b)
+  })
+
+  return labels.map((label) => ({
+    key: `lbl-${itemId}-${label || '__none__'}`,
+    id: label,
+    type: 'label',
+    label: label || 'Tanpa Label',
+    page: PAGE_BY_ITEM[itemId] || itemId,
+  }))
+}
+
 export default function Layout({ children }) {
   const {
     currentPage, setCurrentPage, logout, currentUser, companyInfo, appState, setAppState,
-    notifications, markAllNotificationsRead, clearNotifications,
-    theme, setTheme, activeRole, setActiveRole,
+    notifications, markAllNotificationsRead, clearNotifications, loadServerNotifications,
+    theme, setTheme, activeRole, setActiveRole, setLabelFilter,
     userPin, setUserPin, isAuthenticated,
+    projects, kanbanBoards, tasks, privateNotes, selectedNoteId, setSelectedNoteId,
+    openProject, openKanbanBoard,
   } = useStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pinModalOpen, setPinModalOpen] = useState(false)
@@ -35,6 +131,7 @@ export default function Layout({ children }) {
   const [profileOpen, setProfileOpen] = useState(false)
   const [roleOpen, setRoleOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState(null)
   const [toast, setToast] = useState(null)
   const lastToastId = useRef(null)
 
@@ -48,9 +145,9 @@ export default function Layout({ children }) {
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'projects', icon: Target, label: 'Target' },
-    { id: 'kanban', icon: Target, label: 'Kanban' },
-    { id: 'todo-list', icon: CheckSquare, label: 'Todo' },
-    { id: 'private-note', icon: Lock, label: 'Catatan Pribadi' },
+    { id: 'kanban', icon: KanbanSquare, label: 'Kanban' },
+    { id: 'todo-list', icon: ListTodo, label: 'Todo' },
+    { id: 'private-note', icon: StickyNote, label: 'Catatan' },
     { id: 'calendar', icon: Calendar, label: 'Kalender' },
     { id: 'my-tasks', icon: CheckSquare, label: 'Task Saya' },
     // Super Admin / Owner => Divisi (CRUD divisi+tim), Admin/User => Tim.
@@ -71,6 +168,10 @@ export default function Layout({ children }) {
     ...(effRole === 'admin' || effRole === 'super_admin' || effRole === 'owner'
       ? [{ id: 'attendance-admin', icon: ClipboardList, label: 'Dashboard Absen' }]
       : []),
+    // Kirim notifikasi ke bawahan (owner/super_admin/admin).
+    ...(effRole === 'owner' || effRole === 'super_admin' || effRole === 'admin'
+      ? [{ id: 'send-notification', icon: Megaphone, label: 'Kirim Notifikasi' }]
+      : []),
   ]
 
   const handleRoleChange = (role) => {
@@ -82,6 +183,9 @@ export default function Layout({ children }) {
   // Kalau role diganti dan sedang di halaman khusus owner, lempar ke dashboard.
   useEffect(() => {
     if ((currentPage === 'admin-users' || currentPage === 'owner-dashboard') && effRole !== 'owner') {
+      setCurrentPage('dashboard')
+    }
+    if (currentPage === 'send-notification' && !['owner', 'super_admin', 'admin'].includes(effRole)) {
       setCurrentPage('dashboard')
     }
   }, [effRole, currentPage, setCurrentPage])
@@ -101,15 +205,56 @@ export default function Layout({ children }) {
     setTheme(theme === 'dark' ? 'light' : 'dark')
   }
 
+  // Muat notifikasi dari backend setiap 30 detik selama sesi aktif.
+  useEffect(() => {
+    if (!isAuthenticated) return
+    loadServerNotifications()
+    const id = setInterval(loadServerNotifications, 30000)
+    return () => clearInterval(id)
+  }, [isAuthenticated, loadServerNotifications])
+
   const handleNotifClick = () => {
     requestNotificationPermission()
     setNotifOpen((v) => !v)
+    if (!notifOpen) {
+      markAllNotificationsRead()
+      api.readNotifications([], true).catch(() => {})
+    }
   }
 
   const handleNavClick = (pageId) => {
     setCurrentPage(pageId)
     setSidebarOpen(false)
     setProfileOpen(false)
+    setOpenDropdown(null)
+    if (DROPDOWN_IDS.has(pageId)) setLabelFilter(null)
+  }
+
+  // Klik link dengan dropdown: buka/tutup dropdown item-nya.
+  const handleDropdownToggle = (item) => {
+    setOpenDropdown((cur) => (cur === item.id ? null : item.id))
+  }
+
+  // Buka item dari dropdown: label => buka halaman dgn filter label; item lain
+  // (project/board/note) => route berdasarkan jenis item.
+  const handleDropdownItem = (entry) => {
+    if (entry.type === 'label') {
+      setLabelFilter(entry.id === '' ? '' : entry.id)
+      setCurrentPage(entry.page)
+    } else if (entry.type === 'note') {
+      setSelectedNoteId(entry.id)
+      setCurrentPage('private-note')
+    } else if (entry.type === 'board') {
+      openKanbanBoard(entry.id)
+    } else if (entry.type === 'todo-list') {
+      setCurrentPage('todo-list')
+    } else {
+      // project, atau default: buka halaman detail target.
+      openProject(entry.id)
+    }
+    setSidebarOpen(false)
+    setProfileOpen(false)
+    setOpenDropdown(null)
   }
 
   const handleLogout = () => {
@@ -131,7 +276,7 @@ export default function Layout({ children }) {
       <ReminderWatcher />
 
       {/* Sidebar */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''} ${openDropdown ? 'nav-dropdown-open' : ''}`}>
           <div className="sidebar-header">
             <div className="logo" onClick={() => setCurrentPage('dashboard')}>
               <span className="logo-mark">L</span>
@@ -143,16 +288,77 @@ export default function Layout({ children }) {
           </div>
         
         <nav className="sidebar-nav">
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
-              onClick={() => handleNavClick(item.id)}
-            >
-              <item.icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {navItems.map(item => {
+            // Item dropdown untuk link ini (dihitung sekali per render).
+            const dropdownItems = DROPDOWN_IDS.has(item.id)
+              ? buildDropdownItems(item.id, { projects, kanbanBoards, tasks, privateNotes, currentUser })
+              : []
+            const hasDropdown = dropdownItems.length > 0
+            return (
+            <div key={item.id} className="nav-item-wrap">
+              <button
+                className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
+                onClick={() =>
+                  DROPDOWN_IDS.has(item.id) && hasDropdown
+                    ? handleDropdownToggle(item)
+                    : handleNavClick(item.id)
+                }
+                title={sidebarCollapsed ? item.label : undefined}
+              >
+                <item.icon size={18} style={{ color: NAV_COLORS[item.id] || 'var(--accent)' }} />
+                <span>{item.label}</span>
+                {hasDropdown && (
+                  <ChevronRight
+                    size={14}
+                    className={`nav-drop-chevron ${openDropdown === item.id ? 'open' : ''}`}
+                  />
+                )}
+              </button>
+
+              {/* Dropdown item link (target/kanban/todo/catatan) */}
+              {hasDropdown && openDropdown === item.id && (
+                <div className="nav-dropdown" onClick={(e) => e.stopPropagation()}>
+                  <div className="nav-dropdown-head">
+                    <span>{item.label}</span>
+                    <button className="nav-dropdown-all" onClick={() => handleNavClick(item.id)}>
+                      Semua
+                    </button>
+                  </div>
+                  <div className="nav-dropdown-list">
+                    {dropdownItems.map((entry) => (
+                      <button
+                        key={entry.key}
+                        className="nav-dropdown-item"
+                        onClick={() => handleDropdownItem(entry)}
+                      >
+                        <span className="nav-drop-item-icon" style={{ color: NAV_COLORS[item.id] }}>
+                          {entry.icon || <item.icon size={16} />}
+                        </span>
+                        <span className="nav-drop-item-main">
+                          <span className="nav-drop-item-name">{entry.label}</span>
+                          {entry.sub && <span className="nav-drop-item-sub">{entry.sub}</span>}
+                        </span>
+                        {/* Avatar kolaborator multi-user */}
+                        {entry.collaborators && entry.collaborators.length > 0 && (
+                          <span className="nav-drop-collab" title={`Kolaborator: ${entry.collaborators.map((c) => c.name).join(', ')}`}>
+                            {entry.collaborators.slice(0, 3).map((c) => (
+                              <span key={c.id} className="nav-drop-avatar" style={{ background: c.color }}>
+                                {c.initial}
+                              </span>
+                            ))}
+                            {entry.collaborators.length > 3 && (
+                              <span className="nav-drop-avatar more">+{entry.collaborators.length - 3}</span>
+                            )}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            )
+          })}
         </nav>
         
         <div className="sidebar-footer">
@@ -166,10 +372,6 @@ export default function Layout({ children }) {
             >
               <div className="user-avatar">
                 {currentUser?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || 'U'}
-              </div>
-              <div className="user-details">
-                <span className="user-name">{currentUser?.name || 'User'}</span>
-                <span className="user-role">{companyInfo.name || 'Company'}</span>
               </div>
               <ChevronDown size={16} className="profile-chevron" />
             </button>
@@ -221,6 +423,9 @@ export default function Layout({ children }) {
       
       {/* Mobile overlay */}
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
+      {/* Backdrop penutup dropdown sidebar */}
+      {openDropdown && <div className="nav-dropdown-backdrop" onClick={() => setOpenDropdown(null)} />}
       
       {/* Main Content */}
       <main className="main-content">
@@ -266,6 +471,8 @@ export default function Layout({ children }) {
                 )}
               </div>
             )}
+
+            <InstallAppButton className="install-btn" label="Install" />
 
             <button className="theme-toggle-btn" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}

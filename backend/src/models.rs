@@ -608,3 +608,39 @@ pub struct IncentiveRequest {
     #[serde(default)]
     pub reason: String,
 }
+
+// ---------- NOTIFIKASI IN-APP ----------
+
+/// Sasaran pengiriman notifikasi. `mode`:
+///   'all'  => semua user di seluruh sistem (hanya OWNER).
+///   'role' => semua user dengan role tertentu (`roles`).
+///   'users'=> daftar user spesifik (`user_ids`).
+#[derive(Debug, Deserialize)]
+pub struct NotifyTargets {
+    pub mode: String,
+    #[serde(default)]
+    pub roles: Vec<String>,
+    #[serde(default)]
+    pub user_ids: Vec<String>,
+}
+
+/// Body request POST /api/notifications/send — kirim notifikasi in-app.
+#[derive(Debug, Deserialize)]
+pub struct SendNotificationRequest {
+    pub title: String,
+    #[serde(default)]
+    pub body: String,
+    #[serde(default)]
+    pub kind: String,
+    pub targets: NotifyTargets,
+}
+
+/// Body request POST /api/notifications/read — tandai notifikasi dibaca.
+#[derive(Debug, Deserialize)]
+pub struct ReadNotificationsRequest {
+    /// Bila kosong dan `all` true, tandai semua sebagai dibaca.
+    #[serde(default)]
+    pub ids: Vec<String>,
+    #[serde(default)]
+    pub all: bool,
+}

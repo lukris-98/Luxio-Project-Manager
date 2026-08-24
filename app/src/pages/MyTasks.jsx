@@ -1,11 +1,11 @@
 import { useStore } from '../store/useStore'
 import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
-import { CheckSquare, Clock, AlertCircle } from 'lucide-react'
+import { CheckSquare, Clock, AlertCircle, Trash2 } from 'lucide-react'
 import './MyTasks.css'
 
 export default function MyTasks() {
-  const { tasks } = useStore()
+  const { tasks, deleteTask } = useStore()
   
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -75,6 +75,15 @@ export default function MyTasks() {
                 <Clock size={14} />
                 <span>{new Date(task.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
               </div>
+
+              <button
+                className="task-delete"
+                onClick={() => deleteTask(task.id)}
+                title="Hapus task"
+                aria-label="Hapus task"
+              >
+                <Trash2 size={14} />
+              </button>
             </motion.div>
           )) : (
             <motion.div className="empty-state" variants={itemVariants}>

@@ -426,5 +426,23 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Notifikasi in-app antar pengguna. Satu baris per penerima agar bisa
+    // ditandai dibaca per-user. `sender_id` = pengirim; `recipient_id` =
+    // penerima. `kind` = 'deadline' | 'create' | 'info' (untuk ikon bell).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            recipient_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL DEFAULT '',
+            kind TEXT NOT NULL DEFAULT 'info',
+            read BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }

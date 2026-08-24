@@ -3356,6 +3356,280 @@ pub async fn notify_member(
     Ok(Json(json!({ "ok": true, "message": "Email notifikasi sedang dikirim" })))
 }
 
+// ---------- NOTIFIKASI IN-APP ----------
+
+/// Urutan role untuk menentukan "bawahan" (subordinate). Semakin besar
+/// angkanya, semakin tinggi jabatannya. Pengirim hanya boleh menjangkau
+/// role dengan angka lebih kecil dari miliknya.
+fn role_rank(role: &str) -> i32 {
+    match role {
+        "owner" => 4,
+        "super_admin" => 3,
+        "admin" => 2,
+        "member" => 1,
+        "user" => 1,
+        _ => 1,
+    }
+}
+
+/// Resolve daftar user_id penerima sesuai `targets` dan peran pengirim.
+/// Aturan:
+///   - mode 'all'   => hanya OWNER (seluruh akun di sistem).
+///   - mode 'role'  => role yang dipilih harus di bawah peran pengirim.
+///   - mode 'users' => hanya user dalam satu perusahaan dengan pengirim,
+///     dan jabatannya di bawah pengirim (kecuali pengirim = owner).
+async fn resolve_notify_recipients(
+    db: &PgPool,
+    _sender_id: &str,
+    sender_role: &str,
+    sender_company: Option<&str>,
+    targets: &NotifyTargets,
+) -> Result<Vec<String>, StatusCode> {
+    match targets.mode.as_str() {
+        "all" => {
+            if sender_role != "owner" {
+                return Err(StatusCode::FORBIDDEN);
+            }
+            let rows = sqlx::query("SELECT id FROM users")
+                .fetch_all(db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+            Ok(rows.iter().map(|r| r.get::<String, _>("id")).collect())
+        }
+        "role" => {
+            let sender_rank = role_rank(sender_role);
+            let mut users = Vec::new();
+            for role in &targets.roles {
+                let role_rank_v = role_rank(role);
+                // Owner boleh menjangkau role apa pun; selain owner hanya
+                // role yang lebih rendah darinya.
+                if sender_role != "owner" && role_rank_v >= sender_rank {
+                    return Err(StatusCode::FORBIDDEN);
+                }
+                let rows = if sender_role == "owner" {
+                    sqlx::query("SELECT id FROM users WHERE role = $1")
+                        .bind(role)
+                        .fetch_all(db)
+                        .await
+                        .map_err(|e| {
+                            eprintln!("[DB ERROR] {}", e);
+                            StatusCode::INTERNAL_SERVER_ERROR
+                        })?
+                } else {
+                    sqlx::query("SELECT id FROM users WHERE role = $1 AND company_id = $2")
+                        .bind(role)
+                        .bind(sender_company.unwrap_or_default())
+                        .fetch_all(db)
+                        .await
+                        .map_err(|e| {
+                            eprintln!("[DB ERROR] {}", e);
+                            StatusCode::INTERNAL_SERVER_ERROR
+                        })?
+                };
+                for row in rows {
+                    users.push(row.get::<String, _>("id"));
+                }
+            }
+            Ok(users)
+        }
+        "users" => {
+            if sender_role == "owner" {
+                return Ok(targets.user_ids.clone());
+            }
+            // Non-owner: hanya bisa menyasar user dalam perusahaan sendiri
+            // yang jabatannya lebih rendah.
+            let company = sender_company.unwrap_or_default();
+            let mut users = Vec::new();
+            for uid in &targets.user_ids {
+                let row = sqlx::query("SELECT role, company_id FROM users WHERE id = $1")
+                    .bind(uid)
+                    .fetch_optional(db)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("[DB ERROR] {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .ok_or(StatusCode::BAD_REQUEST)?;
+                let target_role: String = row.get("role");
+                let target_company: Option<String> = row.get("company_id");
+                if target_company.as_deref() != Some(company) {
+                    return Err(StatusCode::FORBIDDEN);
+                }
+                if role_rank(&target_role) >= role_rank(sender_role) {
+                    return Err(StatusCode::FORBIDDEN);
+                }
+                users.push(uid.clone());
+            }
+            Ok(users)
+        }
+        _ => Err(StatusCode::BAD_REQUEST),
+    }
+}
+
+/// GET /api/notifications — daftar notifikasi untuk user yang login
+/// (belum dibaca diurutkan lebih dulu).
+pub async fn list_notifications(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+
+    let rows = sqlx::query(
+        "SELECT n.id, n.sender_id, u.name AS sender_name, n.title, n.body, n.kind, n.read, n.created_at
+         FROM notifications n
+         JOIN users u ON u.id = n.sender_id
+         WHERE n.recipient_id = $1
+         ORDER BY n.read ASC, n.created_at DESC
+         LIMIT 100",
+    )
+    .bind(&user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let items: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.get::<String, _>("id"),
+                "sender_id": r.get::<String, _>("sender_id"),
+                "sender_name": r.get::<String, _>("sender_name"),
+                "title": r.get::<String, _>("title"),
+                "body": r.get::<String, _>("body"),
+                "kind": r.get::<String, _>("kind"),
+                "read": r.get::<bool, _>("read"),
+                "created_at": r.get::<chrono::DateTime<Utc>, _>("created_at"),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({ "notifications": items })))
+}
+
+/// POST /api/notifications/read — tandai satu/beberapa/semua notifikasi dibaca.
+pub async fn read_notifications(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<ReadNotificationsRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+
+    if payload.all {
+        sqlx::query("UPDATE notifications SET read = TRUE WHERE recipient_id = $1")
+            .bind(&user_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+    } else if !payload.ids.is_empty() {
+        for id in &payload.ids {
+            sqlx::query(
+                "UPDATE notifications SET read = TRUE WHERE id = $1 AND recipient_id = $2",
+            )
+            .bind(id)
+            .bind(&user_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        }
+    }
+
+    Ok(Json(json!({ "ok": true })))
+}
+
+/// POST /api/notifications/send — kirim notifikasi in-app ke sasaran.
+/// Hak akses: OWNER → semua user/role; super_admin/admin → bawahan
+/// (role lebih rendah dalam satu perusahaan).
+pub async fn send_notification(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<SendNotificationRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let sender_id = require_auth(&state, &headers).await?;
+
+    let sender = sqlx::query("SELECT role, company_id FROM users WHERE id = $1")
+        .bind(&sender_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let sender_role: String = sender.get("role");
+    let sender_company: Option<String> = sender.get("company_id");
+
+    let allowed = sender_role == "owner"
+        || sender_role == "super_admin"
+        || sender_role == "admin";
+    if !allowed {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let title = payload.title.trim().to_string();
+    if title.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let body = payload.body.trim().to_string();
+    let kind = if payload.kind.is_empty() {
+        "info".to_string()
+    } else {
+        payload.kind
+    };
+
+    let recipients = resolve_notify_recipients(
+        &state.db,
+        &sender_id,
+        &sender_role,
+        sender_company.as_deref(),
+        &payload.targets,
+    )
+    .await?;
+
+    if recipients.is_empty() {
+        return Ok(Json(json!({ "ok": true, "sent": 0 })));
+    }
+
+    let mut sent = 0u32;
+    for recipient_id in &recipients {
+        let id = Uuid::new_v4().to_string();
+        let now = Utc::now();
+        sqlx::query(
+            "INSERT INTO notifications (id, sender_id, recipient_id, title, body, kind, read, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, FALSE, $7)",
+        )
+        .bind(&id)
+        .bind(&sender_id)
+        .bind(recipient_id)
+        .bind(&title)
+        .bind(&body)
+        .bind(&kind)
+        .bind(&now)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        sent += 1;
+    }
+
+    tracing::info!(event = "notification_sent", sender_id = %sender_id, recipients = sent);
+
+    Ok(Json(json!({ "ok": true, "sent": sent })))
+}
+
 /// GET /health — pengecekan server hidup atau tidak.
 pub async fn health_check() -> &'static str {
     "OK"

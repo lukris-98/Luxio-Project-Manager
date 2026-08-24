@@ -22,17 +22,22 @@ const emptyTodo = {
 }
 
 // To-do list reusable — dipakai di halaman Todo List (projectId kosong =
-// task global) dan di detail target bila cara kelola "To-do List"
-// (projectId diisi => hanya task milik target tsb).
-export default function TargetTodo({ projectId }) {
+// task global), di detail target (projectId diisi => hanya task milik target),
+// atau per tema di halaman Todo (theme diisi => hanya task milik tema).
+// Bila `tasks` diisi (dari filter halaman), daftar task memakai itu.
+export default function TargetTodo({ projectId, theme, tasks: tasksProp }) {
   const { tasks, addTask, toggleTaskStatus, deleteTask, currentUser } = useStore()
   const [newTodo, setNewTodo] = useState(emptyTodo)
   const [showForm, setShowForm] = useState(false)
   const [filter, setFilter] = useState('all') // all, pending, completed
 
-  const projectTasks = projectId
-    ? tasks.filter((t) => t.projectId === projectId)
-    : tasks
+  const projectTasks = Array.isArray(tasksProp)
+    ? tasksProp
+    : tasks.filter((t) => {
+        if (projectId) return t.projectId === projectId
+        if (theme != null) return (t.theme || '') === theme
+        return true
+      })
 
   const setField = (key, value) => setNewTodo((t) => ({ ...t, [key]: value }))
 
@@ -47,6 +52,7 @@ export default function TargetTodo({ projectId }) {
         deadlineLabel: newTodo.deadlineLabel,
         assignedTo: currentUser?.id,
         ...(projectId ? { projectId } : {}),
+        ...(theme != null ? { theme } : {}),
       })
       setNewTodo(emptyTodo)
     }

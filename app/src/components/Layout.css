@@ -42,6 +42,25 @@
 .sidebar.collapsed .nav-item {
   justify-content: center;
   padding: var(--space-3);
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar.collapsed .nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  min-width: 18px;
+  min-height: 18px;
+}
+
+.sidebar.collapsed .nav-drop-chevron {
+  margin-left: 0;
+  transform: rotate(90deg);
+}
+
+.sidebar.collapsed .nav-drop-chevron.open {
+  transform: rotate(180deg);
 }
 
 .sidebar.collapsed .sidebar-footer {
@@ -169,6 +188,12 @@
   flex-shrink: 0;
 }
 
+.nav-item svg {
+  flex-shrink: 0;
+  min-width: 18px;
+  min-height: 18px;
+}
+
 .nav-item:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
@@ -177,6 +202,201 @@
 .nav-item.active {
   background: var(--accent-muted);
   color: var(--accent);
+}
+
+/* Dropdown item per link (target/kanban/todo/catatan).
+   Ditampilkan di antara link (mengalir ke bawah link yang diklik),
+   bukan flyout ke kanan. */
+.nav-item-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.nav-drop-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+  opacity: 0.7;
+}
+
+.nav-drop-chevron.open {
+  transform: rotate(90deg);
+}
+
+/* Sidebar diangkat ke atas backdrop saat dropdown terbuka, agar item
+   dropdown tetap bisa diklik. */
+.sidebar.nav-dropdown-open {
+  z-index: 140;
+}
+
+.nav-dropdown {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  width: 100%;
+  background: transparent;
+  border: none;
+  animation: fadeIn 0.15s ease;
+}
+
+/* Sidebar terlipat: dropdown tidak mungkin 64px, tampilkan panel di bawah
+   link yang diklik (tetap menempel kiri, bukan flyout lebar ke tengah). */
+.sidebar.collapsed.nav-dropdown-open {
+  overflow: visible;
+}
+
+.sidebar.collapsed.nav-dropdown-open .sidebar-nav {
+  overflow: visible;
+}
+
+.sidebar.collapsed .nav-dropdown {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 240px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+}
+
+.nav-dropdown-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.nav-dropdown-all {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.nav-dropdown-all:hover {
+  text-decoration: underline;
+}
+
+/* Maks 3 item terlihat; lebih dari itu scroll vertikal */
+.nav-dropdown-list {
+  max-height: calc(3 * 46px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  min-height: 46px;
+  transition: background 0.15s;
+}
+
+.nav-dropdown-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.nav-drop-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-drop-item-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-drop-item-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.nav-drop-item-sub {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-drop-collab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.nav-drop-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #fff;
+  border: 2px solid var(--bg-secondary);
+  margin-left: -6px;
+}
+
+.nav-drop-avatar:first-child {
+  margin-left: 0;
+}
+
+.nav-drop-avatar.more {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+.nav-dropdown-empty {
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.nav-dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 135;
+  background: transparent;
+  cursor: default;
+}
+
+/* Tombol scrollbar dropdown lebih ramping */
+.nav-dropdown-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.nav-dropdown-list::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 2px;
 }
 
 .sidebar-footer {
@@ -303,6 +523,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-primary);
 }
 
 .user-role {
@@ -684,6 +905,25 @@
 .theme-toggle-btn:hover {
   color: var(--accent);
   background: transparent;
+}
+
+.install-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.install-btn:hover {
+  background: var(--accent-hover);
 }
 
 .user-avatar-sm {

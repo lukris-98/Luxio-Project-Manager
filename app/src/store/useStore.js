@@ -140,6 +140,16 @@ export const useStore = create(
   kanbanBoards: [],
   // Target yang sedang dibuka di halaman detail.
   selectedProjectId: null,
+  // Board kanban yang sedang dibuka (dipilih dari sidebar / tab).
+  selectedBoardId: null,
+  // Kolaborator global untuk task (halaman Todo global).
+  todoCollaboratorIds: [],
+  // Daftar tema/window (grup item di halaman target/kanban/todo/catatan).
+  themes: [],
+  // Filter label aktif lintas halaman (dipilih dari dropdown sidebar / filter bar).
+  // null = semua label, '' = tanpa label, string = label tertentu.
+  labelFilter: null,
+  setLabelFilter: (label) => set({ labelFilter: label }),
 
   // ---------- NOTIFIKASI (in-app + browser) ----------
   // Daftar notifikasi terbaru (deadline, target/task baru, dsb).
@@ -148,6 +158,8 @@ export const useStore = create(
   // ---------- CATATAN PRIBADI (per user, bisa dikunci PIN) ----------
   // privateNotes[userId] = [ { id, title, content, pin, locked, createdAt, updatedAt } ]
   privateNotes: {},
+  // Catatan yang sedang dibuka dari sidebar (untuk membuka tab tertentu).
+  selectedNoteId: null,
 
   // ---------- PIN AKUN (global, per user, tersimpan di localStorage) ----------
   // PIN dipakai untuk mengunci catatan pribadi (PrivateNote) dan wajib
@@ -165,6 +177,72 @@ export const useStore = create(
   // =====================================================================
   setAppState: (state) => set({ appState: state }),
   setCurrentPage: (page) => set({ currentPage: page }),
+
+  // =====================================================================
+  // ACTIONS — TEMA/WINDOW (grup item di halaman target/kanban/todo/catatan)
+  // =====================================================================
+  addTheme: (name) => {
+    const t = name.trim()
+    if (!t || get().themes.includes(t)) return
+    set({ themes: [...get().themes, t] })
+  },
+
+  renameTheme: (oldName, newName) => {
+    const from = oldName.trim()
+    const to = newName.trim()
+    if (!from || !to || from === to) return
+    set({
+      themes: get().themes.map((t) => (t === from ? to : t)),
+      projects: get().projects.map((p) => (p.theme === from ? { ...p, theme: to } : p)),
+      kanbanBoards: get().kanbanBoards.map((b) => (b.theme === from ? { ...b, theme: to } : b)),
+      tasks: get().tasks.map((t) => (t.theme === from ? { ...t, theme: to } : t)),
+      privateNotes: Object.fromEntries(
+        Object.entries(get().privateNotes).map(([uid, notes]) => [
+          uid,
+          notes.map((n) => (n.theme === from ? { ...n, theme: to } : n)),
+        ])
+      ),
+    })
+  },
+
+  removeTheme: (name) => {
+    const t = name.trim()
+    set({
+      themes: get().themes.filter((x) => x !== t),
+      projects: get().projects.map((p) => (p.theme === t ? { ...p, theme: '' } : p)),
+      kanbanBoards: get().kanbanBoards.map((b) => (b.theme === t ? { ...b, theme: '' } : b)),
+      tasks: get().tasks.map((x) => (x.theme === t ? { ...x, theme: '' } : x)),
+      privateNotes: Object.fromEntries(
+        Object.entries(get().privateNotes).map(([uid, notes]) => [
+          uid,
+          notes.map((n) => (n.theme === t ? { ...n, theme: '' } : n)),
+        ])
+      ),
+    })
+  },
+
+  setProjectTheme: (projectId, theme) =>
+    set({
+      projects: get().projects.map((p) => (p.id === projectId ? { ...p, theme } : p)),
+    }),
+
+  setBoardTheme: (boardId, theme) =>
+    set({
+      kanbanBoards: get().kanbanBoards.map((b) => (b.id === boardId ? { ...b, theme } : b)),
+    }),
+
+  setNoteTheme: (noteId, theme) => {
+    const userId = get().currentUser?.id
+    if (userId == null) return
+    set({
+      privateNotes: {
+        ...get().privateNotes,
+        [userId]: (get().privateNotes[userId] || []).map((n) =>
+          n.id === noteId ? { ...n, theme } : n
+        ),
+      },
+    })
+  },
 
   // =====================================================================
   // ACTIONS — NOTIFIKASI
@@ -190,6 +268,27 @@ export const useStore = create(
 
   clearNotifications: () => set({ notifications: [] }),
 
+  // Muat notifikasi dari backend & gabung dengan notifikasi lokal.
+  loadServerNotifications: async () => {
+    try {
+      const data = await api.getNotifications()
+      const serverNotifs = (data.notifications || []).map((n) => ({
+        id: 'srv-' + n.id,
+        title: n.title,
+        body: n.body,
+        type: n.kind || 'info',
+        read: Boolean(n.read),
+        createdAt: new Date(n.created_at).getTime(),
+        sender_name: n.sender_name,
+      }))
+      // Hapus notifikasi server lama lalu gabung dengan yang baru.
+      const local = get().notifications.filter((n) => !String(n.id).startsWith('srv-'))
+      set({ notifications: [...serverNotifs, ...local].slice(0, 50) })
+    } catch (e) {
+      // Abaikan error jaringan — notifikasi lokal tetap jalan.
+    }
+  },
+
   // =====================================================================
   // ACTIONS — CATATAN PRIBADI
   // =====================================================================
@@ -211,6 +310,7 @@ export const useStore = create(
           closed: false,
           createdAt: Date.now(),
           updatedAt: Date.now(),
+          theme: note.theme || '',
           ...note,
         }],
       },
@@ -228,6 +328,28 @@ export const useStore = create(
         [userId]: myNotes.map((n) =>
           n.id === noteId ? { ...n, ...data, updatedAt: Date.now() } : n
         ),
+      },
+    })
+  },
+
+  toggleNoteCollaborator: (noteId, memberId) => {
+    const userId = get().currentUser?.id
+    if (userId == null) return
+    const myNotes = get().privateNotes[userId] || []
+    set({
+      privateNotes: {
+        ...get().privateNotes,
+        [userId]: myNotes.map((n) => {
+          if (n.id !== noteId) return n
+          const has = (n.collaboratorIds || []).includes(memberId)
+          return {
+            ...n,
+            collaboratorIds: has
+              ? (n.collaboratorIds || []).filter((id) => id !== memberId)
+              : [...(n.collaboratorIds || []), memberId],
+            updatedAt: Date.now(),
+          }
+        }),
       },
     })
   },
@@ -267,6 +389,8 @@ export const useStore = create(
       },
     })
   },
+
+  setSelectedNoteId: (noteId) => set({ selectedNoteId: noteId }),
 
   // =====================================================================
   // ACTIONS — ALUR SETUP
@@ -903,7 +1027,10 @@ export const useStore = create(
     set({
       kanbanBoards: [...get().kanbanBoards, {
         id: Date.now(),
+        createdAt: Date.now(),
         ...board,
+        theme: board.theme || '',
+        collaboratorIds: board.collaboratorIds || [],
         columns: Array.isArray(board.columns) && board.columns.length
           ? board.columns
               .map((c) => (typeof c === 'string' ? { name: c, todos: [] } : c))
@@ -965,6 +1092,20 @@ export const useStore = create(
   deleteKanbanBoard: (boardId) =>
     set({ kanbanBoards: get().kanbanBoards.filter((b) => b.id !== boardId) }),
 
+  toggleBoardCollaborator: (boardId, memberId) =>
+    set({
+      kanbanBoards: get().kanbanBoards.map((b) => {
+        if (b.id !== boardId) return b
+        const has = (b.collaboratorIds || []).includes(memberId)
+        return {
+          ...b,
+          collaboratorIds: has
+            ? (b.collaboratorIds || []).filter((id) => id !== memberId)
+            : [...(b.collaboratorIds || []), memberId],
+        }
+      }),
+    }),
+
   // =====================================================================
   // ACTIONS — PROJECT / TASK (MOCK)
   // =====================================================================
@@ -974,11 +1115,16 @@ export const useStore = create(
     set({
       projects: [...get().projects, {
         id,
+        createdAt: Date.now(),
         ...project,
         progress: 0,
         status: 'active',
         // Tahapan (stages) diisi untuk target kanban — dibuat di createTarget.
         stages: [],
+        // Kolaborator (multi-user): id member yang ikut mengerjakan target.
+        collaboratorIds: project.collaboratorIds || [],
+        // Tema/window: grup target (mis. "Project Rumah").
+        theme: project.theme || '',
       }],
     })
     return id
@@ -1002,9 +1148,12 @@ export const useStore = create(
   // Buka halaman detail target tertentu.
   openProject: (id) => set({ selectedProjectId: id, currentPage: 'project-detail' }),
 
+  // Buka halaman kanban dan pilih board tertentu.
+  openKanbanBoard: (boardId) => set({ selectedBoardId: boardId, currentPage: 'kanban' }),
+
   addTask: (task) =>
     set({
-      tasks: [...get().tasks, { id: Date.now(), ...task, status: 'pending' }],
+      tasks: [...get().tasks, { id: Date.now(), createdAt: Date.now(), ...task, status: 'pending', theme: task.theme || '' }],
       projects: recalcTodoProgress(get()),
     }),
 
@@ -1034,6 +1183,38 @@ export const useStore = create(
       projects: get().projects.filter((p) => p.id !== projectId),
       tasks: get().tasks.filter((t) => t.projectId !== projectId),
       kanbanBoards: get().kanbanBoards.filter((b) => b.projectId !== projectId),
+    }),
+
+  // ---- Kolaborasi multi-user di target ----
+
+  // Tambah/ubah daftar kolaborator sebuah target (member yang ikut kerja).
+  setProjectCollaborators: (projectId, collaboratorIds) =>
+    set({
+      projects: get().projects.map((p) =>
+        p.id === projectId ? { ...p, collaboratorIds: [...collaboratorIds] } : p
+      ),
+    }),
+
+  toggleProjectCollaborator: (projectId, memberId) =>
+    set({
+      projects: get().projects.map((p) => {
+        if (p.id !== projectId) return p
+        const has = (p.collaboratorIds || []).includes(memberId)
+        return {
+          ...p,
+          collaboratorIds: has
+            ? (p.collaboratorIds || []).filter((id) => id !== memberId)
+            : [...(p.collaboratorIds || []), memberId],
+        }
+      }),
+    }),
+
+  // Kolaborator global untuk task (halaman Todo).
+  toggleTodoCollaborator: (memberId) =>
+    set({
+      todoCollaboratorIds: get().todoCollaboratorIds.includes(memberId)
+        ? get().todoCollaboratorIds.filter((id) => id !== memberId)
+        : [...get().todoCollaboratorIds, memberId],
     }),
 
   // Toggle checklist + hitung ulang progress + auto-unlock stage berikutnya.

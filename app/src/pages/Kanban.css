@@ -11,7 +11,12 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-5);
-  flex-shrink: 0;
+}
+
+.page-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .kanban-page .page-header-left h1 {
@@ -31,6 +36,110 @@
   margin-bottom: var(--space-5);
   flex-shrink: 0;
   overflow-x: auto;
+}
+
+/* Tema/window di halaman kanban */
+.kanban-theme-section {
+  margin-bottom: var(--space-6);
+}
+
+.kanban-theme-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.kanban-theme-head svg {
+  color: var(--accent);
+}
+
+.kanban-theme-head h2 {
+  font-size: 1.0625rem;
+  margin: 0;
+}
+
+.kanban-theme-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+}
+
+.kanban-board-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.kanban-board-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.kanban-board-card:hover {
+  border-color: var(--accent);
+}
+
+.kanban-board-card.active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.kanban-board-card-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.kanban-board-card-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.kanban-board-card-delete {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.kanban-board-card-delete:hover {
+  color: var(--error);
+}
+
+.kanban-active-board {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.kanban-active-head {
+  margin-bottom: var(--space-4);
+}
+
+.kanban-active-head h2 {
+  font-size: 1.0625rem;
 }
 
 .board-tab {

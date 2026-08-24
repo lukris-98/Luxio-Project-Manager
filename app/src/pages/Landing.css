@@ -34,7 +34,7 @@
 }
 
 [data-theme="light"] .main-nav {
-  background: rgba(250, 250, 250, 0.9);
+  background: rgba(241, 241, 243, 0.9);
 }
 
 .nav-inner {
@@ -115,6 +115,26 @@
 .theme-toggle:hover {
   color: var(--accent);
   background: transparent;
+}
+
+.install-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.install-nav-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
 }
 
 .nav-link {
@@ -926,6 +946,14 @@
 @media (max-width: 640px) {
   .hero h1 {
     font-size: clamp(1.25rem, 5.5vw, 1.75rem);
+  }
+  
+  .install-nav-btn span {
+    display: none;
+  }
+
+  .install-nav-btn {
+    padding: var(--space-2);
   }
   
   .hero-counters {

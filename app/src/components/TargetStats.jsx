@@ -14,10 +14,8 @@ const RING_CIRC = 2 * Math.PI * RING_R
 export default function TargetStats({ project }) {
   const { tasks, kanbanBoards } = useStore()
 
-  const board =
-    project.viewType === 'kanban'
-      ? kanbanBoards.find((b) => b.projectId === project.id)
-      : null
+  // Semua board kanban milik target ini (target bisa punya >1 board).
+  const boards = kanbanBoards.filter((b) => b.projectId === project.id)
 
   const stages = project.stages || []
   const stageCount = stages.length
@@ -39,13 +37,14 @@ export default function TargetStats({ project }) {
     if (t.status === 'completed') listDone++
   })
 
-  // Kanban: tahap selesai, atau task di kolom Done untuk board lama.
+  // Kanban: tahap selesai, plus task di kolom "Done" dari semua board target.
   let kanbanDone = stageDone
   let kanbanTotal = stageCount
-  if (stageCount === 0 && board) {
-    kanbanTotal = board.columns.reduce((n, c) => n + c.tasks.length, 0)
-    kanbanDone = board.columns.find((c) => c.name === 'Done')?.tasks.length || 0
-  }
+  boards.forEach((board) => {
+    const allTasks = board.columns.reduce((n, c) => n + c.tasks.length, 0)
+    kanbanTotal += allTasks
+    kanbanDone += board.columns.find((c) => c.name === 'Done')?.tasks.length || 0
+  })
   const kanbanPending = kanbanTotal - kanbanDone
   const listPending = listTotal - listDone
 

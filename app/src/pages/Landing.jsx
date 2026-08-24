@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore'
 import { motion, useSpring, useTransform, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion'
 import { ArrowRight, ArrowUp, Check, Users, Target, BarChart3, Shield, Globe, Clock, Moon, Sun, Menu, X, Kanban, CheckSquare, Lock, Calendar, MessageSquare, Bot, Camera, Database, HardDrive } from 'lucide-react'
 import HeadlineMarquee from '../components/HeadlineMarquee'
+import InstallAppButton from '../components/InstallAppButton'
 import './Landing.css'
 
 // Animated Counter Component
@@ -139,6 +140,7 @@ const pricingPlans = [
           </nav>
           
           <div className="nav-actions">
+            <InstallAppButton className="install-nav-btn" label="Install" />
             <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>

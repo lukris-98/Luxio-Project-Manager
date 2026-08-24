@@ -55,16 +55,19 @@
   --radius-sm: 0;
   --radius-md: 0;
   --radius-lg: 0;
+
+  /* Card shadow */
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* Light Theme */
 [data-theme="light"] {
   color-scheme: light;
 
-  --bg-primary: #FAFAFA;
+  --bg-primary: #F1F1F3;
   --bg-secondary: #FFFFFF;
-  --bg-tertiary: #F4F4F5;
-  --bg-elevated: #E4E4E7;
+  --bg-tertiary: #E9E9EC;
+  --bg-elevated: #E2E2E6;
   
   --text-primary: #18181B;
   --text-secondary: #52525B;
@@ -85,8 +88,10 @@
   --warning: #CA8A04;
   --error: #DC2626;
   
-  --border: #E4E4E7;
-  --border-hover: #D4D4D8;
+  --border: #D6D6DB;
+  --border-hover: #BEBEC4;
+
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -241,6 +246,7 @@ a:hover {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   padding: var(--space-6);
+  box-shadow: var(--card-shadow);
 }
 
 .card:hover {
