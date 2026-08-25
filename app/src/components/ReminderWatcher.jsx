@@ -17,16 +17,37 @@ import {
 // - Saat target/task dengan deadline baru dibuat, langsung dikirim notif.
 // =====================================================================
 
+const SEEN_PROJECTS_KEY = 'luxio-seen-projects'
+const SEEN_TASKS_KEY = 'luxio-seen-tasks'
 const toKey = (prefix, id, date) => `${prefix}-${id}-${date}`
+
+// Muat daftar item yang sudah pernah dilihat dari localStorage.
+function loadSeen(key) {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(key) || '[]'))
+  } catch {
+    return new Set()
+  }
+}
+
+// Simpan Set ke localStorage.
+function saveSeen(key, set) {
+  try {
+    localStorage.setItem(key, JSON.stringify([...set]))
+  } catch {
+    // localStorage penuh — abaikan.
+  }
+}
 
 export default function ReminderWatcher() {
   const projects = useStore((s) => s.projects)
   const tasks = useStore((s) => s.tasks)
   const addNotification = useStore((s) => s.addNotification)
 
-  // Melacak item yang pernah dilihat untuk notif "baru dibuat".
-  const seenProjects = useRef(new Set())
-  const seenTasks = useRef(new Set())
+  // Melacak item yang pernah dilihat — persist ke localStorage agar
+  // tidak memunculkan notif "baru dibuat" setiap kali ganti halaman.
+  const seenProjects = useRef(loadSeen(SEEN_PROJECTS_KEY))
+  const seenTasks = useRef(loadSeen(SEEN_TASKS_KEY))
 
   // Minta izin notifikasi sekali saat aplikasi terbuka (best-effort).
   useEffect(() => {
@@ -110,9 +131,11 @@ export default function ReminderWatcher() {
 
   // Notifikasi saat target baru dengan deadline dibuat.
   useEffect(() => {
+    let dirty = false
     projects.forEach((p) => {
       if (seenProjects.current.has(p.id)) return
       seenProjects.current.add(p.id)
+      dirty = true
       if (p.deadline) {
         fire({
           title: 'Target baru dibuat',
@@ -122,13 +145,16 @@ export default function ReminderWatcher() {
         })
       }
     })
+    if (dirty) saveSeen(SEEN_PROJECTS_KEY, seenProjects.current)
   }, [projects]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Notifikasi saat task baru dengan deadline dibuat.
   useEffect(() => {
+    let dirty = false
     tasks.forEach((t) => {
       if (seenTasks.current.has(t.id)) return
       seenTasks.current.add(t.id)
+      dirty = true
       const dl = t.deadline || t.dueDate
       if (dl) {
         fire({
@@ -139,6 +165,7 @@ export default function ReminderWatcher() {
         })
       }
     })
+    if (dirty) saveSeen(SEEN_TASKS_KEY, seenTasks.current)
   }, [tasks]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null

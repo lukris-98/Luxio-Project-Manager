@@ -82,6 +82,14 @@ export default function AdminUsers() {
       setError('Nama, email, dan password wajib diisi')
       return
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError('Email tidak valid')
+      return
+    }
+    if (form.password.length < 8) {
+      setError('Password minimal 8 karakter')
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -111,16 +119,22 @@ export default function AdminUsers() {
       flash('Akun berhasil diperbarui')
       loadUsers()
     } catch (e) {
-      setError(e.status === 409 ? 'Email sudah dipakai akun lain' : 'Gagal memperbarui akun')
+      setError(e.status === 409 ? 'Email sudah dipakai akun lain' : e.message || 'Gagal memperbarui akun')
     } finally {
       setBusy(false)
     }
   }
 
   const handleSaveEdit = async () => {
+    const name = form.name.trim()
+    const email = form.email.trim()
+    if (!name) return setError('Nama tidak boleh kosong')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError('Email tidak valid')
+    if (form.password && form.password.length < 8) return setError('Password minimal 8 karakter')
+
     const patch = {
-      name: form.name.trim(),
-      email: form.email.trim(),
+      name,
+      email,
       plan: form.plan,
       ...(form.password ? { password: form.password } : {}),
     }
