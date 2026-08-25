@@ -5,17 +5,26 @@ use lettre::{
 };
 
 // =====================================================================
-// MAIL MODULE — Kirim email (welcome, notifikasi) via SMTP.
+// MAIL MODULE — Kirim email (welcome, notifikasi, 2FA).
 // =====================================================================
-// Konfigurasi lewat environment (lihat .env.example):
-//   SMTP_HOST       contoh: smtp.gmail.com
-//   SMTP_PORT       contoh: 587 (STARTTLS) atau 465 (TLS langsung)
-//   SMTP_USERNAME   akun pengirim (untuk Gmail: email lengkap)
-//   SMTP_PASSWORD   app password (Gmail: App Password 16 karakter)
-//   SMTP_FROM       alamat pengirim yang tampil di email
+// Dua mode pengiriman:
 //
-// Bila SMTP_HOST kosong, pengiriman dilewati (log warning) — aplikasi
-// tetap berjalan tanpa email (mis. saat development).
+// 1) SMTP (default) — konfigurasi lewat environment (lihat .env.example):
+//      SMTP_HOST       contoh: smtp.gmail.com
+//      SMTP_PORT       contoh: 587 (STARTTLS) atau 465 (TLS langsung)
+//      SMTP_USERNAME   akun pengirim (untuk Gmail: email lengkap)
+//      SMTP_PASSWORD   app password (Gmail: App Password 16 karakter)
+//      SMTP_FROM       alamat pengirim yang tampil di email
+//
+// 2) Resend API (HTTP) — untuk platform yang memblokir port SMTP
+//    (mis. Hugging Face Spaces hanya mengizinkan outbound 80/443):
+//      MAIL_PROVIDER   = "resend"
+//      RESEND_API_KEY  = re_xxxxxxxxxxxx (dari https://resend.com)
+//      SMTP_FROM       alamat pengirim (terverifikasi di Resend)
+//
+// Prioritas: bila MAIL_PROVIDER=resend & RESEND_API_KEY terisi → pakai
+// Resend; jika tidak → fallback SMTP. Bila keduanya kosong, pengiriman
+// dilewati (log warning) — aplikasi tetap berjalan.
 // =====================================================================
 
 struct MailConfig {
@@ -26,8 +35,12 @@ struct MailConfig {
     from: String,
 }
 
-/// True bila SMTP dikonfigurasi (host tidak kosong).
+/// True bila email dikonfigurasi (Resend API atau SMTP).
 pub fn is_configured() -> bool {
+    let resend_key = std::env::var("RESEND_API_KEY").unwrap_or_default();
+    if std::env::var("MAIL_PROVIDER").unwrap_or_default() == "resend" && !resend_key.is_empty() {
+        return true;
+    }
     let host = std::env::var("SMTP_HOST").unwrap_or_default();
     !host.is_empty()
 }
@@ -53,13 +66,69 @@ fn config() -> Option<MailConfig> {
     Some(MailConfig { host, port, username, password, from })
 }
 
-/// Kirim email sederhana. Mengembalikan `Ok(false)` bila SMTP tidak
+/// Kirim email via Resend HTTP API (port 443 — aman di HF Spaces).
+async fn send_via_resend(to: &str, subject: &str, body: &str) -> Result<(), String> {
+    let api_key = std::env::var("RESEND_API_KEY").unwrap_or_default();
+    let from = std::env::var("SMTP_FROM").unwrap_or_default();
+    if api_key.is_empty() || from.is_empty() {
+        return Err("RESEND_API_KEY atau SMTP_FROM kosong".to_string());
+    }
+
+    let client = reqwest::Client::new();
+    let payload = serde_json::json!({
+        "from": from,
+        "to": [to],
+        "subject": subject,
+        "text": body,
+    });
+
+    let resp = client
+        .post("https://api.resend.com/emails")
+        .header("Authorization", format!("Bearer {api_key}"))
+        .header("Content-Type", "application/json")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("Resend request gagal: {e}"))?;
+
+    let status = resp.status();
+    let text = resp
+        .text()
+        .await
+        .unwrap_or_else(|_| "no body".to_string());
+
+    if status.is_success() {
+        Ok(())
+    } else {
+        Err(format!("Resend HTTP {status}: {text}"))
+    }
+}
+
+/// Kirim email sederhana. Mengembalikan `Ok(false)` bila email tidak
 /// dikonfigurasi (bukan error — aplikasi tetap jalan). `Ok(true)` sukses.
 pub async fn send(to: &str, subject: &str, body: &str) -> Result<bool, String> {
+    // Mode Resend (HTTP) — prioritas.
+    if std::env::var("MAIL_PROVIDER").unwrap_or_default() == "resend" {
+        let api_key = std::env::var("RESEND_API_KEY").unwrap_or_default();
+        if !api_key.is_empty() {
+            match send_via_resend(to, subject, body).await {
+                Ok(()) => {
+                    tracing::info!(event = "mail_sent", to = %to, subject = %subject, "email terkirim via Resend");
+                    return Ok(true);
+                }
+                Err(e) => {
+                    tracing::error!(event = "mail_send_error", to = %to, error = %e, "Resend gagal: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    // Mode SMTP.
     let cfg = match config() {
         Some(c) => c,
         None => {
-            tracing::warn!(event = "mail_skipped", to = %to, "SMTP tidak dikonfigurasi, email tidak dikirim");
+            tracing::warn!(event = "mail_skipped", to = %to, "Email tidak dikonfigurasi, tidak dikirim");
             return Ok(false);
         }
     };
