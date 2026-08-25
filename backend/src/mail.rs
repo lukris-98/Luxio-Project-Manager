@@ -91,7 +91,10 @@ pub async fn send(to: &str, subject: &str, body: &str) -> Result<bool, String> {
             .build()
     };
 
-    mailer.send(email).await.map_err(|e| format!("Gagal mengirim email: {e}"))?;
+    mailer.send(email).await.map_err(|e| {
+        tracing::error!(event = "mail_send_error", to = %to, error = %e, "Gagal mengirim email: {}", e);
+        format!("Gagal mengirim email: {e}")
+    })?;
     tracing::info!(event = "mail_sent", to = %to, subject = %subject, "email terkirim");
     Ok(true)
 }
