@@ -158,6 +158,34 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Penyedia AI multi (per user): OpenAI-compatible, OpenAI Responses,
+    // Anthropic Messages. Setiap user (owner/super_admin) bisa punya banyak.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS ai_providers (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            provider_id TEXT NOT NULL DEFAULT '',
+            display_name TEXT NOT NULL DEFAULT '',
+            api_type TEXT NOT NULL DEFAULT 'openai-compatible',
+            base_url TEXT NOT NULL DEFAULT '',
+            api_key TEXT NOT NULL DEFAULT '',
+            model TEXT NOT NULL DEFAULT '',
+            enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            is_active BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Hanya satu provider aktif per user.
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_providers_one_active ON ai_providers(user_id) WHERE is_active = TRUE",
+    )
+    .execute(db)
+    .await?;
+
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS divisions (
             id TEXT PRIMARY KEY,

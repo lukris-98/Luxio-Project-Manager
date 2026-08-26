@@ -3,7 +3,7 @@ import { getAppThemeFamily, getAppThemeMode, makeAppTheme, useStore } from '../s
 import Layout from '../components/Layout'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { motion } from 'framer-motion'
-import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, Palette, Trash2 } from 'lucide-react'
+import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, Palette, Trash2, Plus } from 'lucide-react'
 import { api } from '../services/api'
 import './Settings.css'
 
@@ -56,12 +56,16 @@ export default function Settings() {
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [pinForm, setPinForm] = useState({ current: '', pin: '', confirm: '' })
   const [pinError, setPinError] = useState('')
-  const [aiModalOpen, setAiModalOpen] = useState(false)
-  const [aiProvider, setAiProvider] = useState('')
-  const [aiBaseUrl, setAiBaseUrl] = useState('')
-  const [aiKey, setAiKey] = useState('')
-  const [aiModel, setAiModel] = useState('')
-  const [aiEnabled, setAiEnabled] = useState(true)
+  // AI Provider multi
+  const [providers, setProviders] = useState([])
+  const [showAiForm, setShowAiForm] = useState(false)
+  const [editAiId, setEditAiId] = useState(null)
+  const [aiForm, setAiForm] = useState({
+    provider_id: '', display_name: '', api_type: 'openai-compatible',
+    base_url: '', api_key: '', model: '', enabled: true, is_active: false,
+  })
+  const [fetchingModels, setFetchingModels] = useState(false)
+  const [aiModels, setAiModels] = useState([])
   const [aiConfigMsg, setAiConfigMsg] = useState('')
   const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
@@ -107,6 +111,93 @@ export default function Settings() {
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id])
+
+  // Muat daftar AI provider saat pertama kali (owner/super_admin).
+  useEffect(() => {
+    if (role === 'owner' || role === 'super_admin') {
+      loadProviders()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role])
+
+  const loadProviders = async () => {
+    try {
+      const res = await api.getAIProviders()
+      setProviders(res.providers || [])
+    } catch (_) { /* ignore */ }
+  }
+
+  const openAiForm = (provider = null) => {
+    if (provider) {
+      setEditAiId(provider.id)
+      setAiForm({
+        provider_id: provider.provider_id || '',
+        display_name: provider.display_name || '',
+        api_type: provider.api_type || 'openai-compatible',
+        base_url: provider.base_url || '',
+        api_key: '',
+        model: provider.model || '',
+        enabled: provider.enabled !== false,
+        is_active: provider.is_active || false,
+      })
+      setAiModels(provider.model ? [provider.model] : [])
+    } else {
+      setEditAiId(null)
+      setAiForm({ provider_id: '', display_name: '', api_type: 'openai-compatible', base_url: '', api_key: '', model: '', enabled: true, is_active: false })
+      setAiModels([])
+    }
+    setShowAiForm(true)
+  }
+
+  const handleFetchModels = async () => {
+    if (!aiForm.base_url.trim()) return
+    setFetchingModels(true)
+    setAiConfigMsg('')
+    try {
+      const res = await api.fetchAIModels({ api_type: aiForm.api_type, base_url: aiForm.base_url.trim(), api_key: aiForm.api_key.trim() })
+      setAiModels(res.models || [])
+      if ((res.models || []).length > 0) setAiConfigMsg(`${res.models.length} model ditemukan.`)
+      else setAiConfigMsg('Tidak ada model ditemukan. Cek Base URL & API Key.')
+    } catch (e) {
+      setAiConfigMsg('Gagal fetch model. Periksa Base URL & API Key.')
+    } finally {
+      setFetchingModels(false)
+    }
+  }
+
+  const handleSaveProvider = async () => {
+    setAiConfigMsg('')
+    if (!aiForm.provider_id.trim() || !aiForm.display_name.trim()) return
+    try {
+      if (editAiId) {
+        const patch = {}
+        for (const k of ['provider_id', 'display_name', 'api_type', 'base_url', 'api_key', 'model', 'enabled', 'is_active']) {
+          if (aiForm[k] !== undefined) patch[k] = aiForm[k]
+        }
+        await api.updateAIProvider(editAiId, patch)
+      } else {
+        await api.createAIProvider(aiForm)
+      }
+      setShowAiForm(false)
+      loadProviders()
+    } catch (e) {
+      setAiConfigMsg('Gagal menyimpan. Pastikan backend online.')
+    }
+  }
+
+  const activateProvider = async (id) => {
+    try {
+      await api.updateAIProvider(id, { is_active: true })
+      loadProviders()
+    } catch (_) { /* ignore */ }
+  }
+
+  const deleteProvider = async (id) => {
+    try {
+      await api.deleteAIProvider(id)
+      loadProviders()
+    } catch (_) { /* ignore */ }
+  }
 
   // Bila profil di-refresh / dipilih user lain, isi ulang form.
   useEffect(() => {
@@ -479,23 +570,45 @@ export default function Settings() {
                 <h2>AI Agent</h2>
               </div>
               <div className="settings-card">
-                <div className="settings-item">
+                <div className="settings-item column-item">
                   <div>
                     <span className="item-label">Penyedia AI</span>
-                    <p className="item-desc">API key untuk AI Agent (OpenAI, dll.)</p>
+                    <p className="item-desc">Kelola banyak provider (OpenAI, Anthropic, Ollama, dll). Aktifkan satu sebagai default.</p>
                   </div>
-                  <button className="btn btn-secondary btn-sm" onClick={() => {
-                    setAiProvider(profile?.ai_provider || currentUser?.ai_provider || '')
-                    setAiBaseUrl(profile?.ai_base_url || currentUser?.ai_base_url || '')
-                    setAiKey(profile?.ai_key || currentUser?.ai_key || '')
-                    setAiModel(profile?.ai_model || currentUser?.ai_model || '')
-                    setAiEnabled(profile?.ai_enabled !== false && currentUser?.ai_enabled !== false)
-                    setAiConfigMsg('')
-                    setAiModalOpen(true)
-                  }}>
-                    <KeyRound size={14} /> Konfigurasi
+                  <button className="btn btn-primary btn-sm" onClick={openAiForm}>
+                    <Plus size={14} /> Tambah Provider
                   </button>
                 </div>
+
+                {providers.length === 0 ? (
+                  <p className="ai-providers-empty">Belum ada provider. Tambahkan satu untuk menghubungkan AI Agent.</p>
+                ) : (
+                  <div className="ai-provider-list">
+                    {providers.map((p) => (
+                      <div key={p.id} className={`ai-provider-item ${p.is_active ? 'active' : ''}`}>
+                        <div className="ai-provider-main">
+                          <span className="ai-provider-name">{p.display_name || p.provider_id || 'Provider'}</span>
+                          <span className="ai-provider-meta">
+                            {p.api_type} · {p.model || 'tanpa model'}{p.is_active ? ' · aktif' : ''}
+                          </span>
+                        </div>
+                        <div className="ai-provider-actions">
+                          {!p.is_active && (
+                            <button className="btn btn-secondary btn-sm" onClick={() => activateProvider(p.id)} title="Jadikan aktif">
+                              Aktifkan
+                            </button>
+                          )}
+                          <button className="btn btn-secondary btn-sm" onClick={() => openAiForm(p)}>
+                            <Pencil size={13} /> Edit
+                          </button>
+                          <button className="btn btn-danger btn-sm" onClick={() => deleteProvider(p.id)} title="Hapus">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -640,89 +753,116 @@ export default function Settings() {
         </div>
       )}
 
-      {/* Modal AI Agent config */}
-      {aiModalOpen && (
-        <div className="settings-modal-overlay" onClick={() => setAiModalOpen(false)}>
+      {/* Modal AI Provider (multi) */}
+      {showAiForm && (
+        <div className="settings-modal-overlay" onClick={() => setShowAiForm(false)}>
           <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
             <div className="settings-modal-head">
               <Bot size={18} />
-              <h3>Konfigurasi AI Agent</h3>
+              <h3>{editAiId ? 'Edit' : 'Tambah'} Provider AI</h3>
             </div>
             <p className="settings-modal-desc">
-              Hubungkan penyedia AI. Agent hanya menjalankan tool resmi yang
-              terdaftar di sistem (tool/action layer).
+              Hubungkan penyedia AI. Bisa menambah banyak provider; tandai satu sebagai aktif (default).
             </p>
+
             <div className="input-group">
-              <label className="input-label">Nama Provider <span style={{ color: 'var(--error)' }}>*</span></label>
+              <label className="input-label">Provider ID <span style={{ color: 'var(--error)' }}>*</span></label>
               <input
                 className="input"
-                placeholder="mis. OpenAI, Anthropic, Groq, Ollama"
-                value={aiProvider}
-                onChange={(e) => setAiProvider(e.target.value)}
+                placeholder="mis. openai, anthropic, groq, ollama"
+                value={aiForm.provider_id}
+                onChange={(e) => setAiForm({ ...aiForm, provider_id: e.target.value })}
               />
             </div>
+
+            <div className="input-group">
+              <label className="input-label">Display Name <span style={{ color: 'var(--error)' }}>*</span></label>
+              <input
+                className="input"
+                placeholder="mis. OpenAI, Anthropic, Groq"
+                value={aiForm.display_name}
+                onChange={(e) => setAiForm({ ...aiForm, display_name: e.target.value })}
+              />
+            </div>
+
+            <div className="input-group">
+              <label className="input-label">Provider API</label>
+              <select
+                className="input"
+                value={aiForm.api_type}
+                onChange={(e) => setAiForm({ ...aiForm, api_type: e.target.value })}
+              >
+                <option value="openai-compatible">OpenAI Compatible</option>
+                <option value="openai-responses">OpenAI Responses</option>
+                <option value="anthropic-messages">Anthropic Messages</option>
+              </select>
+            </div>
+
             <div className="input-group">
               <label className="input-label">Base URL</label>
               <input
                 className="input"
                 placeholder="mis. https://api.openai.com/v1"
-                value={aiBaseUrl}
-                onChange={(e) => setAiBaseUrl(e.target.value)}
+                value={aiForm.base_url}
+                onChange={(e) => setAiForm({ ...aiForm, base_url: e.target.value })}
               />
-              <p className="field-hint">Kosongkan untuk URL default. Ollama: http://localhost:11434/v1</p>
+              <p className="field-hint">Ollama lokal: http://localhost:11434/v1</p>
             </div>
+
             <div className="input-group">
               <label className="input-label">API Key</label>
               <input
                 type="password"
                 className="input"
                 placeholder="sk-..."
-                value={aiKey}
-                onChange={(e) => setAiKey(e.target.value)}
+                value={aiForm.api_key}
+                onChange={(e) => setAiForm({ ...aiForm, api_key: e.target.value })}
               />
-              <p className="field-hint">Kosongkan bila memakai model lokal (Ollama).</p>
+              <p className="field-hint">Kosongkan bila model lokal (Ollama).</p>
             </div>
+
             <div className="input-group">
-              <label className="input-label">Nama Model</label>
-              <input
-                className="input"
-                placeholder="mis. gpt-4o, claude-sonnet-4, llama3.1"
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-              />
+              <label className="input-label">Model</label>
+              <div className="ai-model-row">
+                <select
+                  className="input"
+                  value={aiForm.model}
+                  onChange={(e) => setAiForm({ ...aiForm, model: e.target.value })}
+                >
+                  <option value="">— pilih model —</option>
+                  {aiModels.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  disabled={fetchingModels || !aiForm.base_url.trim()}
+                  onClick={handleFetchModels}
+                >
+                  {fetchingModels ? 'Memuat...' : 'Fetch Models'}
+                </button>
+              </div>
+              <p className="field-hint">Tempel Base URL + API Key lalu klik Fetch Models untuk auto-muat semua model.</p>
+            </div>
+
+            <div className="input-group">
+              <label className="settings-modal-toggle">
+                <input type="checkbox" checked={aiForm.enabled} onChange={(e) => setAiForm({ ...aiForm, enabled: e.target.checked })} />
+                <span>Aktifkan provider ini</span>
+              </label>
             </div>
             <div className="input-group">
               <label className="settings-modal-toggle">
-                <input type="checkbox" checked={aiEnabled} onChange={(e) => setAiEnabled(e.target.checked)} />
-                <span>Aktifkan AI Agent</span>
+                <input type="checkbox" checked={aiForm.is_active} onChange={(e) => setAiForm({ ...aiForm, is_active: e.target.checked })} />
+                <span>Jadikan provider aktif (default)</span>
               </label>
             </div>
+
             {aiConfigMsg && <p className="settings-modal-success">{aiConfigMsg}</p>}
             <div className="settings-modal-actions">
-              <button className="btn btn-secondary" onClick={() => setAiModalOpen(false)}>Tutup</button>
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  setAiConfigMsg('')
-                  if (!aiProvider.trim()) {
-                    setAiConfigMsg('Nama provider wajib diisi.')
-                    return
-                  }
-                  try {
-                    const res = await api.agentConfig({
-                      provider_name: aiProvider.trim(),
-                      base_url: aiBaseUrl.trim(),
-                      api_key: aiKey.trim(),
-                      model: aiModel.trim(),
-                      enabled: aiEnabled,
-                    })
-                    setAiConfigMsg(res.ok ? 'Konfigurasi AI tersimpan.' : 'Gagal menyimpan.')
-                    setTimeout(() => setAiModalOpen(false), 1400)
-                  } catch (e) {
-                    setAiConfigMsg('Gagal menyimpan. Pastikan backend online.')
-                  }
-                }}
-              >
+              <button className="btn btn-secondary" onClick={() => setShowAiForm(false)}>Tutup</button>
+              <button className="btn btn-primary" disabled={!aiForm.provider_id.trim() || !aiForm.display_name.trim()} onClick={handleSaveProvider}>
                 <Save size={14} /> Simpan
               </button>
             </div>

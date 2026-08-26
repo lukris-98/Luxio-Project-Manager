@@ -230,4 +230,11 @@ export const api = {
   getNotifications: () => get('/api/notifications'),
   readNotifications: (ids, all) => post('/api/notifications/read', all ? { all: true } : { ids }),
   sendNotification: (data) => post('/api/notifications/send', data),
+
+  // ---- AI Providers (multi-provider) ----
+  getAIProviders: () => get('/api/agent/providers'),
+  createAIProvider: (data) => post('/api/agent/providers', data),
+  updateAIProvider: (id, data) => put(`/api/agent/providers/${id}`, data),
+  deleteAIProvider: (id) => del(`/api/agent/providers/${id}`, {}),
+  fetchAIModels: (data) => post('/api/agent/providers/fetch-models', data),
 }

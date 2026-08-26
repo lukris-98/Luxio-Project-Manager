@@ -1,3 +1,4 @@
+pub mod ai_providers;
 pub mod db;
 pub mod handlers;
 pub mod mail;
@@ -148,6 +149,12 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // AI Agent (Item 8)
         .route("/api/agent/config", put(handlers::agent_config))
         .route("/api/agent/chat", post(crate::tools::agent_chat))
+        // AI Providers (multi-provider)
+        .route("/api/agent/providers", get(ai_providers::list_providers))
+        .route("/api/agent/providers", post(ai_providers::create_provider))
+        .route("/api/agent/providers/fetch-models", post(ai_providers::fetch_models_route))
+        .route("/api/agent/providers/{id}", put(ai_providers::update_provider))
+        .route("/api/agent/providers/{id}", delete(ai_providers::delete_provider))
         // Companies
         .route("/api/companies", post(handlers::create_company))
         .route("/api/companies", get(handlers::get_companies))
