@@ -12,7 +12,7 @@ import {
 // ReminderWatcher.jsx — Memantau deadline & item baru lalu memunculkan
 // notifikasi (sistem browser + in-app) di laptop/tablet/HP.
 // =====================================================================
-// - Setiap 60 detik dicek project & task yang deadlinenya hari ini/besok.
+// - Setiap 15 menit dicek project & task yang deadlinenya hari ini/besok.
 // - Setiap deadline hanya mengingatkan satu kali (lokal storage dedupe).
 // - Saat target/task dengan deadline baru dibuat, langsung dikirim notif.
 // =====================================================================
@@ -63,34 +63,29 @@ export default function ReminderWatcher() {
 
   const fire = (notif) => {
     notify(notif)
-    addNotification({ title: notif.title, body: notif.body, type: notif.type || 'deadline' })
+    addNotification({
+      title: notif.title,
+      body: notif.body,
+      type: notif.type || 'deadline',
+      page: notif.page || '',
+      params: notif.params || {},
+    })
   }
 
-  // Pengecekan deadline rutin.
+  // Pengecekan deadline rutin (setiap 15 menit + saat aplikasi dibuka).
   useEffect(() => {
     const checkDeadlines = () => {
-      const queue = []
+      const today = []
+      const tomorrow = []
 
       projects.forEach((p) => {
         if (!p.deadline || p.status === 'completed') return
         const diff = daysUntil(p.deadline)
         const key = toKey('project', p.id, p.deadline)
         if (diff === 0 && !alreadyNotified(key)) {
-          queue.push({
-            key,
-            title: 'Deadline hari ini!',
-            body: `Target "${p.name}" jatuh tempo hari ini (${formatDate(p.deadline)})`,
-            tag: key,
-            type: 'deadline',
-          })
+          today.push({ key, name: p.name, date: formatDate(p.deadline) })
         } else if (diff === 1 && !alreadyNotified(key)) {
-          queue.push({
-            key,
-            title: 'Deadline besok',
-            body: `Target "${p.name}" berakhir besok (${formatDate(p.deadline)})`,
-            tag: key,
-            type: 'deadline',
-          })
+          tomorrow.push({ key, name: p.name, date: formatDate(p.deadline) })
         }
       })
 
@@ -100,72 +95,87 @@ export default function ReminderWatcher() {
         const diff = daysUntil(dl)
         const key = toKey('task', t.id, dl)
         if (diff === 0 && !alreadyNotified(key)) {
-          queue.push({
-            key,
-            title: 'Deadline hari ini!',
-            body: `Task "${t.title}" jatuh tempo hari ini (${formatDate(dl)})`,
-            tag: key,
-            type: 'deadline',
-          })
+          today.push({ key, name: t.title, date: formatDate(dl) })
         } else if (diff === 1 && !alreadyNotified(key)) {
-          queue.push({
-            key,
-            title: 'Deadline besok',
-            body: `Task "${t.title}" berakhir besok (${formatDate(dl)})`,
-            tag: key,
-            type: 'deadline',
-          })
+          tomorrow.push({ key, name: t.title, date: formatDate(dl) })
         }
       })
 
-      queue.forEach((n) => {
-        markNotified(n.key)
-        fire(n)
-      })
+      // Gabung jadi SATU notifikasi per kelompok agar tidak banjir toast.
+      if (today.length > 0) {
+        today.forEach((n) => markNotified(n.key))
+        fire({
+          title: `Deadline hari ini (${today.length})`,
+          body: today.slice(0, 5).map((n) => `• ${n.name} — ${n.date}`).join('\n') + (today.length > 5 ? `\n+${today.length - 5} lainnya` : ''),
+          tag: 'deadline-today',
+          type: 'deadline',
+          page: 'projects',
+        })
+      }
+
+      if (tomorrow.length > 0) {
+        tomorrow.forEach((n) => markNotified(n.key))
+        fire({
+          title: `Deadline besok (${tomorrow.length})`,
+          body: tomorrow.slice(0, 5).map((n) => `• ${n.name} — ${n.date}`).join('\n') + (tomorrow.length > 5 ? `\n+${tomorrow.length - 5} lainnya` : ''),
+          tag: 'deadline-tomorrow',
+          type: 'deadline',
+          page: 'projects',
+        })
+      }
     }
 
     checkDeadlines()
-    const id = setInterval(checkDeadlines, 60000)
+    const id = setInterval(checkDeadlines, 15 * 60 * 1000)
     return () => clearInterval(id)
   }, [projects, tasks, addNotification])
 
-  // Notifikasi saat target baru dengan deadline dibuat.
+  // Notifikasi saat target baru dengan deadline dibuat — digabung jadi satu.
   useEffect(() => {
     let dirty = false
+    const created = []
     projects.forEach((p) => {
       if (seenProjects.current.has(p.id)) return
       seenProjects.current.add(p.id)
       dirty = true
       if (p.deadline) {
-        fire({
-          title: 'Target baru dibuat',
-          body: `${p.name} — deadline ${formatDate(p.deadline)}`,
-          tag: `project-created-${p.id}`,
-          type: 'create',
-        })
+        created.push(`${p.name} (${formatDate(p.deadline)})`)
       }
     })
     if (dirty) saveSeen(SEEN_PROJECTS_KEY, seenProjects.current)
+    if (created.length > 0) {
+      fire({
+        title: `Target baru dibuat (${created.length})`,
+        body: created.slice(0, 5).join('\n') + (created.length > 5 ? `\n+${created.length - 5} lainnya` : ''),
+        tag: `project-created-batch`,
+        type: 'create',
+        page: 'projects',
+      })
+    }
   }, [projects]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Notifikasi saat task baru dengan deadline dibuat.
+  // Notifikasi saat task baru dengan deadline dibuat — digabung jadi satu.
   useEffect(() => {
     let dirty = false
+    const created = []
     tasks.forEach((t) => {
       if (seenTasks.current.has(t.id)) return
       seenTasks.current.add(t.id)
       dirty = true
       const dl = t.deadline || t.dueDate
       if (dl) {
-        fire({
-          title: 'Task baru dibuat',
-          body: `${t.title} — deadline ${formatDate(dl)}`,
-          tag: `task-created-${t.id}`,
-          type: 'create',
-        })
+        created.push(`${t.title} (${formatDate(dl)})`)
       }
     })
     if (dirty) saveSeen(SEEN_TASKS_KEY, seenTasks.current)
+    if (created.length > 0) {
+      fire({
+        title: `Task baru dibuat (${created.length})`,
+        body: created.slice(0, 5).join('\n') + (created.length > 5 ? `\n+${created.length - 5} lainnya` : ''),
+        tag: `task-created-batch`,
+        type: 'create',
+      })
+    }
   }, [tasks]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null

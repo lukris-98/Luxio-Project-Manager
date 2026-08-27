@@ -334,10 +334,20 @@ export const useStore = create(
           id: Date.now() + Math.random(),
           createdAt: Date.now(),
           read: false,
+          page: '',        // target page untuk navigasi saat diklik
+          params: {},       // parameter untuk navigasi
           ...notification,
         },
         ...get().notifications,
       ].slice(0, 50),
+    }),
+
+  // Tandai satu notifikasi sebagai dibaca (tanpa hapus).
+  markNotificationRead: (id) =>
+    set({
+      notifications: get().notifications.map((n) =>
+        n.id === id ? { ...n, read: true } : n
+      ),
     }),
 
   markAllNotificationsRead: () =>
@@ -345,7 +355,7 @@ export const useStore = create(
       notifications: get().notifications.map((n) => ({ ...n, read: true })),
     }),
 
-  clearNotifications: () => set({ notifications: [] }),
+  // clearNotifications: () => set({ notifications: [] }), // Dinonaktifkan — notif tidak bisa dihapus
 
   // Muat notifikasi dari backend & gabung dengan notifikasi lokal.
   loadServerNotifications: async () => {

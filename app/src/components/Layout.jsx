@@ -119,7 +119,7 @@ function buildDropdownItems(itemId, { projects, kanbanBoards, tasks, privateNote
 export default function Layout({ children }) {
   const {
     currentPage, setCurrentPage, logout, currentUser, companyInfo, appState, setAppState,
-    notifications, markAllNotificationsRead, clearNotifications, loadServerNotifications,
+    notifications, markAllNotificationsRead, markNotificationRead, loadServerNotifications,
     theme, setTheme, activeRole, setActiveRole, setLabelFilter,
     userPin, setUserPin, isAuthenticated,
     projects, kanbanBoards, tasks, privateNotes, selectedNoteId, setSelectedNoteId,
@@ -222,6 +222,23 @@ export default function Layout({ children }) {
     if (!notifOpen) {
       markAllNotificationsRead()
       api.readNotifications([], true).catch(() => {})
+    }
+  }
+
+  // Klik satu notifikasi → tandai dibaca + pindah ke halaman terkait.
+  const handleNotifClickItem = (n) => {
+    markNotificationRead(n.id)
+    setNotifOpen(false)
+    if (!n.page) return
+    const p = n.params || {}
+    if (n.page === 'project-detail') {
+      openProject(p.projectId || p.id)
+    } else if (n.page === 'kanban') {
+      openKanbanBoard(p.boardId)
+    } else if (n.page === 'chat') {
+      setCurrentPage('chat')
+    } else {
+      setCurrentPage(n.page)
     }
   }
 
@@ -491,7 +508,7 @@ export default function Layout({ children }) {
             <div className="notif-wrap">
               <button className="notification-btn" onClick={handleNotifClick} aria-label="Notifikasi">
                 <Bell size={18} />
-                {unreadCount > 0 && <span className="notification-dot">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+                {unreadCount > 0 && <span className="notification-dot">{unreadCount > 99 ? '99+' : unreadCount}</span>}
               </button>
 
               {notifOpen && (
@@ -502,16 +519,17 @@ export default function Layout({ children }) {
                       <button className="notif-action-btn" onClick={markAllNotificationsRead} title="Tandai dibaca">
                         <CheckCheck size={14} />
                       </button>
-                      <button className="notif-action-btn" onClick={clearNotifications} title="Bersihkan">
-                        <Trash2 size={14} />
-                      </button>
                     </div>
                   </div>
 
                   <div className="notifications-list">
                     {notifications.length > 0 ? (
                       notifications.map((n) => (
-                        <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'}`}>
+                        <div
+                          key={n.id}
+                          className={`notification-item ${n.read ? 'read' : 'unread'}${n.page ? ' clickable' : ''}`}
+                          onClick={() => handleNotifClickItem(n)}
+                        >
                           <span className="notification-item-icon">
                             {NOTIF_ICON[n.type] || '🔔'}
                           </span>
