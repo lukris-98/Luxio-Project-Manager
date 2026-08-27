@@ -32,4 +32,5 @@ Set di **Settings -> Variables and Secrets** pada HF Space:
 | `SMTP_PORT` | Tidak | `587` |
 | `SMTP_USERNAME` | Tidak | `email@gmail.com` |
 | `SMTP_PASSWORD` | Tidak | `app-password` |
-| `SMTP_FROM` | Tidak | `email@gmail.com` |
+| `SMTP_FROM` | Ya (Resend) | `"Master Luxio" <noreply@luxio.diarsipin.web.id>` |
+| `GOOGLE_CLIENT_ID` | Tidak | Google OAuth Client ID untuk backend (validasi token) |

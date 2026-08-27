@@ -156,6 +156,34 @@ pub struct SetPinRequest {
     pub pin: String,
 }
 
+/// Body request untuk POST /api/auth/google — login/daftar via Google.
+/// `token` bisa berupa access_token atau id_token dari Google Identity
+/// Services; backend memvalidasinya ke endpoint tokeninfo Google.
+#[derive(Debug, Deserialize)]
+pub struct GoogleAuthRequest {
+    pub token: String,
+}
+
+/// Respons JSON dari https://oauth2.googleapis.com/tokeninfo (subset field).
+#[derive(Debug, Deserialize)]
+pub struct GoogleTokenInfo {
+    pub aud: String,
+    #[serde(default)]
+    pub sub: String,
+    #[serde(default)]
+    pub email: String,
+    #[serde(default)]
+    pub email_verified: bool,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub picture: String,
+    #[serde(default)]
+    pub error: String,
+    #[serde(default)]
+    pub error_description: String,
+}
+
 /// Response standar untuk endpoint auth. `success=false` menandakan gagal.
 /// `token` berisi session token (Bearer) yang wajib dikirim client pada
 /// header `Authorization` untuk request berikutnya.

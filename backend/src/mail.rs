@@ -14,13 +14,13 @@ use lettre::{
 //      SMTP_PORT       contoh: 587 (STARTTLS) atau 465 (TLS langsung)
 //      SMTP_USERNAME   akun pengirim (untuk Gmail: email lengkap)
 //      SMTP_PASSWORD   app password (Gmail: App Password 16 karakter)
-//      SMTP_FROM       alamat pengirim yang tampil di email
+//      SMTP_FROM       "Master Luxio" <noreply@luxio.diarsipin.web.id>
 //
 // 2) Resend API (HTTP) — untuk platform yang memblokir port SMTP
 //    (mis. Hugging Face Spaces hanya mengizinkan outbound 80/443):
 //      MAIL_PROVIDER   = "resend"
 //      RESEND_API_KEY  = re_xxxxxxxxxxxx (dari https://resend.com)
-//      SMTP_FROM       alamat pengirim (terverifikasi di Resend)
+//      SMTP_FROM       "Master Luxio" <noreply@luxio.diarsipin.web.id>
 //
 // Prioritas: bila MAIL_PROVIDER=resend & RESEND_API_KEY terisi → pakai
 // Resend; jika tidak → fallback SMTP. Bila keduanya kosong, pengiriman
@@ -66,8 +66,92 @@ fn config() -> Option<MailConfig> {
     Some(MailConfig { host, port, username, password, from })
 }
 
+// =====================================================================
+// HTML EMAIL TEMPLATE ENGINE
+// =====================================================================
+
+/// Bangun HTML email dengan template Luxio yang elegan.
+/// `title` = judul email (subject), `body_html` = konten utama (boleh HTML),
+/// `cta` = opsional tombol CTA { url, label }.
+fn html_template(title: &str, body_html: &str, cta: Option<(&str, &str)>) -> String {
+    let app_url = crate::mail::app_url();
+    let banner_url = format!("{}/luxio-banner.png", app_url);
+    let logo_url = format!("{}/luxio.png", app_url);
+    let cta_html = match cta {
+        Some((url, label)) => format!(
+            r#"<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:24px auto;">
+              <tr>
+                <td align="center" style="border-radius:8px;background:linear-gradient(135deg,#6C63FF,#A855F7);padding:14px 36px;">
+                  <a href="{url}" target="_blank" style="color:#fff;font-size:16px;font-weight:700;text-decoration:none;display:inline-block;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+                    {label} →
+                  </a>
+                </td>
+              </tr>
+            </table>"#
+        ),
+        None => String::new(),
+    };
+
+    format!(
+        r##"<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0C0C0E;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%%" style="background-color:#0C0C0E;">
+    <tr>
+      <td align="center" style="padding:32px 16px 8px;">
+        <a href="{app_url}" target="_blank" style="text-decoration:none;">
+          <img src="{banner_url}" alt="Luxio" width="320" height="auto" style="display:block;border:0;outline:none;border-radius:12px;" />
+        </a>
+        <img src="{logo_url}" alt="Luxio" width="96" height="auto" style="display:block;border:0;outline:none;margin:16px auto 0;" />
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:0 16px 40px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%%;background:#1C1C1E;border-radius:16px;border:1px solid #2C2C2E;box-shadow:0 4px 24px rgba(0,0,0,0.4);">
+          <tr>
+            <td style="padding:32px 28px;">
+              <h1 style="margin:0 0 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:22px;font-weight:700;color:#F1F1F3;letter-spacing:-0.3px;">
+                {title}
+              </h1>
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.6;color:#A1A1A6;">
+                {body_html}
+              </div>
+              {cta_html}
+              <hr style="border:none;border-top:1px solid #2C2C2E;margin:24px 0 16px;" />
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#636366;line-height:1.5;">
+                Jika kamu tidak merasa melakukan tindakan ini, abaikan email ini.<br />
+                &copy; 2026 Luxio Project Manager. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"##
+    )
+}
+
+fn body_html_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\n', "<br />")
+}
+
+// =====================================================================
+// KIRIM EMAIL
+// =====================================================================
+
 /// Kirim email via Resend HTTP API (port 443 — aman di HF Spaces).
-async fn send_via_resend(to: &str, subject: &str, body: &str) -> Result<(), String> {
+async fn send_via_resend(to: &str, subject: &str, html_body: &str, text_body: &str) -> Result<(), String> {
     let api_key = std::env::var("RESEND_API_KEY").unwrap_or_default();
     let from = std::env::var("SMTP_FROM").unwrap_or_default();
     if api_key.is_empty() || from.is_empty() {
@@ -79,7 +163,8 @@ async fn send_via_resend(to: &str, subject: &str, body: &str) -> Result<(), Stri
         "from": from,
         "to": [to],
         "subject": subject,
-        "text": body,
+        "html": html_body,
+        "text": text_body,
     });
 
     let resp = client
@@ -111,7 +196,7 @@ pub async fn send(to: &str, subject: &str, body: &str) -> Result<bool, String> {
     if std::env::var("MAIL_PROVIDER").unwrap_or_default() == "resend" {
         let api_key = std::env::var("RESEND_API_KEY").unwrap_or_default();
         if !api_key.is_empty() {
-            match send_via_resend(to, subject, body).await {
+            match send_via_resend(to, subject, body, body).await {
                 Ok(()) => {
                     tracing::info!(event = "mail_sent", to = %to, subject = %subject, "email terkirim via Resend");
                     return Ok(true);
@@ -168,10 +253,34 @@ pub async fn send(to: &str, subject: &str, body: &str) -> Result<bool, String> {
     Ok(true)
 }
 
+// =====================================================================
+// EMAIL TYPES
+// =====================================================================
+
+/// Kirim plain text langsung (fallback) atau HTML via Resend.
+async fn send_html(to: &str, subject: &str, html: &str, text: &str) -> Result<bool, String> {
+    if std::env::var("MAIL_PROVIDER").unwrap_or_default() == "resend" {
+        let api_key = std::env::var("RESEND_API_KEY").unwrap_or_default();
+        if !api_key.is_empty() {
+            match send_via_resend(to, subject, html, text).await {
+                Ok(()) => {
+                    tracing::info!(event = "mail_sent", to = %to, subject = %subject, "email terkirim via Resend");
+                    return Ok(true);
+                }
+                Err(e) => {
+                    tracing::error!(event = "mail_send_error", to = %to, error = %e, "Resend gagal: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+    }
+    send(to, subject, text).await
+}
+
 /// Email sambutan untuk anggota baru berisi kredensial login.
 pub async fn send_welcome(to: &str, name: &str, email: &str, password: &str) -> Result<bool, String> {
     let subject = "Selamat bergabung dengan Luxio!";
-    let body = format!(
+    let text = format!(
         "Halo {name},\n\n\
          Akun Luxio kamu sudah dibuat oleh admin.\n\n\
          Email login: {email}\n\
@@ -179,12 +288,36 @@ pub async fn send_welcome(to: &str, name: &str, email: &str, password: &str) -> 
          Silakan login di aplikasi Luxio. Segera ganti password kamu setelah login pertama.\n\n\
          Tim Luxio"
     );
-    send(to, subject, &body).await
+    let html = html_template(
+        subject,
+        &format!(
+            "<p>Halo <strong>{name}</strong>,</p>\
+             <p>Akun Luxio kamu sudah dibuat oleh admin. Berikut kredensial login kamu:</p>\
+             <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#2C2C2E;border-radius:8px;padding:16px;margin:16px 0;\">\
+             <tr><td style=\"font-size:13px;color:#A1A1A6;padding:4px 0;\">Email</td></tr>\
+             <tr><td style=\"font-size:15px;font-weight:600;color:#F1F1F3;padding:0 0 8px;\">{email}</td></tr>\
+             <tr><td style=\"font-size:13px;color:#A1A1A6;padding:4px 0;\">Password</td></tr>\
+             <tr><td style=\"font-size:15px;font-weight:600;color:#F1F1F3;padding:0 0 8px;\">{password}</td></tr>\
+             </table>\
+             <p style=\"font-size:13px;color:#A1A1A6;\">Segera ganti password kamu setelah login pertama.</p>",
+            name = body_html_escape(name),
+            email = body_html_escape(email),
+            password = body_html_escape(password),
+        ),
+        Some((&format!("{}/", crate::mail::app_url()), "Login ke Luxio")),
+    );
+    send_html(to, subject, &html, &text).await
 }
 
 /// Email notifikasi umum dari admin.
 pub async fn send_notification(to: &str, subject: &str, body: &str) -> Result<bool, String> {
-    send(to, subject, body).await
+    let text = format!("[Luxio] {subject}\n\n{body}\n\n— Tim Luxio");
+    let html = html_template(
+        subject,
+        &format!("<p>{}</p>", body_html_escape(body)),
+        None,
+    );
+    send_html(to, subject, &html, &text).await
 }
 
 /// Email konfirmasi aktivasi akun. Wajib diklik sebelum akun bisa login.
@@ -196,7 +329,7 @@ pub async fn send_confirmation(
     token: &str,
     credentials: Option<(&str, &str)>,
 ) -> Result<bool, String> {
-    let link = format!("{}/?token={}", app_url(), token);
+    let link = format!("{}/?token={}", crate::mail::app_url(), token);
     let subject = "Konfirmasi Akun Luxio";
     let cred_line = match credentials {
         Some((email, password)) => format!(
@@ -207,7 +340,7 @@ pub async fn send_confirmation(
         ),
         None => String::new(),
     };
-    let body = format!(
+    let text = format!(
         "Halo {name},\n\n\
          Terima kasih sudah mendaftar di Luxio.{cred_line}\n\n\
          Untuk mengaktifkan akun kamu, klik tautan berikut:\n\
@@ -215,13 +348,38 @@ pub async fn send_confirmation(
          Tautan berlaku 24 jam. Jika kamu tidak merasa mendaftar, abaikan email ini.\n\n\
          Tim Luxio"
     );
-    send(to, subject, &body).await
+    let cred_html = match credentials {
+        Some((email, password)) => format!(
+            "<table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#2C2C2E;border-radius:8px;padding:16px;margin:16px 0;\">\
+             <tr><td style=\"font-size:13px;color:#A1A1A6;padding:4px 0;\">Email</td></tr>\
+             <tr><td style=\"font-size:15px;font-weight:600;color:#F1F1F3;padding:0 0 8px;\">{email}</td></tr>\
+             <tr><td style=\"font-size:13px;color:#A1A1A6;padding:4px 0;\">Password</td></tr>\
+             <tr><td style=\"font-size:15px;font-weight:600;color:#F1F1F3;padding:0 0 8px;\">{password}</td></tr>\
+             </table>\
+             <p style=\"font-size:13px;color:#A1A1A6;\">Segera ganti password setelah login pertama.</p>",
+            email = body_html_escape(email),
+            password = body_html_escape(password),
+        ),
+        None => String::new(),
+    };
+    let html = html_template(
+        subject,
+        &format!(
+            "<p>Halo <strong>{name}</strong>,</p>\
+             <p>Terima kasih sudah mendaftar di Luxio. Klik tombol di bawah untuk mengaktifkan akun kamu:</p>\
+             {cred_html}\
+             <p style=\"font-size:13px;color:#A1A1A6;\">Tautan berlaku 24 jam. Jika kamu tidak merasa mendaftar, abaikan email ini.</p>",
+            name = body_html_escape(name),
+        ),
+        Some((&link, "Konfirmasi Akun")),
+    );
+    send_html(to, subject, &html, &text).await
 }
 
 /// Email berisi kode 2FA untuk login.
 pub async fn send_login_otp(to: &str, name: &str, code: &str) -> Result<bool, String> {
     let subject = "Kode Masuk Luxio (2FA)";
-    let body = format!(
+    let text = format!(
         "Halo {name},\n\n\
          Kode verifikasi kamu adalah:\n\n\
          {code}\n\n\
@@ -229,5 +387,20 @@ pub async fn send_login_otp(to: &str, name: &str, code: &str) -> Result<bool, St
          Kode berlaku 5 menit. Jangan bagikan kode ini kepada siapa pun.\n\n\
          Tim Luxio"
     );
-    send(to, subject, &body).await
+    let html = html_template(
+        subject,
+        &format!(
+            "<p>Halo <strong>{name}</strong>,</p>\
+             <p>Gunakan kode berikut untuk melanjutkan login ke akun Luxio kamu:</p>\
+             <div style=\"text-align:center;margin:24px 0;\">\
+               <span style=\"display:inline-block;background:#2C2C2E;border:1px solid #3C3C3E;border-radius:12px;padding:16px 32px;font-size:32px;font-weight:800;letter-spacing:8px;color:#F1F1F3;font-family:monospace;\">{code}</span>\
+             </div>\
+             <p>Kode berlaku <strong>5 menit</strong>. Jangan bagikan kode ini kepada siapa pun.</p>\
+             <p style=\"font-size:13px;color:#A1A1A6;\">Tidak merasa login? Abaikan email ini.</p>",
+            name = body_html_escape(name),
+            code = code,
+        ),
+        None,
+    );
+    send_html(to, subject, &html, &text).await
 }

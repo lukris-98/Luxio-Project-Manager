@@ -928,6 +928,200 @@ fn generate_otp() -> String {
     format!("{:06}", (rnd % 1_000_000) as u32)
 }
 
+/// POST /api/auth/google — login/daftar via Google Identity Services.
+/// Frontend mengirim `token` (id_token/access_token dari Google). Backend
+/// memvalidasi token ke https://oauth2.googleapis.com/tokeninfo, lalu
+/// membuat/menautkan akun user dan langsung mengeluarkan session token.
+pub async fn google_auth(
+    State(state): State<AppState>,
+    Json(payload): Json<GoogleAuthRequest>,
+) -> Result<Json<AuthResponse>, StatusCode> {
+    let token = payload.token.trim();
+    if token.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if rate_limited(&format!("google:{}", &token[..token.len().min(16)]), 10, 60) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    // Validasi token ke Google tokeninfo.
+    let info = validate_google_token(token).await?;
+    let email = info.email.trim().to_lowercase();
+    if email.is_empty() || !info.email_verified || !info.error.is_empty() {
+        return Ok(Json(AuthResponse {
+            success: false,
+            message: "Token Google tidak valid atau email belum diverifikasi.".to_string(),
+            user: None,
+            token: None,
+            requires_confirmation: None,
+            requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
+        }));
+    }
+
+    // Cek apakah akun sudah ada (pakai email; google_id sebagai penaut).
+    let existing = sqlx::query(
+        "SELECT id, name, company_id, role, plan FROM users WHERE email = $1",
+    )
+    .bind(&email)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let user_id: String;
+    let name: String;
+    let company_id: Option<String>;
+    let role: String;
+    let plan: String;
+
+    match existing {
+        Some(row) => {
+            user_id = row.get("id");
+            name = row.get("name");
+            company_id = row.get("company_id");
+            role = row.get("role");
+            plan = row.get("plan");
+            // Tautkan google_id bila belum ada.
+            let google_id: Option<String> = sqlx::query("SELECT google_id FROM users WHERE id = $1")
+                .bind(&user_id)
+                .fetch_one(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?
+                .get("google_id");
+            if google_id.is_none() && !info.sub.is_empty() {
+                let _ = sqlx::query("UPDATE users SET google_id = $1 WHERE id = $2")
+                    .bind(&info.sub)
+                    .bind(&user_id)
+                    .execute(&state.db)
+                    .await;
+            }
+        }
+        None => {
+            // Akun baru: buat user aktif (email sudah diverifikasi Google).
+            user_id = Uuid::new_v4().to_string();
+            let display_name = if info.name.trim().is_empty() {
+                email.split('@').next().unwrap_or("User").to_string()
+            } else {
+                info.name.trim().to_string()
+            };
+            name = display_name.clone();
+            company_id = None;
+            role = role_for_plan("personal").to_string();
+            plan = "personal".to_string();
+            let now = Utc::now();
+            let username = sanitize_username(email.split('@').next().unwrap_or("user"));
+            let username = ensure_unique_username(&state.db, &username).await?;
+
+            sqlx::query(
+                "INSERT INTO users (id, email, password_hash, name, role, plan, created_at, email_verified, username, google_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9)",
+            )
+            .bind(&user_id)
+            .bind(&email)
+            .bind("") // tanpa password (login via Google)
+            .bind(&display_name)
+            .bind(&role)
+            .bind(&plan)
+            .bind(&now)
+            .bind(&username)
+            .bind(&info.sub)
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                eprintln!("[DB ERROR] {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        }
+    }
+
+    let session_token = create_session(&state.db, &user_id).await?;
+    tracing::info!(event = "google_auth", user_id = %user_id, "login via Google");
+
+    Ok(Json(AuthResponse {
+        success: true,
+        message: "Login berhasil".to_string(),
+        user: Some(UserResponse {
+            id: user_id,
+            email,
+            name,
+            company_id,
+            role,
+            plan,
+            email_verified: Some(true),
+            ai_provider: None,
+            ai_base_url: None,
+            ai_model: None,
+            ai_enabled: None,
+        }),
+        token: Some(session_token),
+        requires_confirmation: None,
+        requires_2fa: None,
+        requires_pin: None,
+        requires_pin_setup: None,
+    }))
+}
+
+/// Validasi token Google via endpoint tokeninfo. Mengembalikan info akun.
+async fn validate_google_token(token: &str) -> Result<GoogleTokenInfo, StatusCode> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("https://oauth2.googleapis.com/tokeninfo")
+        .query(&[("id_token", token)])
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[GOOGLE] tokeninfo request gagal: {}", e);
+            StatusCode::BAD_GATEWAY
+        })?;
+
+    let status = resp.status();
+    let info: GoogleTokenInfo = resp
+        .json()
+        .await
+        .map_err(|e| {
+            eprintln!("[GOOGLE] tokeninfo parse gagal: {}", e);
+            StatusCode::BAD_GATEWAY
+        })?;
+
+    if !status.is_success() || !info.error.is_empty() {
+        return Ok(GoogleTokenInfo {
+            aud: String::new(),
+            sub: String::new(),
+            email: String::new(),
+            email_verified: false,
+            name: String::new(),
+            picture: String::new(),
+            error: info.error,
+            error_description: info.error_description,
+        });
+    }
+
+    // Pastikan audience = GOOGLE_CLIENT_ID milik aplikasi (bila diset).
+    if let Ok(client_id) = std::env::var("GOOGLE_CLIENT_ID") {
+        if !client_id.is_empty() && info.aud != client_id {
+            return Ok(GoogleTokenInfo {
+                aud: info.aud,
+                sub: String::new(),
+                email: String::new(),
+                email_verified: false,
+                name: String::new(),
+                picture: String::new(),
+                error: "invalid_audience".to_string(),
+                error_description: String::new(),
+            });
+        }
+    }
+
+    Ok(info)
+}
+
 /// POST /api/auth/logout — hapus sesi aktif (token di header).
 pub async fn logout(
     State(state): State<AppState>,

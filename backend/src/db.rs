@@ -100,6 +100,8 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
         ("upgraded_at", "TIMESTAMPTZ"),
         // PIN akun (khusus owner): hash SHA256, dipakai login owner tanpa 2FA.
         ("pin_hash", "TEXT NOT NULL DEFAULT ''"),
+        // Google ID untuk OAuth login (Google Sign-In).
+        ("google_id", "TEXT"),
     ] {
         sqlx::query(&format!("ALTER TABLE users ADD COLUMN IF NOT EXISTS {column} {sql_type}"))
             .execute(db)

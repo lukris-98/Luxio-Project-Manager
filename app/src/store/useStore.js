@@ -1121,6 +1121,35 @@ export const useStore = create(
     }
   },
 
+  /**
+   * Login/daftar via Google (token id_token dari Google Identity Services).
+   * Berhasil => sesi langsung dibuat seperti verify2FA (tanpa 2FA/PIN).
+   */
+  googleLogin: async (token) => {
+    try {
+      const res = await api.googleLogin(token)
+      if (!res.success) throw new Error(res.message)
+      setToken(res.token)
+      const isOwner = res.user.role === 'owner'
+      const hasCompany = Boolean(res.user.company_id)
+      set({
+        currentUser: res.user,
+        token: res.token || null,
+        isAuthenticated: true,
+        hasCompletedSetup: isOwner || hasCompany ? true : get().hasCompletedSetup,
+        appState: isOwner || hasCompany || get().hasCompletedSetup ? 'app' : 'setup',
+        setupStep: 0,
+        currentPage: isOwner ? 'admin-users' : 'dashboard',
+        activeRole: res.user.role,
+      })
+      track('login', { role: res.user.role, method: 'google' })
+      get().seedOwnerDummyData()
+      return { success: true }
+    } catch (err) {
+      return { success: false, message: err.message }
+    }
+  },
+
   logout: async () => {
     // Cabut sesi di backend (best-effort) lalu bersihkan state lokal.
     try { await api.logout() } catch (e) { /* abaikan bila backend offline */ }

@@ -168,6 +168,43 @@
   color: var(--text-muted);
 }
 
+/* Divider "atau lanjutkan dengan" */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Tombol Google */
+.btn-google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-google:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent);
+}
+
 .auth-link {
   background: none;
   border: none;
@@ -194,6 +231,41 @@
   border-radius: 50%;
   background: var(--accent-muted);
   color: var(--accent);
+}
+
+/* Kotak kode 6 digit (2FA) — tiap kotak terisi, caret pindah otomatis */
+.otp-boxes {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.otp-box {
+  width: 46px;
+  height: 54px;
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 2px solid var(--border);
+  border-radius: var(--radius, 10px);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  caret-color: var(--accent);
+}
+
+.otp-box:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.otp-box.filled {
+  border-color: var(--accent);
+  background: var(--accent-muted);
 }
 
 .auth-loading {

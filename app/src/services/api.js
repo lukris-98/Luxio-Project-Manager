@@ -136,6 +136,9 @@ export const api = {
     post('/api/auth/logout', {}),
   me: () =>
     get('/api/auth/me'),
+  // Login/daftar via Google Identity Services.
+  googleLogin: (token) =>
+    post('/api/auth/google', { token }),
 
   // ---- Companies ----
   createCompany: (data) => post('/api/companies', data),
