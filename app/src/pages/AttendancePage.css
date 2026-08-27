@@ -137,26 +137,53 @@
   flex: 1;
 }
 
-/* Live camera */
-.attendance-camera {
+/* Live camera — full screen overlay (PC & HP) */
+.attendance-camera-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  backdrop-filter: blur(4px);
 }
 
-.attendance-camera video {
+.attendance-camera-fullscreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
   width: 100%;
-  max-width: 320px;
-  display: block;
-  border: 1px solid var(--border);
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+  height: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+}
+
+.attendance-camera-fullscreen video {
+  width: 100%;
+  height: 100%;
+  max-height: calc(100vh - 140px);
+  object-fit: contain;
   background: #000;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+}
+
+.attendance-camera-head {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 
 .attendance-camera-actions {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .attendance-camera-error {

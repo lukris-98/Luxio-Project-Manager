@@ -1213,6 +1213,21 @@ export const useStore = create(
     }
   },
 
+  // Ganti foto profil (data URL base64) — sinkron ke backend + state.
+  updateAvatar: async (avatarUrl) => {
+    try {
+      const res = await api.updateAvatar(avatarUrl)
+      const { currentUser, profile } = get()
+      set({
+        currentUser: currentUser ? { ...currentUser, avatar_url: avatarUrl } : currentUser,
+        profile: profile ? { ...profile, avatar_url: avatarUrl } : profile,
+      })
+      return { success: true, avatar_url: res.avatar_url }
+    } catch (e) {
+      return { success: false, message: e.message || 'Gagal mengubah foto profil.' }
+    }
+  },
+
   // =====================================================================
   // ACTIONS — DEMO DATA (khusus Owner, seed sekali)
   // =====================================================================

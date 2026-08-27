@@ -61,6 +61,9 @@ const DROPDOWN_IDS = new Set(['projects', 'kanban', 'todo-list', 'private-note']
 const initials = (name = '') =>
   name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'U'
 
+// Sumber gambar avatar: foto profil user (bila ada) atau logo Luxio.
+const avatarSrc = (user) => user?.avatar_url || `${import.meta.env.BASE_URL || '/'}luxio.png`
+
 // Warna avatar kolaborator (dari palet brand).
 const AVATAR_COLORS = ['#FF6B35', '#22D3EE', '#A78BFA', '#4ADE80', '#FACC15', '#F472B6', '#60A5FA', '#F87171']
 const colorFor = (id) => AVATAR_COLORS[String(id).length % AVATAR_COLORS.length]
@@ -438,7 +441,7 @@ export default function Layout({ children }) {
               title={currentUser?.name || 'Profil'}
             >
               <div className="user-avatar">
-                <img src={`${import.meta.env.BASE_URL || '/'}luxio.png`} alt="Luxio" />
+                <img src={avatarSrc(currentUser)} alt="Avatar" />
               </div>
               <div className="user-details">
                 <span className="user-name">{currentUser?.name || 'User'}</span>
@@ -452,7 +455,7 @@ export default function Layout({ children }) {
                 <div className="profile-menu" role="menu">
                   <div className="profile-menu-head">
                     <div className="profile-menu-avatar">
-                      <img src={`${import.meta.env.BASE_URL || '/'}luxio.png`} alt="Luxio" />
+                      <img src={avatarSrc(currentUser)} alt="Avatar" />
                     </div>
                     <div className="profile-menu-identity">
                       <span className="profile-menu-name">{currentUser?.name || 'User'}</span>

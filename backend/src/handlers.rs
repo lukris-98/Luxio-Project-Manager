@@ -1625,7 +1625,7 @@ async fn profile_for_user(
                 phone, gender, address, position, join_date, employment_status,
                 birth_date, education, salary,
                 edit_count, edit_count_month, admin_edit_count, admin_edit_month,
-                ai_provider, ai_base_url, ai_key, ai_model, ai_enabled
+                ai_provider, ai_base_url, ai_key, ai_model, ai_enabled, avatar_url
          FROM users WHERE id = $1",
     )
     .bind(user_id)
@@ -1678,6 +1678,7 @@ async fn profile_for_user(
         ai_key: row.get("ai_key"),
         ai_model: row.get("ai_model"),
         ai_enabled: row.get("ai_enabled"),
+        avatar_url: row.get("avatar_url"),
     }))
 }
 
@@ -1894,6 +1895,30 @@ pub async fn update_profile(
     );
 
     profile_for_user(&state, &target_id, is_admin_action).await
+}
+
+/// PUT /api/profile/avatar — ganti foto profil (data URL base64 atau kosong).
+pub async fn update_avatar(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<UpdateAvatarRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let avatar_url = payload.avatar_url.trim().to_string();
+    // Batasi ukuran data URL (10 MB mentah) agar DB tidak kewalahan.
+    if avatar_url.len() > 10_000_000 {
+        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    }
+    sqlx::query("UPDATE users SET avatar_url = $1 WHERE id = $2")
+        .bind(&avatar_url)
+        .bind(&user_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    Ok(Json(json!({ "ok": true, "avatar_url": avatar_url })))
 }
 
 /// GET /api/company/users — daftar user dalam satu perusahaan (untuk

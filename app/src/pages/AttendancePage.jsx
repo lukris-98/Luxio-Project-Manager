@@ -299,16 +299,21 @@ export default function AttendancePage() {
             {cameraError && <p className="attendance-camera-error">{cameraError}</p>}
 
             {cameraOpen && (
-              <div className="attendance-camera">
-                <video ref={videoRef} autoPlay playsInline muted />
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
-                <div className="attendance-camera-actions">
-                  <button className="btn btn-primary btn-sm" onClick={capturePhoto}>
-                    <Camera size={14} /> Ambil Foto
-                  </button>
-                  <button className="btn btn-secondary btn-sm" onClick={closeCamera}>
-                    <X size={14} /> Tutup
-                  </button>
+              <div className="attendance-camera-overlay" onClick={closeCamera}>
+                <div className="attendance-camera-fullscreen" onClick={(e) => e.stopPropagation()}>
+                  <video ref={videoRef} autoPlay playsInline muted />
+                  <canvas ref={canvasRef} style={{ display: 'none' }} />
+                  <div className="attendance-camera-head">
+                    <span>Arahkan wajah ke kamera</span>
+                  </div>
+                  <div className="attendance-camera-actions">
+                    <button className="btn btn-secondary btn-sm" onClick={closeCamera}>
+                      <X size={14} /> Batal
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={capturePhoto}>
+                      <Camera size={14} /> Ambil Foto
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

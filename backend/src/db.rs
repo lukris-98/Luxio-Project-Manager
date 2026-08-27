@@ -102,6 +102,8 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
         ("pin_hash", "TEXT NOT NULL DEFAULT ''"),
         // Google ID untuk OAuth login (Google Sign-In).
         ("google_id", "TEXT"),
+        // Avatar profil user (data URL base64 dari upload foto; kosong = logo Luxio).
+        ("avatar_url", "TEXT NOT NULL DEFAULT ''"),
     ] {
         sqlx::query(&format!("ALTER TABLE users ADD COLUMN IF NOT EXISTS {column} {sql_type}"))
             .execute(db)

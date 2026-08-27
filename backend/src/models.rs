@@ -471,12 +471,21 @@ pub struct ProfileResponse {
     pub ai_model: String,
     #[serde(default)]
     pub ai_enabled: bool,
+    #[serde(default)]
+    pub avatar_url: String,
 }
 
 /// Query param opsional untuk GET /api/profile — `?user_id=...` (admin).
 #[derive(Debug, Deserialize)]
 pub struct ProfileQuery {
     pub user_id: Option<String>,
+}
+
+/// Body request untuk PUT /api/profile/avatar — ganti foto profil (data URL).
+#[derive(Debug, Deserialize)]
+pub struct UpdateAvatarRequest {
+    #[serde(default)]
+    pub avatar_url: String,
 }
 
 /// Query param untuk GET /api/users/search — `?q=...`.

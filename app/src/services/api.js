@@ -184,6 +184,8 @@ export const api = {
   getProfile: (userId) => get('/api/profile', userId ? { user_id: userId } : {}),
   // Update profil sendiri (tanpa user_id) atau user lain (admin, dengan user_id).
   updateProfile: (data) => put('/api/profile', data),
+  // Ganti foto profil (data URL base64).
+  updateAvatar: (avatar_url) => put('/api/profile/avatar', { avatar_url }),
   // Daftar user dalam perusahaan (admin edit data user lain).
   getCompanyUsers: () => get('/api/company/users'),
 

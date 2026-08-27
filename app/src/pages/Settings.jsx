@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getAppThemeFamily, getAppThemeMode, makeAppTheme, useStore } from '../store/useStore'
 import Layout from '../components/Layout'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
@@ -33,7 +33,7 @@ const THEME_MODE_OPTIONS = [
 export default function Settings() {
   const {
     currentUser, setAppState, userPin, setUserPin, changePin,
-    profile, loadProfile, updateProfile, theme, setTheme,
+    profile, loadProfile, updateProfile, updateAvatar, theme, setTheme,
     requirePinForDelete, setRequirePinForDelete,
   } = useStore()
 
@@ -71,6 +71,10 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [views, setViews] = useState(null)
+  // Foto profil (upload) — data URL base64.
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const avatarInputRef = useRef(null)
 
   const isEditingOther = Boolean(selectedUserId) && selectedUserId !== (currentUser?.id || '')
 
@@ -215,6 +219,39 @@ export default function Settings() {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
     setFormError('')
+  }
+
+  // ----- Foto profil (upload / kamera / hapus) -----
+  const handleAvatarFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarUploading(true)
+    setFormError('')
+    const reader = new FileReader()
+    reader.onload = () => {
+      setAvatarUrl(reader.result)
+      setAvatarUploading(false)
+    }
+    reader.onerror = () => {
+      setAvatarUploading(false)
+      setFormError('Gagal membaca foto. Coba lagi.')
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleSaveAvatar = async () => {
+    if (!avatarUrl) return
+    setAvatarUploading(true)
+    setFormError('')
+    const res = await updateAvatar(avatarUrl)
+    setAvatarUploading(false)
+    if (res.success) {
+      setAvatarUrl('')
+      flash('Foto profil berhasil diubah')
+    } else {
+      setFormError(res.message || 'Gagal menyimpan foto profil.')
+    }
   }
 
   const handleSave = async () => {
@@ -415,6 +452,51 @@ export default function Settings() {
                   <span className="item-label">Sedang mengedit data: <strong>{form.name || 'User'}</strong></span>
                 </div>
               )}
+
+              {/* Foto profil */}
+              <div className="settings-item column-item">
+                <div>
+                  <span className="item-label">Foto Profil</span>
+                  <p className="item-desc">Unggah foto asli kamu atau gunakan logo Luxio.</p>
+                </div>
+                <div className="profile-avatar-uploader">
+                  <div className="profile-avatar-preview">
+                    <img
+                      src={avatarUrl || currentUser?.avatar_url || '/luxio.png'}
+                      alt="Foto profil"
+                      onError={(e) => { e.target.onerror = null; e.target.src = '/luxio.png' }}
+                    />
+                  </div>
+                  <div className="profile-avatar-btns">
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="attendance-file-input"
+                      onChange={handleAvatarFile}
+                    />
+                    <button className="btn btn-secondary btn-sm" onClick={() => avatarInputRef.current?.click()}>
+                      <Pencil size={14} /> Pilih Foto
+                    </button>
+                    {avatarUrl && (
+                      <button className="btn btn-primary btn-sm" disabled={avatarUploading} onClick={handleSaveAvatar}>
+                        <Save size={14} /> {avatarUploading ? 'Menyimpan…' : 'Simpan Foto'}
+                      </button>
+                    )}
+                    {!avatarUrl && currentUser?.avatar_url && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={async () => {
+                          const res = await updateAvatar('')
+                          if (res.success) { setAvatarUrl(''); flash('Kembali ke logo Luxio') }
+                        }}
+                      >
+                        <Trash2 size={14} /> Hapus Foto
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               <div className="profile-form">
                 <div className="profile-form-row">

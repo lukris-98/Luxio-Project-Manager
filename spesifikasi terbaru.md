@@ -395,3 +395,43 @@ Proyek ini mengikuti **Semantic Versioning (Semver)**: `MAJOR.MINOR.PATCH`.
 ---
 
 *Dokumen ini hidup dan diperbarui seiring pengembangan aplikasi.*
+
+---
+
+## 15. PEMBARUAN TERBARU (Sesi 2026-08-27)
+
+Pembaruan di bawah ditambahkan **di bawah** data sebelumnya (tidak menghapus bagian lama).
+
+### 15.1 Verifikasi 2FA & Keamanan Login
+- **Form kode 2FA 6 kotak**: kode otentikasi kini dimasukkan lewat 6 kotak terpisah; setiap kotak terisi, caret otomatis berpindah ke kotak berikutnya. Mendukung paste 6 digit dan navigasi panah/backspace.
+- **Hanya kode OTP terbaru yang berlaku**: bila kode terkirim lebih dari sekali (mis. klik ulang), kode lama otomatis dinonaktifkan — hanya kode terakhir yang bisa dipakai untuk verifikasi.
+
+### 15.2 Email Marketing (Resend)
+- **Template email elegan**: dark card, logo & banner Luxio, ukuran/jenis font modern, tombol CTA (Konfirmasi Akun, Login ke Luxio).
+- **Nama pengirim**: "Master Luxio" (diatur lewat `SMTP_FROM = "Master Luxio" <noreply@luxio.diarsipin.web.id>`).
+- **Banner email** tampil stabil karena dimuat dari URL raw GitHub (tidak bergantung deploy frontend).
+- **Login/daftar dengan Google**: tombol "Lanjut dengan Google" di halaman masuk/daftar. Backend memvalidasi token Google, akun baru langsung aktif tanpa konfirmasi email. Butuh `GOOGLE_CLIENT_ID` (backend) & `VITE_GOOGLE_CLIENT_ID` (frontend).
+
+### 15.3 Profil & Sosial (TikTok-style)
+- **Foto profil asli**: user bisa unggah foto sendiri (data URL base64) lewat Pengaturan; kosong = logo Luxio. Disimpan di kolom `users.avatar_url`.
+- **Halaman Profil Sosial** (menu sidebar "Profil"): feed foto vertikal, **like, komentar, dan share** antar akun.
+  - Tabel baru: `profile_posts`, `profile_post_likes`, `profile_post_comments`, `profile_post_shares`.
+  - Endpoint baru: buat post, daftar post (filter user), toggle like, komentar (lihat/tambah), share.
+  - Foto **tidak bisa diunduh** (context menu & drag dinonaktifkan).
+- **Pemantauan Neon via API**: pemakaian database, project, branch, endpoint, kuota & konsumsi dipantau langsung lewat API key (Neon Explorer) tanpa membuka situs Neon.
+
+### 15.4 Absen & Kamera
+- **Kamera absen full screen**: saat ambil foto bukti kehadiran (masuk/pulang) di PC maupun HP, live kamera tampil **full screen overlay** (bukan kotak kecil/iframe), lalu snapshot lalu disimpan.
+
+### 15.5 UI/UX Lain
+- **Versi & tombol perkecil sidebar** sejajar horizontal di baris bawah sidebar.
+- **Avatar inisial di topbar dihapus**: nama/inisial profil hanya di sidebar.
+- **Notifikasi belum dibaca lebih terang** daripada yang sudah dibaca.
+- **Kontras tema dark/light diperbaiki** (elemen sidebar kini memakai variabel tema, tidak lagi warna hardcode).
+- **Halaman Payment/Pricing** bisa diakses setelah login (sebelumnya ter-reset ke landing).
+
+| Versi | Tanggal | Keterangan |
+|---|---|---|
+| **1.0.6** | 2026-08-27 | OTP 6 kotak + hanya kode terbaru, email elegan (banner, CTA, "Master Luxio"), Google login, foto profil upload, profil sosial TikTok-style (like/komentar/share), kamera absen full screen, perbaikan tema & notifikasi |
+
+---
