@@ -12,11 +12,14 @@
 use axum::{extract::State, http::StatusCode, response::Json};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sqlx::PgPool;
 use std::collections::HashMap;
 
 use crate::handlers::require_auth;
 use crate::owner::is_owner;
+
+use web_push::{
+    ContentEncoding, IsahcWebPushClient, SubscriptionInfo, VapidSignatureBuilder, WebPushMessageBuilder,
+};
 
 #[derive(Deserialize)]
 pub struct SubscribePayload {
@@ -108,35 +111,40 @@ pub async fn push_send(
     }
 
     let mut q = "SELECT endpoint, p256dh, auth FROM push_subscriptions".to_string();
-    let mut params: Vec<String> = Vec::new();
     if !payload.user_id.is_empty() {
         q += " WHERE user_id = $1";
-        params.push(payload.user_id.clone());
     }
 
-    let rows: Vec<(String, String, String)> = sqlx::query_as(&q)
-        .bind(&params)
-        .fetch_all(&state.db)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let rows: Vec<(String, String, String)> = if !payload.user_id.is_empty() {
+        sqlx::query_as(&q)
+            .bind(&payload.user_id)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    } else {
+        sqlx::query_as(&q)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    };
 
     if rows.is_empty() {
         return Ok(Json(json!({ "sent": 0, "message": "Tidak ada subscription push." })));
     }
 
     let vapid_subject = std::env::var("VAPID_SUBJECT").unwrap_or_default();
-    let vapid_public = std::env::var("VAPID_PUBLIC_KEY").unwrap_or_default();
     let vapid_private = std::env::var("VAPID_PRIVATE_KEY").unwrap_or_default();
-    if vapid_subject.is_empty() || vapid_public.is_empty() || vapid_private.is_empty() {
+    if vapid_subject.is_empty() || vapid_private.is_empty() {
         return Ok(Json(json!({
             "sent": 0,
-            "message": "VAPID keys belum dikonfigurasi di backend (VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)."
+            "message": "VAPID keys belum dikonfigurasi di backend (VAPID_SUBJECT, VAPID_PRIVATE_KEY)."
         })));
     }
 
-    let signature = VapidSignature::new(vapid_subject, &vapid_public, &vapid_private)
+    let client = IsahcWebPushClient::new()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let mut client = WebPushClient::new(&signature, reqwest::Client::new())
+
+    let partial_sig_builder = VapidSignatureBuilder::from_base64_no_sub(&vapid_private)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let message = json!({
@@ -148,22 +156,24 @@ pub async fn push_send(
     let mut failed = 0usize;
 
     for (endpoint, p256dh, auth) in rows {
-        let sub = match SubscriptionInfo::new(endpoint, p256dh, auth) {
+        let sub = SubscriptionInfo::new(endpoint, p256dh, auth);
+
+        let mut sig_builder = partial_sig_builder.clone();
+        sig_builder.add_claim("sub", &vapid_subject);
+        let signature = match sig_builder.build() {
             Ok(s) => s,
             Err(_) => { failed += 1; continue; }
         };
-        let mut builder = match WebPushMessageBuilder::new(&sub) {
-            Ok(b) => b,
-            Err(_) => { failed += 1; continue; }
-        };
-        if builder.set_payload(ContentEncoding::Aes128Gcm, message.to_string()).is_err() {
-            failed += 1;
-            continue;
-        }
+
+        let mut builder = WebPushMessageBuilder::new(&sub);
+        builder.set_payload(ContentEncoding::Aes128Gcm, message.to_string().as_bytes());
+        builder.set_vapid_signature(signature);
+
         let msg = match builder.build() {
             Ok(m) => m,
             Err(_) => { failed += 1; continue; }
         };
+
         match client.send(msg).await {
             Ok(_) => sent += 1,
             Err(_) => failed += 1,
@@ -219,11 +229,6 @@ pub async fn blob_put(
 pub struct BlobPutPayload {
     pub payload: String,
 }
-
-// Type alias agar handler singkat; web_push crate menyediakan tipe di bawah.
-use web_push::{
-    ContentEncoding, SubscriptionInfo, VapidSignature, WebPushClient, WebPushMessageBuilder,
-};
 
 #[allow(dead_code)]
 fn _map_endpoints(rows: Vec<(String, String, String)>) -> HashMap<String, (String, String)> {
