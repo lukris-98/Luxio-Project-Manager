@@ -504,16 +504,17 @@ export default function Layout({ children }) {
             )}
           </div>
 
-          <button
-            className="sidebar-collapse-btn"
-            onClick={() => setSidebarCollapsed((v) => !v)}
-            title={sidebarCollapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
-            aria-label={sidebarCollapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
-          >
-            {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          </button>
-
-          <span className="sidebar-version" title="Versi aplikasi">v1.0.5</span>
+          <div className="sidebar-bottom">
+            <span className="sidebar-version" title="Versi aplikasi">v1.0.5</span>
+            <button
+              className="sidebar-collapse-btn"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              title={sidebarCollapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
+              aria-label={sidebarCollapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            </button>
+          </div>
         </div>
       </aside>
       
@@ -624,10 +625,6 @@ export default function Layout({ children }) {
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="user-avatar-sm">
-              {currentUser?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || 'U'}
             </div>
           </div>
         </header>
