@@ -167,7 +167,8 @@ pub async fn push_send(
         };
 
         let mut builder = WebPushMessageBuilder::new(&sub);
-        builder.set_payload(ContentEncoding::Aes128Gcm, message.to_string().as_bytes());
+        let payload = message.to_string();
+        builder.set_payload(ContentEncoding::Aes128Gcm, payload.as_bytes());
         builder.set_vapid_signature(signature);
 
         let msg = match builder.build() {
