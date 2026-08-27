@@ -506,5 +506,36 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Subskripsi Web Push (notifikasi walau aplikasi tertutup).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            endpoint TEXT NOT NULL,
+            p256dh TEXT NOT NULL DEFAULT '',
+            auth TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Blob data pribadi terenkripsi untuk sinkronisasi lintas perangkat.
+    // `blob_key` mis. 'private-notes', 'vault', 'sync-all'. Isi sudah
+    // dienkripsi AES-GCM di sisi klien, server hanya menyimpan string.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS user_data_blobs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            blob_key TEXT NOT NULL,
+            payload TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(user_id, blob_key)
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }

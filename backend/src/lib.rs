@@ -4,6 +4,7 @@ pub mod handlers;
 pub mod mail;
 pub mod models;
 pub mod owner;
+pub mod push;
 pub mod tools;
 
 use axum::{
@@ -171,6 +172,13 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Tools / Actions (AI Agent layer)
         .route("/api/tools", get(tools::list_tools))
         .route("/api/tools/execute", post(tools::execute_tool))
+        // Web Push (notifikasi walau aplikasi tertutup)
+        .route("/api/push/subscribe", post(push::push_subscribe))
+        .route("/api/push/unsubscribe", post(push::push_unsubscribe))
+        .route("/api/push/send", post(push::push_send))
+        // Blob data pribadi terenkripsi (sinkronisasi lintas perangkat)
+        .route("/api/sync/blob/{key}", get(push::blob_get))
+        .route("/api/sync/blob/{key}", put(push::blob_put))
         // Admin (khusus OWNER)
         .route("/api/admin/users", get(handlers::admin_list_users))
         .route("/api/admin/users", post(handlers::admin_create_user))

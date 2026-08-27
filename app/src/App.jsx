@@ -1,48 +1,58 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { getAppThemeConfig, normalizeAppTheme, useStore } from './store/useStore'
 import { initModalFocus } from './utils/modalFocus'
+import UrlSync from './components/UrlSync'
 // =====================================================================
-// App.jsx — Router utama aplikasi (manual, belum pakai react-router).
+// App.jsx — Router utama aplikasi.
 // =====================================================================
-// Menentukan halaman yang dirender berdasarkan state global `useStore`:
-//   - appState 'landing'/'pricing'/'faq'/'checkout'/'auth'/'setup'
-//     => halaman publik/prasytar sebelum masuk aplikasi.
-//   - isAuthenticated false        => arahkan ke Landing.
-//   - selain itu => render halaman dalam area 'app' via currentPage.
-// CATATAN: react-router-dom sudah ada di package.json tapi belum dipakai;
-//          migrasi ke router ini adalah salah satu item roadmap (lihat README).
+// - URL dikelola react-router (HashRouter di main.jsx) dan disinkronkan
+//   ke state global lewat komponen <UrlSync /> (shareable URL, deep-link,
+//   back/forward). 
+// - Halaman di-load secara lazy (React.lazy) agar bundle terpecah per
+//   halaman (lihat vite.config manualChunks).
 // =====================================================================
-import Landing from './pages/Landing'
-import Pricing from './pages/Pricing'
-import FAQ from './pages/FAQ'
-import Checkout from './pages/Checkout'
-import Auth from './pages/Auth'
-import Setup from './pages/Setup'
-import Dashboard from './pages/Dashboard'
-import Projects from './pages/Projects'
-import ProjectDetail from './pages/ProjectDetail'
-import MyTasks from './pages/MyTasks'
-import Kanban from './pages/Kanban'
-import TodoList from './pages/TodoList'
-import PrivateNote from './pages/PrivateNote'
-import Vault from './pages/Vault'
-import Calendar from './pages/Calendar'
-import Team from './pages/Team'
-import Settings from './pages/Settings'
-import AdminUsers from './pages/AdminUsers'
-import UpgradeAkun from './pages/UpgradeAkun'
-import ChatPage from './pages/ChatPage'
-import AgentChat from './pages/AgentChat'
-import OwnerDashboard from './pages/OwnerDashboard'
-import AttendancePage from './pages/AttendancePage'
-import AttendanceAdmin from './pages/AttendanceAdmin'
-import NotificationsPage from './pages/NotificationsPage'
-import Games from './pages/Games'
-import AlarmTimer from './pages/AlarmTimer'
-import Research from './pages/Research'
-import Performance from './pages/Performance'
-import Apps from './pages/Apps'
-import Connect from './pages/Connect'
+
+// Halaman publik + area app di-load lazy; Landing dibiarkan eager agar
+// first paint cepat.
+const Landing = lazy(() => import('./pages/Landing'))
+const Pricing = lazy(() => import('./pages/Pricing'))
+const FAQ = lazy(() => import('./pages/FAQ'))
+const Checkout = lazy(() => import('./pages/Checkout'))
+const Auth = lazy(() => import('./pages/Auth'))
+const Setup = lazy(() => import('./pages/Setup'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Projects = lazy(() => import('./pages/Projects'))
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
+const MyTasks = lazy(() => import('./pages/MyTasks'))
+const Kanban = lazy(() => import('./pages/Kanban'))
+const TodoList = lazy(() => import('./pages/TodoList'))
+const PrivateNote = lazy(() => import('./pages/PrivateNote'))
+const Vault = lazy(() => import('./pages/Vault'))
+const Calendar = lazy(() => import('./pages/Calendar'))
+const Team = lazy(() => import('./pages/Team'))
+const Settings = lazy(() => import('./pages/Settings'))
+const AdminUsers = lazy(() => import('./pages/AdminUsers'))
+const UpgradeAkun = lazy(() => import('./pages/UpgradeAkun'))
+const ChatPage = lazy(() => import('./pages/ChatPage'))
+const AgentChat = lazy(() => import('./pages/AgentChat'))
+const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard'))
+const AttendancePage = lazy(() => import('./pages/AttendancePage'))
+const AttendanceAdmin = lazy(() => import('./pages/AttendanceAdmin'))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
+const Games = lazy(() => import('./pages/Games'))
+const AlarmTimer = lazy(() => import('./pages/AlarmTimer'))
+const Research = lazy(() => import('./pages/Research'))
+const Performance = lazy(() => import('./pages/Performance'))
+const Apps = lazy(() => import('./pages/Apps'))
+const Connect = lazy(() => import('./pages/Connect'))
+
+function PageLoader() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+      <div className="spin" style={{ width: 28, height: 28, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%' }} />
+    </div>
+  )
+}
 
 function App() {
   const { appState, currentPage, isAuthenticated, theme, setAppState, seedOwnerDummyData } = useStore()
@@ -148,38 +158,33 @@ function App() {
   // Landing pages — tapi kalau sesi masih aktif (dipulihkan persist dari
   // localStorage setelah refresh) jangan kirim user ke landing walau
   // appState sempat tertinggal 'landing'; langsung render halaman app.
+  let content
   if (appState === 'landing') {
-    return isAuthenticated ? renderApp() : <Landing />
+    content = isAuthenticated ? renderApp() : <Landing />
+  } else if (appState === 'pricing') {
+    content = <Pricing />
+  } else if (appState === 'faq') {
+    content = <FAQ />
+  } else if (appState === 'checkout') {
+    content = <Checkout />
+  } else if (appState === 'auth') {
+    content = <Auth />
+  } else if (appState === 'setup') {
+    content = <Setup />
+  } else if (!isAuthenticated) {
+    content = <Landing />
+  } else {
+    content = renderApp()
   }
-  
-  if (appState === 'pricing') {
-    return <Pricing />
-  }
-  
-  if (appState === 'faq') {
-    return <FAQ />
-  }
-  
-  if (appState === 'checkout') {
-    return <Checkout />
-  }
-  
-  // Auth flow
-  if (appState === 'auth') {
-    return <Auth />
-  }
-  
-  // Setup flow
-  if (appState === 'setup') {
-    return <Setup />
-  }
-  
-  // Main app - require auth
-  if (!isAuthenticated) {
-    return <Landing />
-  }
-  
-  return renderApp()
+
+  return (
+    <>
+      <UrlSync />
+      <Suspense fallback={<PageLoader />}>
+        {content}
+      </Suspense>
+    </>
+  )
 }
 
 export default App

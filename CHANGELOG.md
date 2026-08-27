@@ -11,6 +11,24 @@ Alur: `1.0.0 → 1.0.1 → ... → 1.0.9 → 1.1.0 → ... → 1.9.9 → 2.0.0`
 
 ---
 
+## [1.0.5] - 2026-08-27
+
+### Ditambahkan (roadmap jangka pendek)
+- **Migrasi react-router** — URL shareable (`/#/app/kanban`), deep-link
+  notifikasi & halaman, dukungan back/forward (HashRouter + UrlSync).
+- **Perkecil bundle** — halaman di-load lazy (React.lazy + Suspense) +
+  manualChunks vendor. Index utama turun dari ~1.1 MB → ~57 kB.
+- **Web Push** — notifikasi walau aplikasi tertutup (VAPID + Service Worker),
+  subscription ke backend (`/api/push/subscribe`, `/api/push/send`).
+- **Uji otomatis** — Vitest (22 unit test) + Playwright (E2E smoke).
+- **Sinkronisasi data terenkripsi** — util AES-GCM (Web Crypto, PBKDF2) +
+  blob storage backend (`/api/sync/blob/{key}`).
+
+### Diperbaiki
+- Bug "Muat Info Koneksi" blank page (maskConn scope) — dari v1.0.2.
+
+---
+
 ## [1.0.2] - 2026-08-27
 
 ### Diperbaiki

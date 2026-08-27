@@ -21,7 +21,7 @@ use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, In
 // tabel `owner_config` dengan kunci JSON. Kredensial TIDAK pernah
 // dikembalikan utuh ke client — hanya status "terkonfigurasi".
 
-async fn is_owner(db: &PgPool, user_id: &str) -> Result<bool, StatusCode> {
+pub async fn is_owner(db: &PgPool, user_id: &str) -> Result<bool, StatusCode> {
     let row = sqlx::query("SELECT role FROM users WHERE id = $1")
         .bind(user_id)
         .fetch_optional(db)

@@ -212,6 +212,12 @@ export const api = {
   // ---- Gaji & insentif (dashboard absensi admin) ----
   salaryMonthly: (companyId, month, teamId) =>
     get('/api/salary/monthly', teamId ? { company_id: companyId, month, team_id: teamId } : { company_id: companyId, month }),
+
+  // ---- Web Push ----
+  pushSubscribe: (sub) => post('/api/push/subscribe', sub),
+  pushUnsubscribe: (endpoint) => post('/api/push/unsubscribe', { endpoint }),
+  // Kirim push ke user (owner/super_admin/admin) atau semua user workspace.
+  pushSend: (payload) => post('/api/push/send', payload),
   salaryAddIncentive: (data) => post('/api/salary/incentive', data),
   salaryDeleteIncentive: (id) => del(`/api/salary/incentive/${id}`, {}),
 

@@ -5,6 +5,7 @@ import ReminderWatcher from './ReminderWatcher'
 import HeadlineMarquee from './HeadlineMarquee'
 import InstallAppButton from './InstallAppButton'
 import { requestNotificationPermission } from '../utils/notify'
+import { subscribeToPush } from '../utils/push'
 import { useAutoHideNav } from '../utils/useAutoHideNav'
 import Logo from './Logo'
 import { 
@@ -239,8 +240,20 @@ export default function Layout({ children }) {
     return () => clearInterval(id)
   }, [isAuthenticated, loadServerNotifications])
 
+  // Daftarkan Web Push sekali saat sesi aktif & izin notifikasi sudah diberikan.
+  useEffect(() => {
+    if (!isAuthenticated) return
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      subscribeToPush()
+    }
+  }, [isAuthenticated])
+
   const handleNotifClick = () => {
     requestNotificationPermission()
+      .then((perm) => {
+        // Izinkan notifikasi → daftarkan juga Web Push (notif walau app tertutup).
+        if (perm === 'granted') subscribeToPush()
+      })
     setNotifOpen((v) => !v)
     if (!notifOpen) {
       markAllNotificationsRead()
@@ -500,7 +513,7 @@ export default function Layout({ children }) {
             {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
 
-          <span className="sidebar-version" title="Versi aplikasi">v1.0.2</span>
+          <span className="sidebar-version" title="Versi aplikasi">v1.0.5</span>
         </div>
       </aside>
       

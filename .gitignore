@@ -32,3 +32,16 @@ npm-debug.log*
   
 # Build artifacts / rilis
 luxio-*-web.zip
+
+# =====================================================================
+# Dokumen internal / rahasia developer (TIDAK di-push ke GitHub publik)
+# Dokumen ini hanya ada lokal. Hanya dokumen publik penting yang di-track:
+# README.md, CHANGELOG.md, ARCHITECTURE.md, DEPLOYMENT.md, SECURITY.md,
+# SPEC.md, WIREFRAME.md, spesifikasi terbaru.md
+# =====================================================================
+ai-agent-security-architecture.md
+development-standards-seo-adsense.md
+pricing_lama.md
+saran_pricing.md
+security-best-practices-vue-rust-neon.md
+rekomendasi_fitur.md
