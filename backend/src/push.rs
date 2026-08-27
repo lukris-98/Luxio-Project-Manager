@@ -160,7 +160,7 @@ pub async fn push_send(
         let sub = SubscriptionInfo::new(endpoint, p256dh, auth);
 
         let mut sig_builder = partial_sig_builder.clone().add_sub_info(&sub);
-        sig_builder.add_claim("sub", &vapid_subject);
+        sig_builder.add_claim("sub", vapid_subject.as_str());
         let signature = match sig_builder.build() {
             Ok(s) => s,
             Err(_) => { failed += 1; continue; }
