@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libs
 # Naikkan CACHE_BUST tiap kali ingin menarik kode terbaru dari GitHub.
 # Docker meng-cache layer RUN git clone — mengubah ARG CACHE_BUST
 # akan mematahkan cache dan memaksa clone ulang.
-ARG CACHE_BUST=4
+ARG CACHE_BUST=5
 
 WORKDIR /build
 RUN git clone --depth 1 --branch master https://github.com/lukris-98/Luxio-Project-Manager.git repo
