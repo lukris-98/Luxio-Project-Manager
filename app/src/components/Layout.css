@@ -1016,6 +1016,12 @@
     transform: translateX(0);
     z-index: 130;
   }
+
+  /* Saat dropdown terbuka di mobile, sidebar harus berada DI ATAS backdrop
+     (.nav-dropdown-backdrop z-index 135) agar item dropdown bisa diklik. */
+  .sidebar.open.nav-dropdown-open {
+    z-index: 145;
+  }
   
   .sidebar-close {
     display: flex;
