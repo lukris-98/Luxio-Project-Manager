@@ -180,6 +180,13 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Blob data pribadi terenkripsi (sinkronisasi lintas perangkat)
         .route("/api/sync/blob/{key}", get(push::blob_get))
         .route("/api/sync/blob/{key}", put(push::blob_put))
+        // Profil sosial (TikTok-style): posting foto, like, komentar, share
+        .route("/api/profile/posts", post(owner::create_post))
+        .route("/api/profile/posts", get(owner::list_posts))
+        .route("/api/profile/posts/{id}/like", post(owner::toggle_like))
+        .route("/api/profile/posts/{id}/comments", get(owner::list_comments))
+        .route("/api/profile/posts/{id}/comments", post(owner::add_comment))
+        .route("/api/profile/posts/{id}/share", post(owner::share_post))
         // Admin (khusus OWNER)
         .route("/api/admin/users", get(handlers::admin_list_users))
         .route("/api/admin/users", post(handlers::admin_create_user))

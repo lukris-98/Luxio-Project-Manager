@@ -45,6 +45,7 @@ const Research = lazy(() => import('./pages/Research'))
 const Performance = lazy(() => import('./pages/Performance'))
 const Apps = lazy(() => import('./pages/Apps'))
 const Connect = lazy(() => import('./pages/Connect'))
+const Profile = lazy(() => import('./pages/Profile'))
 
 function PageLoader() {
   return (
@@ -85,14 +86,15 @@ function App() {
   }, [setAppState])
 
   // Saat refresh: jangan tertahan di halaman publik (pricing/faq/checkout)
-  // yang tersimpan dari sesi sebelumnya. Pengguna yang belum login kembali ke
-  // Landing; yang sudah login otomatis diarahkan ke halaman app oleh logika
-  // render di bawah. Halaman publik tetap bisa dibuka lewat navigasi.
+  // yang tersimpan dari sesi sebelumnya. Pengguna yang BELUM login kembali ke
+  // Landing; yang sudah login diarahkan ke halaman app oleh logika render.
+  // Halaman pricing/checkout tetap bisa dibuka oleh siapa pun (termasuk yang
+  // sudah login) lewat navigasi.
   useEffect(() => {
-    if (['pricing', 'faq', 'checkout'].includes(appState)) {
+    if (!isAuthenticated && ['pricing', 'faq', 'checkout'].includes(appState)) {
       setAppState('landing')
     }
-  }, [appState, setAppState])
+  }, [appState, isAuthenticated, setAppState])
 
   // Fokus otomatis ke modal/pop-up saat muncul (scroll & keyboard focus).
   useEffect(() => {
@@ -151,6 +153,8 @@ function App() {
         return <Apps />
       case 'connect':
         return <Connect />
+      case 'profile':
+        return <Profile />
       default:
         return <Dashboard />
     }

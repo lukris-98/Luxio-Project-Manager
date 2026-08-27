@@ -590,6 +590,18 @@ pub async fn login(
     let code_hash = sha256(&code);
     let expires_at = Utc::now() + Duration::minutes(5);
 
+    // Kode 2FA sebelumnya langsung di-nonaktifkan (used=TRUE) agar hanya
+    // kode TERBARU yang berlaku. Kalau OTP terkirim dua kali, hanya yang
+    // terakhir yang bisa dipakai.
+    sqlx::query("UPDATE login_otps SET used = TRUE WHERE user_id = $1 AND used = FALSE")
+        .bind(&user_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
     sqlx::query(
         "INSERT INTO login_otps (id, user_id, otp_hash, expires_at, used, created_at)
          VALUES ($1, $2, $3, $4, FALSE, $5)",

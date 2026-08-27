@@ -51,6 +51,7 @@ const NAV_COLORS = {
   performance: '#FB923C',
   apps: '#A78BFA',
   connect: '#22D3EE',
+  profile: '#FF6B35',
 }
 
 // Link yang punya dropdown berisi item-nya (max 3 terlihat, scroll bila lebih).
@@ -197,6 +198,8 @@ export default function Layout({ children }) {
     { id: 'apps', icon: AppWindow, label: 'Aplikasi' },
     // Connect (integrasi eksternal) — semua role.
     { id: 'connect', icon: Plug2, label: 'Connect' },
+    // Profil sosial (TikTok-style): foto, like, komentar, share.
+    { id: 'profile', icon: UserRound, label: 'Profil' },
   ]
 
   const handleRoleChange = (role) => {
@@ -435,7 +438,7 @@ export default function Layout({ children }) {
               title={currentUser?.name || 'Profil'}
             >
               <div className="user-avatar">
-                {currentUser?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || 'U'}
+                <img src={`${import.meta.env.BASE_URL || '/'}luxio.png`} alt="Luxio" />
               </div>
               <div className="user-details">
                 <span className="user-name">{currentUser?.name || 'User'}</span>
@@ -449,7 +452,7 @@ export default function Layout({ children }) {
                 <div className="profile-menu" role="menu">
                   <div className="profile-menu-head">
                     <div className="profile-menu-avatar">
-                      {currentUser?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || 'U'}
+                      <img src={`${import.meta.env.BASE_URL || '/'}luxio.png`} alt="Luxio" />
                     </div>
                     <div className="profile-menu-identity">
                       <span className="profile-menu-name">{currentUser?.name || 'User'}</span>

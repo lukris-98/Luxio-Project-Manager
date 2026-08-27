@@ -539,5 +539,61 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // =====================================================================
+    // PROFIL SOSIAL (TikTok-style): unggah foto profil, like, komentar, share.
+    // =====================================================================
+
+    // Postingan foto di profil user. `image_url` = URL gambar (bisa URL
+    // gambar di internet / data URI); server hanya menyimpan URL.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS profile_posts (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            image_url TEXT NOT NULL,
+            caption TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Like pada sebuah post. Satu user hanya bisa like satu kali per post.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS profile_post_likes (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL REFERENCES profile_posts(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(post_id, user_id)
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Komentar pada sebuah post.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS profile_post_comments (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL REFERENCES profile_posts(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            body TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Share pada sebuah post (dari akun ke akun lain).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS profile_post_shares (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL REFERENCES profile_posts(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }

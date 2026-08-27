@@ -228,6 +228,14 @@ export const api = {
   recordProfileView: (userId) => post(`/api/profile/${userId}/view`, {}),
   getProfileViews: (userId) => get(`/api/profile/${userId}/views`),
 
+  // ---- Profil sosial (TikTok-style): posting foto, like, komentar, share ----
+  createPost: (data) => post('/api/profile/posts', data),
+  getPosts: (userId) => get('/api/profile/posts', userId ? { user_id: userId } : {}),
+  toggleLike: (postId) => post(`/api/profile/posts/${postId}/like`, {}),
+  getComments: (postId) => get(`/api/profile/posts/${postId}/comments`),
+  addComment: (postId, body) => post(`/api/profile/posts/${postId}/comments`, { body }),
+  sharePost: (postId) => post(`/api/profile/posts/${postId}/share`, {}),
+
   // ---- Absensi ----
   createAttendance: (data) => post('/api/attendance', data),
   getAttendance: (companyId) => get('/api/attendance', companyId ? { company_id: companyId } : {}),

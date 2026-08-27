@@ -75,8 +75,8 @@ fn config() -> Option<MailConfig> {
 /// `cta` = opsional tombol CTA { url, label }.
 fn html_template(title: &str, body_html: &str, cta: Option<(&str, &str)>) -> String {
     let app_url = crate::mail::app_url();
-    let banner_url = format!("{}/luxio-banner.png", app_url);
-    let logo_url = format!("{}/luxio.png", app_url);
+    let banner_url = "https://raw.githubusercontent.com/lukris-98/Luxio-Project-Manager/master/app/public/luxio-banner.png";
+    let logo_url = "https://raw.githubusercontent.com/lukris-98/Luxio-Project-Manager/master/app/public/luxio.png";
     let cta_html = match cta {
         Some((url, label)) => format!(
             r#"<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:24px auto;">

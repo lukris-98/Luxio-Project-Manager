@@ -7,6 +7,7 @@ use axum::{
 use chrono::Utc;
 use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::AppState;
@@ -1021,4 +1022,146 @@ fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let a = (dlat / 2.0).sin().powi(2)
         + lat1.to_radians().cos() * lat2.to_radians().cos() * (dlon / 2.0).sin().powi(2);
     2.0 * r * a.sqrt().asin()
+}
+
+// =====================================================================
+// PROFIL SOSIAL (TikTok-style): posting foto, like, komentar, share
+// =====================================================================
+
+/// POST /api/profile/posts — buat postingan baru (foto + caption).
+pub async fn create_post(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let image_url = payload.get("image_url").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    let caption = payload.get("caption").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    if image_url.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let id = Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO profile_posts (id, user_id, image_url, caption, created_at) VALUES ($1, $2, $3, $4, $5)")
+        .bind(&id).bind(&user_id).bind(&image_url).bind(&caption).bind(Utc::now())
+        .execute(&state.db).await.map_err(|e| { eprintln!("[DB] {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+    Ok(Json(json!({ "id": id, "ok": true })))
+}
+
+/// GET /api/profile/posts — daftar postingan, bisa filter ?user_id=.
+pub async fn list_posts(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, StatusCode> {
+    let actor_id = require_auth(&state, &headers).await?;
+    let user_filter = params.get("user_id").filter(|s| !s.is_empty());
+    let (where_clause, bind_val) = if let Some(uid) = user_filter {
+        ("WHERE p.user_id = $1", Some(uid.clone()))
+    } else {
+        ("", None)
+    };
+    let rows = sqlx::query_as::<_, (String, String, String, String, chrono::DateTime<Utc>)>(
+        &format!(
+            "SELECT p.id, p.user_id, p.image_url, p.caption, p.created_at
+             FROM profile_posts p {} ORDER BY p.created_at DESC LIMIT 50", where_clause
+        )
+    )
+    .bind(bind_val.as_deref().unwrap_or(""))
+    .fetch_all(&state.db).await.map_err(|e| { eprintln!("[DB] {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    let mut posts = Vec::new();
+    for (id, uid, image_url, caption, created_at) in rows {
+        let like_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM profile_post_likes WHERE post_id = $1")
+            .bind(&id).fetch_one(&state.db).await.unwrap_or(0);
+        let comment_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM profile_post_comments WHERE post_id = $1")
+            .bind(&id).fetch_one(&state.db).await.unwrap_or(0);
+        let share_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM profile_post_shares WHERE post_id = $1")
+            .bind(&id).fetch_one(&state.db).await.unwrap_or(0);
+        let liked = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM profile_post_likes WHERE post_id = $1 AND user_id = $2")
+            .bind(&id).bind(&actor_id).fetch_one(&state.db).await.unwrap_or(0) > 0;
+        let author: Option<(String, String)> = sqlx::query_as("SELECT name, email FROM users WHERE id = $1")
+            .bind(&uid).fetch_optional(&state.db).await.ok().flatten();
+        posts.push(json!({
+            "id": id, "user_id": uid, "image_url": image_url, "caption": caption,
+            "created_at": created_at, "like_count": like_count, "comment_count": comment_count,
+            "share_count": share_count, "liked": liked,
+            "author_name": author.as_ref().map(|a| a.0.as_str()),
+            "author_email": author.as_ref().map(|a| a.1.as_str()),
+        }));
+    }
+    Ok(Json(json!({ "posts": posts })))
+}
+
+/// POST /api/profile/posts/:id/like — toggle like (like/unlike).
+pub async fn toggle_like(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(post_id): axum::extract::Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM profile_post_likes WHERE post_id = $1 AND user_id = $2")
+        .bind(&post_id).bind(&user_id).fetch_one(&state.db).await.unwrap_or(0);
+    if existing > 0 {
+        sqlx::query("DELETE FROM profile_post_likes WHERE post_id = $1 AND user_id = $2")
+            .bind(&post_id).bind(&user_id).execute(&state.db).await.ok();
+        Ok(Json(json!({ "liked": false })))
+    } else {
+        sqlx::query("INSERT INTO profile_post_likes (id, post_id, user_id, created_at) VALUES ($1, $2, $3, $4)")
+            .bind(Uuid::new_v4().to_string()).bind(&post_id).bind(&user_id).bind(Utc::now())
+            .execute(&state.db).await.map_err(|e| { eprintln!("[DB] {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+        Ok(Json(json!({ "liked": true })))
+    }
+}
+
+/// GET /api/profile/posts/:id/comments — daftar komentar.
+pub async fn list_comments(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(post_id): axum::extract::Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    require_auth(&state, &headers).await?;
+    let rows = sqlx::query_as::<_, (String, String, String, chrono::DateTime<Utc>)>(
+        "SELECT c.id, c.user_id, c.body, c.created_at FROM profile_post_comments c WHERE c.post_id = $1 ORDER BY c.created_at ASC"
+    ).bind(&post_id).fetch_all(&state.db).await.map_err(|e| { eprintln!("[DB] {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+    let mut comments = Vec::new();
+    for (id, uid, body, created_at) in rows {
+        let author: Option<(String, String)> = sqlx::query_as("SELECT name, email FROM users WHERE id = $1")
+            .bind(&uid).fetch_optional(&state.db).await.ok().flatten();
+        comments.push(json!({
+            "id": id, "user_id": uid, "body": body, "created_at": created_at,
+            "author_name": author.as_ref().map(|a| a.0.as_str()),
+            "author_email": author.as_ref().map(|a| a.1.as_str()),
+        }));
+    }
+    Ok(Json(json!({ "comments": comments })))
+}
+
+/// POST /api/profile/posts/:id/comments — tambah komentar.
+pub async fn add_comment(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(post_id): axum::extract::Path<String>,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let body = payload.get("body").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    if body.is_empty() { return Err(StatusCode::BAD_REQUEST); }
+    let id = Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO profile_post_comments (id, post_id, user_id, body, created_at) VALUES ($1, $2, $3, $4, $5)")
+        .bind(&id).bind(&post_id).bind(&user_id).bind(&body).bind(Utc::now())
+        .execute(&state.db).await.map_err(|e| { eprintln!("[DB] {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+    Ok(Json(json!({ "id": id, "ok": true })))
+}
+
+/// POST /api/profile/posts/:id/share — catat share.
+pub async fn share_post(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(post_id): axum::extract::Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    sqlx::query("INSERT INTO profile_post_shares (id, post_id, user_id, created_at) VALUES ($1, $2, $3, $4)")
+        .bind(Uuid::new_v4().to_string()).bind(&post_id).bind(&user_id).bind(Utc::now())
+        .execute(&state.db).await.map_err(|e| { eprintln!("[DB] {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+    Ok(Json(json!({ "ok": true })))
 }
