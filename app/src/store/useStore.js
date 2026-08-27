@@ -32,6 +32,29 @@ export const makeAppTheme = (family, mode) => family === 'main-white'
   : mode === 'light' ? 'light' : 'dark'
 export const toggleAppThemeMode = (theme) => makeAppTheme(getAppThemeFamily(theme), getAppThemeMode(theme) === 'dark' ? 'light' : 'dark')
 
+// Daftar badge gamification beserta ambang XP untuk membukanya.
+export const GAMIFICATION_BADGES = [
+  { id: 'starter', name: 'Pemula', icon: '🌱', desc: 'Mulai perjalananmu di Luxio', requiresXp: 0 },
+  { id: 'worker', name: 'Rajin', icon: '⚒️', desc: 'Kumpulkan 100 XP', requiresXp: 100 },
+  { id: 'achiever', name: 'Pencapai', icon: '🎯', desc: 'Kumpulkan 250 XP', requiresXp: 250 },
+  { id: 'pro', name: 'Profesional', icon: '💼', desc: 'Kumpulkan 500 XP', requiresXp: 500 },
+  { id: 'veteran', name: 'Veteran', icon: '🏆', desc: 'Kumpulkan 1000 XP', requiresXp: 1000 },
+  { id: 'legend', name: 'Legenda', icon: '👑', desc: 'Kumpulkan 2000 XP', requiresXp: 2000 },
+]
+
+// Hitung level dari total XP (level naik setiap 200 XP).
+export const levelFromXp = (xp) => Math.floor((xp || 0) / 200) + 1
+export const xpForNextLevel = (xp) => 200 - ((xp || 0) % 200)
+
+// Kunci data per "mode" akun. Akun OWNER punya 4 mode (owner/super_admin/
+// admin/user) via fitur act-as — data tiap mode harus TERPISAH supaya tidak
+// saling campur. Untuk akun non-owner, kunci data = id user.
+export const dataKeyFor = (user, activeRole) => {
+  if (!user || user.id == null) return null
+  if (user.role === 'owner') return `${user.id}:${activeRole || 'owner'}`
+  return String(user.id)
+}
+
 // Hitung ulang progress target dengan cara kelola 'kanban':
 // persentase task di kolom Done terhadap seluruh task board.
 const recalcBoardProgress = (state) => {
@@ -107,6 +130,8 @@ const recomputeDivisionCounts = (divisions, teams, members) =>
 export const useStore = create(
   persist(
     (set, get) => ({
+  // Helper: kunci data per mode (owner punya data terpisah per role aktif).
+  modeUid: () => dataKeyFor(get().currentUser, get().activeRole) || 'local',
   // ---------- NAVIGASI (tanpa react-router) ----------
   // appState: 'landing' | 'pricing' | 'faq' | 'checkout' | 'auth' | 'setup' | 'app'
   appState: 'landing',
@@ -185,8 +210,7 @@ export const useStore = create(
   selectedVaultId: null,
 
   addVaultEntry: (entry) => {
-    const { currentUser } = get()
-    const uid = currentUser?.id || 'local'
+    const uid = get().modeUid()
     const list = get().vault[uid] || []
     set({
       vault: {
@@ -201,6 +225,8 @@ export const useStore = create(
             password: entry.password || '',
             url: entry.url || '',
             notes: entry.notes || '',
+            pin: entry.pin || null,
+            locked: Boolean(entry.pin),
             createdAt: Date.now(),
             updatedAt: Date.now(),
           },
@@ -211,25 +237,36 @@ export const useStore = create(
   },
 
   updateVaultEntry: (id, data) => {
-    const { currentUser } = get()
-    const uid = currentUser?.id || 'local'
+    const uid = get().modeUid()
     set({
       vault: {
         ...get().vault,
         [uid]: (get().vault[uid] || []).map((e) =>
-          e.id === id ? { ...e, ...data, updatedAt: Date.now() } : e
+          e.id === id ? { ...e, ...data, locked: 'pin' in data ? Boolean(data.pin) : e.locked, updatedAt: Date.now() } : e
         ),
       },
     })
   },
 
   deleteVaultEntry: (id) => {
-    const { currentUser } = get()
-    const uid = currentUser?.id || 'local'
+    const uid = get().modeUid()
     set({
       vault: {
         ...get().vault,
         [uid]: (get().vault[uid] || []).filter((e) => e.id !== id),
+      },
+    })
+  },
+
+  // ---------- PENGATURAN BRANKAS (PIN utama per user) ----------
+  // vaultSettings[userId] = { pin: string | null }
+  vaultSettings: {},
+  setVaultPin: (pin) => {
+    const uid = get().modeUid()
+    set({
+      vaultSettings: {
+        ...get().vaultSettings,
+        [uid]: { pin: pin ? String(pin).trim() : null },
       },
     })
   },
@@ -311,7 +348,7 @@ export const useStore = create(
     }),
 
   setNoteTheme: (noteId, theme) => {
-    const userId = get().currentUser?.id
+    const userId = get().modeUid()
     if (userId == null) return
     set({
       privateNotes: {
@@ -383,7 +420,7 @@ export const useStore = create(
   // =====================================================================
   // Setiap user punya daftar catatan sendiri (dipisah berdasarkan id user).
   addPrivateNote: (note) => {
-    const userId = get().currentUser?.id
+    const userId = get().modeUid()
     if (userId == null) return null
     const id = Date.now()
     const myNotes = get().privateNotes[userId] || []
@@ -404,11 +441,12 @@ export const useStore = create(
         }],
       },
     })
+    get().addXp(5, 'Membuat catatan baru')
     return id
   },
 
   updatePrivateNote: (noteId, data) => {
-    const userId = get().currentUser?.id
+    const userId = get().modeUid()
     if (userId == null) return
     const myNotes = get().privateNotes[userId] || []
     set({
@@ -422,7 +460,7 @@ export const useStore = create(
   },
 
   toggleNoteCollaborator: (noteId, memberId) => {
-    const userId = get().currentUser?.id
+    const userId = get().modeUid()
     if (userId == null) return
     const myNotes = get().privateNotes[userId] || []
     set({
@@ -444,7 +482,7 @@ export const useStore = create(
   },
 
   deletePrivateNote: (noteId) => {
-    const userId = get().currentUser?.id
+    const userId = get().modeUid()
     if (userId == null) return
     const myNotes = get().privateNotes[userId] || []
     set({
@@ -456,7 +494,7 @@ export const useStore = create(
   },
 
   closePrivateNote: (noteId) => {
-    const userId = get().currentUser?.id
+    const userId = get().modeUid()
     if (userId == null) return
     const myNotes = get().privateNotes[userId] || []
     set({
@@ -468,7 +506,7 @@ export const useStore = create(
   },
 
   openPrivateNote: (noteId) => {
-    const userId = get().currentUser?.id
+    const userId = get().modeUid()
     if (userId == null) return
     const myNotes = get().privateNotes[userId] || []
     set({
@@ -480,6 +518,186 @@ export const useStore = create(
   },
 
   setSelectedNoteId: (noteId) => set({ selectedNoteId: noteId }),
+
+  // =====================================================================
+  // ACTIONS — GAMIFICATION (level, XP, badge) per user
+  // =====================================================================
+  // gamification[userId] = { xp, badges: [id, ...] }
+  // XP didapat dari aktivitas: menyelesaikan task, checklist, target,
+  // membuat catatan, dll. Badge terbuka otomatis saat ambang tercapai.
+  gamification: {},
+  addXp: (amount, reason = '') => {
+    const userId = get().modeUid()
+    if (userId == null) return
+    const g = get().gamification[userId] || { xp: 0, badges: [] }
+    const newXp = g.xp + Math.max(0, Number(amount) || 0)
+    const badges = GAMIFICATION_BADGES
+      .filter((b) => b.requiresXp != null && newXp >= b.requiresXp && !g.badges.includes(b.id))
+      .map((b) => b.id)
+    set({
+      gamification: {
+        ...get().gamification,
+        [userId]: { xp: newXp, badges: [...new Set([...g.badges, ...badges])] },
+      },
+    })
+  },
+
+  // =====================================================================
+  // ACTIONS — ALARM & TIMER (per user)
+  // =====================================================================
+  // alarms[userId] = [ { id, time, label, enabled, createdAt } ]
+  alarms: {},
+  addAlarm: ({ time, label = '' }) => {
+    const userId = get().modeUid()
+    if (userId == null) return
+    const myAlarms = get().alarms[userId] || []
+    set({
+      alarms: {
+        ...get().alarms,
+        [userId]: [...myAlarms, {
+          id: Date.now(),
+          time,
+          label: label.trim() || 'Alarm',
+          enabled: true,
+          createdAt: Date.now(),
+        }],
+      },
+    })
+  },
+  toggleAlarm: (alarmId) => {
+    const userId = get().modeUid()
+    if (userId == null) return
+    set({
+      alarms: {
+        ...get().alarms,
+        [userId]: (get().alarms[userId] || []).map((a) =>
+          a.id === alarmId ? { ...a, enabled: !a.enabled } : a
+        ),
+      },
+    })
+  },
+  deleteAlarm: (alarmId) => {
+    const userId = get().modeUid()
+    if (userId == null) return
+    set({
+      alarms: {
+        ...get().alarms,
+        [userId]: (get().alarms[userId] || []).filter((a) => a.id !== alarmId),
+      },
+    })
+  },
+
+  // =====================================================================
+  // ACTIONS — RISET KONTEN (per user)
+  // =====================================================================
+  // researchTopics[userId] = [ { id, topic, category, notes, ideas: [], createdAt, updatedAt } ]
+  researchTopics: {},
+  addResearchTopic: (topic) => {
+    const userId = get().modeUid()
+    if (userId == null) return
+    const myTopics = get().researchTopics[userId] || []
+    set({
+      researchTopics: {
+        ...get().researchTopics,
+        [userId]: [...myTopics, {
+          id: Date.now(),
+          topic: (topic.topic || '').trim(),
+          category: topic.category || '',
+          notes: topic.notes || '',
+          ideas: topic.ideas || [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        }],
+      },
+    })
+  },
+  updateResearchTopic: (topicId, data) => {
+    const userId = get().modeUid()
+    if (userId == null) return
+    set({
+      researchTopics: {
+        ...get().researchTopics,
+        [userId]: (get().researchTopics[userId] || []).map((t) =>
+          t.id === topicId ? { ...t, ...data, updatedAt: Date.now() } : t
+        ),
+      },
+    })
+  },
+  deleteResearchTopic: (topicId) => {
+    const userId = get().modeUid()
+    if (userId == null) return
+    set({
+      researchTopics: {
+        ...get().researchTopics,
+        [userId]: (get().researchTopics[userId] || []).filter((t) => t.id !== topicId),
+      },
+    })
+  },
+
+  // =====================================================================
+  // ACTIONS — PENILAIAN KINERJA TIM (oleh admin/super_admin/atasan)
+  // =====================================================================
+  // performanceRatings[memberId] = [ { id, raterId, raterName, score, feedback, category, createdAt } ]
+  performanceRatings: {},
+  addPerformanceRating: (memberId, { score, feedback = '', category = '' }) => {
+    const rater = get().currentUser
+    if (rater == null) return
+    set({
+      performanceRatings: {
+        ...get().performanceRatings,
+        [memberId]: [
+          {
+            id: Date.now() + Math.random(),
+            raterId: rater.id,
+            raterName: rater.name || 'Admin',
+            score: Math.min(5, Math.max(1, Number(score) || 5)),
+            feedback: feedback.trim(),
+            category: category.trim(),
+            createdAt: Date.now(),
+          },
+          ...(get().performanceRatings[memberId] || []),
+        ],
+      },
+    })
+  },
+  deletePerformanceRating: (memberId, ratingId) => {
+    set({
+      performanceRatings: {
+        ...get().performanceRatings,
+        [memberId]: (get().performanceRatings[memberId] || []).filter((r) => r.id !== ratingId),
+      },
+    })
+  },
+
+  // =====================================================================
+  // ACTIONS — KONEKSI LAYANAN EKSTERNAL (Connect: Gmail, Telegram, dll)
+  // =====================================================================
+  // connections[dataKey][providerId] = { connected, account, connectedAt }
+  connections: {},
+  connectProvider: (providerId, account = '') => {
+    const uid = get().modeUid()
+    set({
+      connections: {
+        ...get().connections,
+        [uid]: {
+          ...(get().connections[uid] || {}),
+          [providerId]: { connected: true, account: account.trim(), connectedAt: Date.now() },
+        },
+      },
+    })
+  },
+  disconnectProvider: (providerId) => {
+    const uid = get().modeUid()
+    set({
+      connections: {
+        ...get().connections,
+        [uid]: {
+          ...(get().connections[uid] || {}),
+          [providerId]: { connected: false, account: '', connectedAt: null },
+        },
+      },
+    })
+  },
 
   // =====================================================================
   // ACTIONS — ALUR SETUP
@@ -1285,7 +1503,15 @@ export const useStore = create(
         kanbanBoards: [board1, board2],
         tasks: todoTasks,
         themes,
-        privateNotes: { [userId]: notes },
+      })
+    }
+
+    // Catatan demo di-seed per mode akun (owner punya data terpisah per role).
+    const modeKey = get().modeUid()
+    const myNotes = existing.privateNotes[modeKey] || []
+    if (myNotes.length === 0) {
+      Object.assign(state, {
+        privateNotes: { ...existing.privateNotes, [modeKey]: notes },
       })
     }
 
@@ -1565,6 +1791,7 @@ export const useStore = create(
       })
     }
     track('create_target', { viewType: data.viewType || 'todo' })
+    get().addXp(20, 'Membuat target baru')
     return id
   },
 
@@ -1591,7 +1818,10 @@ export const useStore = create(
       ),
       projects: recalcTodoProgress(get()),
     })
-    if (prev && prev.status !== 'completed') track('complete_task')
+    if (prev && prev.status !== 'completed') {
+      track('complete_task')
+      get().addXp(10, 'Menyelesaikan task')
+    }
   },
 
   deleteTask: (taskId) =>
@@ -1733,7 +1963,7 @@ export const useStore = create(
       name: 'luxio-store', // kunci localStorage untuk persist state
       // Versi state tersimpan. Naikkan versi (dan update `migrate`) jika
       // struktur state berubah di masa depan.
-      version: 3,
+      version: 5,
       // Bersihkan state lama dari build sebelumnya yang sempat rusak:
       // data v0 bisa punya appState 'landing' walau isAuthenticated true,
       // membuat user "logout" sendiri setelah refresh.
@@ -1770,6 +2000,47 @@ export const useStore = create(
             ...s,
             appState: authed ? (s.appState === 'setup' ? 'setup' : 'app') : 'landing',
           }
+        }
+        if (version < 4) {
+          // v3: inisialisasi field baru (gamification, alarm, riset, penilaian)
+          // agar selalu bertipe object walau belum pernah diisi.
+          const s = persistedState && typeof persistedState === 'object' ? persistedState : {}
+          return {
+            ...s,
+            gamification: s.gamification || {},
+            alarms: s.alarms || {},
+            researchTopics: s.researchTopics || {},
+            performanceRatings: s.performanceRatings || {},
+            vaultSettings: s.vaultSettings || {},
+          }
+        }
+        if (version < 5) {
+          // v4: akun OWNER kini punya data TERPISAH per mode role
+          // (owner/super_admin/admin/user) supaya tidak saling campur.
+          // Data lama yang dulu di-key oleh id user dipindahkan ke kunci
+          // mode saat ini (id:role), sisanya mulai bersih di mode lain.
+          const s = persistedState && typeof persistedState === 'object' ? persistedState : {}
+          const u = s.currentUser
+          if (u && u.role === 'owner' && u.id != null) {
+            const uid = String(u.id)
+            const role = ['owner', 'super_admin', 'admin', 'user'].includes(s.activeRole) ? s.activeRole : 'owner'
+            const key = `${uid}:${role}`
+            const rekey = (obj) => {
+              if (!obj || typeof obj !== 'object') return obj || {}
+              if (obj[uid] == null) return obj
+              return { ...obj, [key]: obj[uid] }
+            }
+            return {
+              ...s,
+              privateNotes: rekey(s.privateNotes),
+              vault: rekey(s.vault),
+              alarms: rekey(s.alarms),
+              researchTopics: rekey(s.researchTopics),
+              gamification: rekey(s.gamification),
+              vaultSettings: rekey(s.vaultSettings),
+            }
+          }
+          return s
         }
         return persistedState
       },

@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'robots.txt'],
+      includeAssets: ['favicon.png', 'luxio.png', 'robots.txt'],
       manifest: {
         name: 'Luxio - Project & Target Manager',
         short_name: 'Luxio',

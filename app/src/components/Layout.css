@@ -408,6 +408,20 @@
   flex-shrink: 0;
 }
 
+.sidebar-version {
+  display: block;
+  text-align: center;
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  letter-spacing: 0.03em;
+  user-select: none;
+}
+
+.app-layout.sidebar-collapsed .sidebar-version {
+  display: none;
+}
+
 /* Kotak profil — klik untuk membuka menu (Langganan, Pengaturan, Keluar) */
 .profile-wrap {
   position: relative;
@@ -420,17 +434,17 @@
   gap: var(--space-2);
   width: 100%;
   padding: var(--space-2);
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm, 8px);
+  background: none;
+  border: none;
   color: #fff;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
+  border-radius: var(--radius-sm, 8px);
 }
 
 .profile-btn:hover {
-  background: rgba(0, 0, 0, 0.42);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .profile-chevron {
@@ -454,14 +468,80 @@
   position: absolute;
   bottom: calc(100% + 6px);
   left: 0;
-  width: 220px;
+  width: 240px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
   z-index: 120;
   display: flex;
   flex-direction: column;
-  padding: var(--space-1);
+  padding: var(--space-2);
+}
+
+.profile-menu-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-1);
+}
+
+.profile-menu-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  flex-shrink: 0;
+}
+
+.profile-menu-identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.profile-menu-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-menu-email {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-menu-group {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) 0;
+}
+
+.profile-menu-group + .profile-menu-group {
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-1);
+}
+
+.profile-menu-group-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: var(--space-1) var(--space-3) var(--space-1);
 }
 
 .profile-menu-item {
@@ -570,6 +650,11 @@
   position: sticky;
   top: 0;
   z-index: 120;
+  transition: transform 0.25s ease;
+}
+
+.topbar.hidden {
+  transform: translateY(-100%);
 }
 
 .menu-btn {
@@ -777,6 +862,15 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.notification-item.clickable {
+  cursor: pointer;
+}
+
+.notification-item.clickable:hover {
+  background: var(--bg-tertiary);
 }
 
 .notification-item.unread {
@@ -841,6 +935,16 @@
   border-radius: var(--radius-md);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
   animation: toast-in 0.3s ease-out;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.notif-toast.clickable {
+  cursor: pointer;
+}
+
+.notif-toast.clickable:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
 }
 
 .notif-toast-icon {

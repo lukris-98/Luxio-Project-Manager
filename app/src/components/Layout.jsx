@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { getAppThemeMode, toggleAppThemeMode, useStore } from '../store/useStore'
+import { getAppThemeMode, toggleAppThemeMode, useStore, dataKeyFor } from '../store/useStore'
 import { api } from '../services/api'
 import ReminderWatcher from './ReminderWatcher'
 import HeadlineMarquee from './HeadlineMarquee'
 import InstallAppButton from './InstallAppButton'
 import { requestNotificationPermission } from '../utils/notify'
+import { useAutoHideNav } from '../utils/useAutoHideNav'
+import Logo from './Logo'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, Megaphone, ChevronRight, StickyNote, KanbanSquare, ListTodo 
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, Megaphone, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, AlarmClock, Trophy, Star, UserRound, AppWindow, Plug2 
 } from 'lucide-react'
 import './Layout.css'
 
@@ -42,6 +44,12 @@ const NAV_COLORS = {
   attendance: '#4ADE80',
   'attendance-admin': '#60A5FA',
   'send-notification': '#22D3EE',
+  research: '#34D399',
+  'alarm-timer': '#F472B6',
+  games: '#FACC15',
+  performance: '#FB923C',
+  apps: '#A78BFA',
+  connect: '#22D3EE',
 }
 
 // Link yang punya dropdown berisi item-nya (max 3 terlihat, scroll bila lebih).
@@ -68,7 +76,7 @@ const PAGE_BY_ITEM = {
   'private-note': 'private-note',
 }
 
-function buildDropdownItems(itemId, { projects, kanbanBoards, tasks, privateNotes, currentUser }) {
+function buildDropdownItems(itemId, { projects, kanbanBoards, tasks, privateNotes, currentUser, activeRole }) {
   const labelSet = new Set()
   const pushLabel = (items) =>
     items.forEach((x) => {
@@ -93,8 +101,8 @@ function buildDropdownItems(itemId, { projects, kanbanBoards, tasks, privateNote
       pushLabel(tasks)
       break
     case 'private-note': {
-      const userId = currentUser?.id
-      pushLabel(userId != null ? privateNotes[userId] || [] : [])
+      const uid = dataKeyFor(currentUser, activeRole)
+      pushLabel(uid != null ? privateNotes[uid] || [] : [])
       break
     }
     default:
@@ -134,6 +142,7 @@ export default function Layout({ children }) {
   const [openDropdown, setOpenDropdown] = useState(null)
   const [toast, setToast] = useState(null)
   const lastToastId = useRef(null)
+  const topbarHidden = useAutoHideNav()
 
   // Role efektif: untuk OWNER bisa act-as (owner/super_admin/admin/user),
   // untuk akun lain = role aslinya.
@@ -173,6 +182,20 @@ export default function Layout({ children }) {
     ...(effRole === 'owner' || effRole === 'super_admin' || effRole === 'admin'
       ? [{ id: 'send-notification', icon: Megaphone, label: 'Kirim Notifikasi' }]
       : []),
+    // Riset konten — semua role.
+    { id: 'research', icon: Search, label: 'Riset Konten' },
+    // Alarm & Timer — semua role.
+    { id: 'alarm-timer', icon: AlarmClock, label: 'Alarm & Timer' },
+    // Mode game (level + badge) — semua role.
+    { id: 'games', icon: Trophy, label: 'Game Mode' },
+    // Penilaian kinerja tim — khusus admin/super_admin/owner.
+    ...(effRole === 'admin' || effRole === 'super_admin' || effRole === 'owner'
+      ? [{ id: 'performance', icon: Star, label: 'Penilaian Kinerja' }]
+      : []),
+    // Aplikasi (hub launcher) — semua role.
+    { id: 'apps', icon: AppWindow, label: 'Aplikasi' },
+    // Connect (integrasi eksternal) — semua role.
+    { id: 'connect', icon: Plug2, label: 'Connect' },
   ]
 
   const handleRoleChange = (role) => {
@@ -242,6 +265,17 @@ export default function Layout({ children }) {
     }
   }
 
+  // Klik notifikasi sistem (native browser) → arahkan ke halaman terkait.
+  useEffect(() => {
+    const onNativeClick = (e) => {
+      const d = e.detail || {}
+      if (!d.page) return
+      handleNotifClickItem({ page: d.page, params: d.params || {} })
+    }
+    window.addEventListener('luxio:notif-click', onNativeClick)
+    return () => window.removeEventListener('luxio:notif-click', onNativeClick)
+  }, [handleNotifClickItem])
+
   const handleNavClick = (pageId) => {
     setCurrentPage(pageId)
     setSidebarOpen(false)
@@ -298,10 +332,7 @@ export default function Layout({ children }) {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''} ${openDropdown ? 'nav-dropdown-open' : ''}`}>
           <div className="sidebar-header">
-            <div className="logo" onClick={() => setCurrentPage('dashboard')}>
-              <span className="logo-mark">L</span>
-              <span className="logo-text">Luxio</span>
-            </div>
+            <Logo onClick={() => setCurrentPage('dashboard')} />
             <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
               <X size={18} />
             </button>
@@ -311,7 +342,7 @@ export default function Layout({ children }) {
           {navItems.map(item => {
             // Item dropdown untuk link ini (dihitung sekali per render).
             const dropdownItems = DROPDOWN_IDS.has(item.id)
-              ? buildDropdownItems(item.id, { projects, kanbanBoards, tasks, privateNotes, currentUser })
+              ? buildDropdownItems(item.id, { projects, kanbanBoards, tasks, privateNotes, currentUser, activeRole })
               : []
             const hasDropdown = dropdownItems.length > 0
             return (
@@ -403,31 +434,58 @@ export default function Layout({ children }) {
               <>
                 <div className="profile-menu-backdrop" onClick={() => setProfileOpen(false)} />
                 <div className="profile-menu" role="menu">
-                  <button
-                    className="profile-menu-item"
-                    role="menuitem"
-                    onClick={() => { setProfileOpen(false); setAppState('pricing') }}
-                  >
-                    <CreditCard size={16} />
-                    <span>Langganan</span>
-                  </button>
-                  <button
-                    className="profile-menu-item"
-                    role="menuitem"
-                    onClick={() => handleNavClick('settings')}
-                  >
-                    <Settings size={16} />
-                    <span>Pengaturan</span>
-                  </button>
-                  <div className="profile-menu-sep" />
-                  <button
-                    className="profile-menu-item danger"
-                    role="menuitem"
-                    onClick={() => { setProfileOpen(false); handleLogout() }}
-                  >
-                    <LogOut size={16} />
-                    <span>Keluar</span>
-                  </button>
+                  <div className="profile-menu-head">
+                    <div className="profile-menu-avatar">
+                      {currentUser?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || 'U'}
+                    </div>
+                    <div className="profile-menu-identity">
+                      <span className="profile-menu-name">{currentUser?.name || 'User'}</span>
+                      <span className="profile-menu-email">{currentUser?.email || ''}</span>
+                    </div>
+                  </div>
+
+                  <div className="profile-menu-group">
+                    <span className="profile-menu-group-label">Akun</span>
+                    <button
+                      className="profile-menu-item"
+                      role="menuitem"
+                      onClick={() => handleNavClick('settings')}
+                    >
+                      <UserRound size={16} />
+                      <span>Profil</span>
+                    </button>
+                    <button
+                      className="profile-menu-item"
+                      role="menuitem"
+                      onClick={() => handleNavClick('settings')}
+                    >
+                      <Settings size={16} />
+                      <span>Pengaturan</span>
+                    </button>
+                  </div>
+
+                  <div className="profile-menu-group">
+                    <span className="profile-menu-group-label">Keuangan</span>
+                    <button
+                      className="profile-menu-item"
+                      role="menuitem"
+                      onClick={() => { setProfileOpen(false); setAppState('pricing') }}
+                    >
+                      <CreditCard size={16} />
+                      <span>Langganan / Payment</span>
+                    </button>
+                  </div>
+
+                  <div className="profile-menu-group">
+                    <button
+                      className="profile-menu-item danger"
+                      role="menuitem"
+                      onClick={() => { setProfileOpen(false); handleLogout() }}
+                    >
+                      <LogOut size={16} />
+                      <span>Keluar</span>
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -441,6 +499,8 @@ export default function Layout({ children }) {
           >
             {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
+
+          <span className="sidebar-version" title="Versi aplikasi">v1.0.1</span>
         </div>
       </aside>
       
@@ -453,7 +513,7 @@ export default function Layout({ children }) {
       {/* Main Content */}
       <main className="main-content">
         {/* Top Bar */}
-        <header className="topbar">
+        <header className={`topbar ${topbarHidden ? 'hidden' : ''}`}>
           <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
             <Menu size={20} />
           </button>
@@ -570,13 +630,21 @@ export default function Layout({ children }) {
 
       {/* Toast notifikasi (tampil di dalam web, semua perangkat) */}
       {toast && (
-        <div className="notif-toast" key={toast.id}>
+        <div
+          className={`notif-toast${toast.page ? ' clickable' : ''}`}
+          key={toast.id}
+          onClick={() => toast.page && handleNotifClickItem(toast)}
+          role={toast.page ? 'button' : undefined}
+        >
           <span className="notif-toast-icon">{NOTIF_ICON[toast.type] || '🔔'}</span>
           <div className="notif-toast-content">
             <span className="notif-toast-title">{toast.title}</span>
             <span className="notif-toast-body">{toast.body}</span>
           </div>
-          <button className="notif-toast-close" onClick={() => setToast(null)}>
+          <button
+            className="notif-toast-close"
+            onClick={(e) => { e.stopPropagation(); setToast(null) }}
+          >
             <X size={14} />
           </button>
         </div>

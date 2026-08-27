@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
 import { Mail, Lock, ArrowLeft } from 'lucide-react'
+import Logo from '../components/Logo'
 import './Auth.css'
 
 export default function Login() {
@@ -23,10 +24,7 @@ export default function Login() {
         
         <div className="auth-card">
           <div className="auth-header">
-            <div className="logo" onClick={() => setAppState('landing')}>
-              <span className="logo-mark">L</span>
-              <span className="logo-text">Luxio</span>
-            </div>
+            <Logo onClick={() => setAppState('landing')} />
             <h1>Log in</h1>
             <p>Masuk ke akunmu</p>
           </div>

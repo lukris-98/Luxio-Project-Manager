@@ -1,0 +1,9 @@
+# Kredensial & build artifacts — JANGAN commit ke HF Space publik
+.env
+.env.*
+!.env.example
+backend/.env
+backend/target/
+**/target/
+node_modules/
+*.log

@@ -1,0 +1,265 @@
+/* Performance — Penilaian Kinerja Tim */
+
+.perf-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.perf-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.perf-page .page-header-left h1 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.perf-page .page-header-left p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.perf-search {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.perf-search-input {
+  flex: 1;
+  max-width: 400px;
+}
+
+.perf-group {
+  margin-bottom: var(--space-6);
+}
+
+.perf-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.perf-group-head h2 {
+  font-size: 1.0625rem;
+  margin: 0;
+}
+
+.perf-group-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+}
+
+.perf-member-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: var(--space-4);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: var(--space-3);
+}
+
+.perf-member-card:hover {
+  border-color: var(--accent);
+}
+
+.perf-member-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.perf-member-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.perf-member-name {
+  font-weight: 700;
+}
+
+.perf-member-role {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.perf-member-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.perf-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.perf-star {
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.perf-star.filled {
+  color: #FACC15;
+}
+
+.perf-expanded {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.perf-rating-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  margin-bottom: var(--space-2);
+}
+
+.perf-rating-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem;
+}
+
+.perf-rating-score {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.perf-rating-score .perf-star {
+  cursor: default;
+}
+
+.perf-rating-feedback {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.perf-rating-rater {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.perf-rating-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+}
+
+.perf-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.perf-delete:hover {
+  color: var(--error);
+  background: rgba(248, 113, 113, 0.15);
+}
+
+.perf-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-top: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+
+.perf-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.perf-average {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.perf-unauthorized {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-4);
+  text-align: center;
+  gap: var(--space-3);
+}
+
+.perf-unauthorized h2 {
+  font-size: 1.25rem;
+}
+
+.perf-unauthorized p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.perf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-4);
+  text-align: center;
+  gap: var(--space-3);
+}
+
+.perf-empty h3 {
+  font-size: 1.0625rem;
+}
+
+.perf-empty p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .perf-form-row {
+    grid-template-columns: 1fr;
+  }
+  .perf-search {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .perf-search-input {
+    max-width: none;
+  }
+  .perf-member-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+}

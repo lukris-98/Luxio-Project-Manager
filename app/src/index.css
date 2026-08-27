@@ -1,5 +1,20 @@
 /* Luxio Design System - Complete App Theme Support */
 
+/* Logo image — menggantikan kotak "L" lama di semua halaman */
+.logo-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+  border-radius: 6px;
+}
+
+.footer-brand-section .logo-img {
+  width: 36px;
+  height: 36px;
+}
+
 :root,
 [data-theme="dark"] {
   color-scheme: dark;

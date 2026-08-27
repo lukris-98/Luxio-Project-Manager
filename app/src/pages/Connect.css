@@ -1,0 +1,170 @@
+/* Connect — koneksi layanan eksternal */
+
+.connect-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.connect-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.connect-page .page-header-left h1 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.connect-page .page-header-left p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.connect-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.connect-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.connect-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+
+.connect-card:hover {
+  border-color: var(--border-hover);
+}
+
+.connect-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.connect-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.connect-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.connect-name {
+  font-weight: 700;
+}
+
+.connect-status {
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.connect-status.on {
+  color: var(--success);
+}
+
+.connect-status.off {
+  color: var(--text-muted);
+}
+
+.connect-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.connect-account {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.connect-card-actions {
+  margin-top: auto;
+  display: flex;
+}
+
+.connect-card-actions .btn {
+  flex: 1;
+}
+
+.connect-modal {
+  max-width: 400px;
+}
+
+.connect-modal-provider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.connect-modal-provider .connect-desc {
+  margin: var(--space-1) 0 0;
+}
+
+/* Tombol putuskan (danger outline) — aman bila .btn-danger global tidak ada */
+.btn-danger {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--error);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.btn-danger:hover {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+}
+
+.connect-toast {
+  position: fixed;
+  bottom: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--success);
+  font-size: 0.875rem;
+  z-index: 300;
+  box-shadow: var(--card-shadow);
+  max-width: calc(100vw - var(--space-6));
+}
+
+@media (max-width: 640px) {
+  .connect-grid {
+    grid-template-columns: 1fr;
+  }
+}

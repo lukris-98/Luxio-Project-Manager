@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { getAppThemeMode, toggleAppThemeMode, useStore } from '../store/useStore'
 import { motion, useSpring, useTransform, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion'
-import { ArrowRight, ArrowUp, Check, Users, Target, BarChart3, Shield, Globe, Clock, Moon, Sun, Menu, X, Kanban, CheckSquare, Lock, Calendar, MessageSquare, Bot, Camera, Database, HardDrive } from 'lucide-react'
+import { ArrowRight, ArrowUp, Check, Users, Target, BarChart3, Shield, Globe, Clock, Moon, Sun, Menu, X, Kanban, CheckSquare, Lock, Calendar, MessageSquare, Bot, Camera, Database, HardDrive, LogIn } from 'lucide-react'
 import HeadlineMarquee from '../components/HeadlineMarquee'
 import InstallAppButton from '../components/InstallAppButton'
+import Logo from '../components/Logo'
+import { useAutoHideNav } from '../utils/useAutoHideNav'
 import './Landing.css'
 
 // Animated Counter Component
@@ -63,6 +65,7 @@ export default function Landing() {
   const [cardZoomed, setCardZoomed] = useState(false)
   const [cardShaking, setCardShaking] = useState(false)
   const { scrollY } = useScroll()
+  const navHidden = useAutoHideNav()
 
   const handleCardClose = () => {
     setCardShaking(true)
@@ -122,12 +125,9 @@ const pricingPlans = [
   return (
     <div className={`landing theme-${themeMode}`}>
       {/* Navigation */}
-      <header className="main-nav">
+      <header className={`main-nav ${navHidden ? 'hidden' : ''}`}>
         <div className="nav-inner">
-          <div className="logo" onClick={() => setAppState('landing')}>
-            <span className="logo-mark">L</span>
-            <span className="logo-text">Luxio</span>
-          </div>
+          <Logo onClick={() => setAppState('landing')} />
           
           <nav className="nav-links">
             <a href="#features">Fitur</a>
@@ -138,14 +138,14 @@ const pricingPlans = [
           <div className="nav-actions">
             <InstallAppButton className="install-nav-btn" label="Install" />
             <button
-              className="theme-toggle"
+              className="theme-toggle desktop-only"
               onClick={toggleTheme}
               aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
             >
               {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button className="nav-link" onClick={() => setAppState('auth')}>Log in</button>
-            <button className="btn btn-primary" onClick={() => setAppState('auth')}>
+            <button className="nav-link desktop-only" onClick={() => setAppState('auth')}>Log in</button>
+            <button className="btn btn-primary desktop-only" onClick={() => setAppState('auth')}>
               Mulai Gratis
             </button>
             <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -163,6 +163,27 @@ const pricingPlans = [
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
+              <div className="mobile-menu-actions">
+                <button
+                  className="mobile-theme-toggle"
+                  onClick={() => { toggleTheme(); setMobileMenuOpen(false) }}
+                >
+                  {isDarkTheme ? <Sun size={16} /> : <Moon size={16} />}
+                  {isDarkTheme ? 'Mode Terang' : 'Mode Gelap'}
+                </button>
+                <button
+                  className="mobile-login-btn"
+                  onClick={() => { setAppState('auth'); setMobileMenuOpen(false) }}
+                >
+                  <LogIn size={16} /> Log in
+                </button>
+                <button
+                  className="mobile-cta-btn"
+                  onClick={() => { setAppState('auth'); setMobileMenuOpen(false) }}
+                >
+                  Mulai Gratis <ArrowRight size={16} />
+                </button>
+              </div>
               <a href="#features" onClick={() => setMobileMenuOpen(false)}>Fitur</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>Price</a>
               <a href="#faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
@@ -187,7 +208,7 @@ const pricingPlans = [
             variants={revealItem}
           >
             <span className="hero-tag">Project & Target Manager</span>
-            <h1>Kelola target tim<br/>jadi lebih <em>claro</em></h1>
+            <h1>Kelola Target Tim<br/>Jadi Lebih <em>Jelas</em></h1>
             <p>
               Luxio bantu kamu dan tim konsisten mencapai target. 
               Mingguan, bulanan, atau quarterly — semua dalam satu tempat.
@@ -215,7 +236,7 @@ const pricingPlans = [
               </div>
               <div className="counter-item">
                 <span className="counter-num"><AnimatedCounter end={99} suffix="%" /></span>
-                <span className="counter-label">TKepuasan</span>
+                <span className="counter-label">Kepuasan</span>
               </div>
             </div>
           </motion.div>
@@ -417,10 +438,7 @@ const pricingPlans = [
         <motion.div className="footer-inner" variants={revealContainer}>
           <motion.div className="footer-grid" variants={revealContainer}>
             <motion.div className="footer-brand-section" variants={revealItem}>
-              <div className="logo">
-                <span className="logo-mark">L</span>
-                <span className="logo-text">Luxio</span>
-              </div>
+              <Logo onClick={() => setAppState('landing')} />
               <p className="footer-tagline">Project & Target Manager untuk Tim yang lebih produktif dan terorganisir.</p>
               <div className="footer-social">
                 <a href="mailto:hello@luxio.id" className="social-link">hello@luxio.id</a>

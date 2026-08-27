@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
-import { BarChart3, Database, HardDrive, ScrollText, Lightbulb, Save, RefreshCw, KeyRound, FolderOpen, Plus, X, Check, Crown } from 'lucide-react'
+import { BarChart3, Database, HardDrive, ScrollText, Lightbulb, Save, RefreshCw, KeyRound, FolderOpen, Plus, X, Check, Crown, ExternalLink, Plug } from 'lucide-react'
 import { api } from '../services/api'
+import NeonExplorer from '../components/NeonExplorer'
 import './OwnerDashboard.css'
 
 // =====================================================================
@@ -51,6 +52,15 @@ export default function OwnerDashboard() {
   const [neonActive, setNeonActive] = useState(null)
   const [neonActiveLoading, setNeonActiveLoading] = useState(false)
   const [neonActiveError, setNeonActiveError] = useState('')
+  // Explorer Neon langsung dari browser (API key disimpan lokal, tidak ke server).
+  const [showNeonExplorer, setShowNeonExplorer] = useState(false)
+  const [neonLocalKey, setNeonLocalKey] = useState(() => {
+    try { return localStorage.getItem('luxio-neon-api-key') || '' } catch { return '' }
+  })
+  const saveNeonLocalKey = (key) => {
+    setNeonLocalKey(key)
+    try { localStorage.setItem('luxio-neon-api-key', key || '') } catch { /* noop */ }
+  }
 
   // Backblaze B2
   const [b2Form, setB2Form] = useState({ key_id: '', application_key: '', bucket_name: '', endpoint: '' })
@@ -321,6 +331,10 @@ export default function OwnerDashboard() {
               activeLoading={neonActiveLoading}
               activeError={neonActiveError}
               onLoadActive={loadNeonActive}
+              showExplorer={showNeonExplorer}
+              setShowExplorer={setShowNeonExplorer}
+              neonLocalKey={neonLocalKey}
+              onSaveNeonLocalKey={saveNeonLocalKey}
             />
           )}
 
@@ -422,6 +436,7 @@ function NeonTab({
   config, form, setForm, projects, newProject, setNewProject,
   onAddProject, onRemoveProject, onSave, saving, status, loading, error, onCheck,
   active, activeLoading, activeError, onLoadActive,
+  showExplorer, setShowExplorer, neonLocalKey, onSaveNeonLocalKey,
 }) {
   const consumption = summarizeNeonConsumption(status)
   return (
@@ -431,6 +446,28 @@ function NeonTab({
         <div>
           <h2>Database (Neon)</h2>
           <p>API key untuk memantau project & kuota PostgreSQL. Kuota gratis = 0.5 GB storage, 190 jam compute/bulan.</p>
+        </div>
+      </div>
+
+      <div className="owner-actions">
+        <button className="btn btn-primary btn-sm" onClick={() => setShowExplorer(!showExplorer)}>
+          {showExplorer ? <X size={14} /> : <Plug size={14} />}
+          {showExplorer ? 'Tutup Explorer' : 'Buka Neon Explorer'}
+        </button>
+      </div>
+
+      {/* Explorer Neon: login + semua resource API Neon langsung dari browser */}
+      {showExplorer && (
+        <div className="neon-explorer-wrap">
+          <NeonExplorer savedApiKey={neonLocalKey} onSaveApiKey={onSaveNeonLocalKey} />
+        </div>
+      )}
+
+      <div className="owner-card-head" style={{ marginTop: 'var(--space-4)' }}>
+        <KeyRound size={18} />
+        <div>
+          <h3>Konfigurasi Backend</h3>
+          <p>API key yang disimpan di server (backend) untuk status & kuota otomatis.</p>
         </div>
       </div>
 

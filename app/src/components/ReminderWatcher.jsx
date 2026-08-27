@@ -174,6 +174,7 @@ export default function ReminderWatcher() {
         body: created.slice(0, 5).join('\n') + (created.length > 5 ? `\n+${created.length - 5} lainnya` : ''),
         tag: `task-created-batch`,
         type: 'create',
+        page: 'todo-list',
       })
     }
   }, [tasks]) // eslint-disable-line react-hooks/exhaustive-deps

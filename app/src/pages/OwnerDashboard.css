@@ -523,6 +523,14 @@
   to { transform: rotate(360deg); }
 }
 
+/* Wrapper untuk NeonExplorer di dalam tab database */
+.neon-explorer-wrap {
+  padding: var(--space-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  margin: var(--space-3) 0;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .owner-form-grid,

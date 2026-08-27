@@ -190,6 +190,122 @@
   max-width: 520px;
 }
 
+/* ---------- Gate brankas (setup / terkunci) ---------- */
+.vault-gate {
+  max-width: 420px;
+  margin: 10vh auto 0;
+  padding: var(--space-6);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.vault-gate > svg {
+  color: var(--accent);
+}
+
+.vault-gate h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.vault-gate p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+.vault-gate-options {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.vault-gate-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.vault-pin-error {
+  color: var(--error, #ef4444);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Kartu terkunci PIN ---------- */
+.vault-card-locked {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+}
+
+.vault-card-lock {
+  color: var(--accent);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.vault-entry-pin-desc {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0 0 var(--space-3);
+}
+
+/* ---------- Opsi PIN per entri ---------- */
+.vault-pin-options {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.vault-pin-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.vault-pin-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.vault-pin-radio.active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+.vault-pin-radio input {
+  accent-color: var(--accent);
+}
+
+.vault-pin-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
 @media (max-width: 640px) {
   .vault-toolbar {
     flex-direction: column;
@@ -199,6 +315,9 @@
     max-width: none;
   }
   .vault-form-row {
+    grid-template-columns: 1fr;
+  }
+  .vault-pin-inputs {
     grid-template-columns: 1fr;
   }
 }

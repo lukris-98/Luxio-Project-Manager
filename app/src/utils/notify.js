@@ -21,14 +21,23 @@ export function notifySupported() {
 }
 
 // Tampilkan notifikasi sistem. Mengembalikan true bila berhasil tampil.
-export function notify({ title, body, tag, icon }) {
+// Opsi: { title, body, tag, icon, page, params } — saat diklik, aplikasi
+// diarahkan ke halaman terkait (via event `luxio:notif-click`).
+export function notify({ title, body, tag, icon, page, params }) {
   const shown = []
   if (notifySupported() && Notification.permission === 'granted') {
     try {
-      const n = new Notification(title, { body, tag, icon })
+      const n = new Notification(title, { body, tag, icon, data: { page, params } })
       n.onclick = () => {
         window.focus()
         n.close()
+        try {
+          window.dispatchEvent(new CustomEvent('luxio:notif-click', {
+            detail: { page: page || '', params: params || {} },
+          }))
+        } catch (e) {
+          // event tidak ter-pasang — abaikan.
+        }
       }
       shown.push('browser')
     } catch (e) {

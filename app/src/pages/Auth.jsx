@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
 import { ArrowLeft, LogIn, UserPlus, Mail, Lock, User, ShieldCheck, MailCheck, RefreshCw, KeyRound, KeySquare } from 'lucide-react'
+import Logo from '../components/Logo'
 import './Auth.css'
 
 export default function Auth() {
@@ -164,10 +165,7 @@ export default function Auth() {
             <ArrowLeft size={18} />
             Kembali
           </button>
-          <div className="logo" onClick={() => setAppState('landing')}>
-            <span className="logo-mark">L</span>
-            <span className="logo-text">Luxio</span>
-          </div>
+          <Logo onClick={() => setAppState('landing')} />
         </div>
 
         {/* Form Card */}

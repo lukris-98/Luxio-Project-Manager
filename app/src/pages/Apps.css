@@ -1,0 +1,137 @@
+/* Apps — pusat aplikasi & integrasi */
+
+.apps-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.apps-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.apps-page .page-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.apps-page .page-header-left h1 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.apps-page .page-header-left p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.apps-page-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+}
+
+.apps-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.apps-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.apps-section-title svg {
+  color: var(--accent);
+}
+
+.apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+.app-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  outline: none;
+}
+
+.app-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.app-card:focus-visible {
+  border-color: var(--accent);
+}
+
+.app-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.app-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.app-card-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.app-card-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.app-card-launch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.app-card-badge {
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 640px) {
+  .apps-grid {
+    grid-template-columns: minmax(150px, 1fr);
+  }
+}

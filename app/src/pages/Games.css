@@ -1,0 +1,248 @@
+/* Games — Game Mode: level, XP & badge */
+
+.games-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.games-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.games-page .page-header-left h1 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.games-page .page-header-left p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* ---------- Level Card ---------- */
+.games-level-card {
+  background: linear-gradient(135deg, var(--accent), var(--accent2, #A78BFA));
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.games-level-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.games-level-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.games-level-badge {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.games-xp-total {
+  font-size: 0.9375rem;
+  opacity: 0.85;
+}
+
+.games-level-icon {
+  flex-shrink: 0;
+}
+
+.games-xp-bar {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.games-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffffff, rgba(255, 255, 255, 0.6));
+  border-radius: 4px;
+  transition: width 0.5s;
+}
+
+.games-xp-label {
+  font-size: 0.8125rem;
+  opacity: 0.85;
+}
+
+/* ---------- Section ---------- */
+.games-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.games-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.0625rem;
+  margin: 0;
+}
+
+.games-quest-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* ---------- Badge Gallery ---------- */
+.games-badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+
+.games-badge {
+  position: relative;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.games-badge.locked {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.games-badge-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.games-badge-name {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.games-badge-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.games-badge-check {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  color: var(--accent);
+}
+
+/* ---------- Stats ---------- */
+.games-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.games-stat-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.games-stat-card svg {
+  color: var(--accent);
+}
+
+.games-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.games-stat-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* ---------- Quests ---------- */
+.games-quests {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.games-quest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  gap: var(--space-3);
+}
+
+.games-quest-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.games-quest-left svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.games-quest-left div {
+  display: flex;
+  flex-direction: column;
+}
+
+.games-quest-label {
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.games-quest-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.games-quest-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.games-quest-xp {
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .games-badge-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+  .games-stats {
+    grid-template-columns: 1fr;
+  }
+  .games-quest {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .games-quest-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

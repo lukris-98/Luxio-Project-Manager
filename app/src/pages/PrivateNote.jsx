@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
-import { useStore } from '../store/useStore'
+import { useStore, dataKeyFor } from '../store/useStore'
 import DOMPurify from 'dompurify'
 import Layout from '../components/Layout'
 import InviteUsers from '../components/InviteUsers'
@@ -29,15 +29,15 @@ const stripHtml = (html) => {
 
 export default function PrivateNote() {
   const {
-    currentUser, privateNotes, addPrivateNote, updatePrivateNote, deletePrivateNote,
+    currentUser, activeRole, privateNotes, addPrivateNote, updatePrivateNote, deletePrivateNote,
     userPin, selectedNoteId, setSelectedNoteId, toggleNoteCollaborator, setNoteTheme, themes, labelFilter,
   } = useStore()
-  const userId = currentUser?.id
+  const dataKey = dataKeyFor(currentUser, activeRole)
 
   const notes = useMemo(() => {
-    if (userId == null || !privateNotes) return []
-    return privateNotes[userId] || []
-  }, [userId, privateNotes])
+    if (dataKey == null || !privateNotes) return []
+    return privateNotes[dataKey] || []
+  }, [dataKey, privateNotes])
 
   const [sortBy, setSortBy] = useState('created-desc')
   const [search, setSearch] = useState('')
@@ -115,6 +115,9 @@ export default function PrivateNote() {
   }, [selectedNoteId, notes, setSelectedNoteId])
 
   // Muat isi catatan aktif ke editor.
+  // `isLocked` ikut di-dependency: saat editor terkunci, konten belum bisa
+  // dimuat (contentRef null). Setelah catatan dibuka (unlock), editor baru
+  // dirender — efek ini dijalankan ulang agar isi catatan tampil.
   useEffect(() => {
     const n = notes.find((x) => x.id === activeId)
     setTitle(n?.title || '')
@@ -123,7 +126,7 @@ export default function PrivateNote() {
       const html = n?.content || ''
       contentRef.current.innerHTML = sanitizeHtml(html)
     }
-  }, [activeId, notes])
+  }, [activeId, notes, isLocked])
 
   const showToast = useCallback((msg) => {
     setToast(msg)

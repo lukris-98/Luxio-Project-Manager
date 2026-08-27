@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
 import { Check, ArrowLeft, Mail, LogIn, UserPlus, Landmark, Wallet } from 'lucide-react'
 import BankIcon, { banks } from '../components/BankIcon'
+import Logo from '../components/Logo'
 import './Checkout.css'
 
 const plans = [
@@ -178,10 +179,7 @@ export default function Checkout() {
             <ArrowLeft size={18} />
             Kembali
           </button>
-          <div className="logo" onClick={() => setAppState('landing')}>
-            <span className="logo-mark">L</span>
-            <span className="logo-text">Luxio</span>
-          </div>
+          <Logo onClick={() => setAppState('landing')} />
         </div>
         
         {step === 1 ? (

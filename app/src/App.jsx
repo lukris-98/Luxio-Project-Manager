@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { getAppThemeConfig, normalizeAppTheme, useStore } from './store/useStore'
+import { initModalFocus } from './utils/modalFocus'
 // =====================================================================
 // App.jsx — Router utama aplikasi (manual, belum pakai react-router).
 // =====================================================================
@@ -36,6 +37,12 @@ import OwnerDashboard from './pages/OwnerDashboard'
 import AttendancePage from './pages/AttendancePage'
 import AttendanceAdmin from './pages/AttendanceAdmin'
 import NotificationsPage from './pages/NotificationsPage'
+import Games from './pages/Games'
+import AlarmTimer from './pages/AlarmTimer'
+import Research from './pages/Research'
+import Performance from './pages/Performance'
+import Apps from './pages/Apps'
+import Connect from './pages/Connect'
 
 function App() {
   const { appState, currentPage, isAuthenticated, theme, setAppState, seedOwnerDummyData } = useStore()
@@ -77,6 +84,11 @@ function App() {
     }
   }, [appState, setAppState])
 
+  // Fokus otomatis ke modal/pop-up saat muncul (scroll & keyboard focus).
+  useEffect(() => {
+    return initModalFocus()
+  }, [])
+
   const renderApp = () => {
     switch (currentPage) {
       case 'dashboard':
@@ -117,6 +129,18 @@ function App() {
         return <AttendanceAdmin />
       case 'send-notification':
         return <NotificationsPage />
+      case 'games':
+        return <Games />
+      case 'alarm-timer':
+        return <AlarmTimer />
+      case 'research':
+        return <Research />
+      case 'performance':
+        return <Performance />
+      case 'apps':
+        return <Apps />
+      case 'connect':
+        return <Connect />
       default:
         return <Dashboard />
     }
