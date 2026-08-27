@@ -500,7 +500,7 @@ export default function Layout({ children }) {
             {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
 
-          <span className="sidebar-version" title="Versi aplikasi">v1.0.1</span>
+          <span className="sidebar-version" title="Versi aplikasi">v1.0.2</span>
         </div>
       </aside>
       

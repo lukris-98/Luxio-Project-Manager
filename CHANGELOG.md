@@ -11,14 +11,21 @@ Alur: `1.0.0 → 1.0.1 → ... → 1.0.9 → 1.1.0 → ... → 1.9.9 → 2.0.0`
 
 ---
 
+## [1.0.2] - 2026-08-27
+
+### Diperbaiki
+- Bug "Muat Info Koneksi" di halaman Pemantauan → blank page. Penyebab: fungsi
+  `maskConn` dipanggil di `NeonTab` tapi tidak didefinisikan di scope-nya
+  (ReferenceError). Dipindahkan ke dalam `NeonTab` agar error tidak muncul.
+
+---
+
 ## [1.0.1] - 2026-08-27
 
 ### Ditambahkan
 - Glosarium & riwayat versi di `spesifikasi terbaru.md`.
 - Sistem versi deploy: file `VERSION`, `CHANGELOG.md`, versi di sidebar & `package.json`.
 - GitHub Releases per versi (source zip + dist zip dapat diunduh).
-
-### Diperbaiki / Ditingkatkan (kumulatif sejak 1.0.0)
 - Neon Explorer lengkap di halaman Pemantauan (login API key, project, branch,
   database, role, endpoint, konsumsi, API key, playground raw).
 - Halaman baru: Aplikasi (App Hub) & Connect (integrasi Gmail/Telegram/WhatsApp/dll).

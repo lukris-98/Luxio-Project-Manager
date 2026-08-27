@@ -439,6 +439,11 @@ function NeonTab({
   showExplorer, setShowExplorer, neonLocalKey, onSaveNeonLocalKey,
 }) {
   const consumption = summarizeNeonConsumption(status)
+  const maskConn = (cfg) => {
+    if (!cfg?.configured || !cfg.host) return '-'
+    const db = cfg.database ? `/${cfg.database}` : ''
+    return `postgres://*****@${cfg.host}:${cfg.port || '5432'}${db}`
+  }
   return (
     <div className="owner-card">
       <div className="owner-card-head">
