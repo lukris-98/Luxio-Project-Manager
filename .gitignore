@@ -30,3 +30,5 @@ npm-debug.log*
 .edgeone/*
 .tef_dist/*
   
+# Build artifacts / rilis
+luxio-*-web.zip
