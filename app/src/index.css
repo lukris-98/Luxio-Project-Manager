@@ -198,6 +198,84 @@
   --card-shadow: rgba(0, 0, 0, 0.2) 0 0 1px 1px;
 }
 
+/* Luxio New — tema baru dari desain folder /ui:
+   kartu rounded lembut, aksen gradient ungu→oranye, field terang bersih. */
+[data-theme="luxio-new-light"] {
+  color-scheme: light;
+
+  --bg-primary: #F4F4FB;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #EDECF8;
+  --bg-elevated: #FFFFFF;
+
+  --text-primary: #17161F;
+  --text-secondary: #5B5B6C;
+  --text-muted: #8A8A99;
+
+  --accent: #6C5CE7;
+  --accent-hover: #7D6FF0;
+  --accent-muted: rgba(108, 92, 231, 0.12);
+  --accent2: #FF6B35;
+  --accent3: #8B7CF7;
+  --focus-ring: #6C5CE7;
+
+  --cyan: #0E9DD6;
+  --green: #16A34A;
+  --purple: #6C5CE7;
+  --yellow: #F59E0B;
+
+  --success: #16A34A;
+  --warning: #F59E0B;
+  --error: #E5484D;
+
+  --border: #E2E1EF;
+  --border-hover: #CDCCE5;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --card-shadow: 0 6px 22px rgba(108, 92, 231, 0.08);
+}
+
+[data-theme="luxio-new-dark"] {
+  color-scheme: dark;
+
+  --bg-primary: #101014;
+  --bg-secondary: #191921;
+  --bg-tertiary: #23232E;
+  --bg-elevated: #2A2A37;
+
+  --text-primary: #F5F5FA;
+  --text-secondary: #B4B4C4;
+  --text-muted: #7F7F92;
+
+  --accent: #7C6BF0;
+  --accent-hover: #9082F3;
+  --accent-muted: rgba(124, 107, 240, 0.18);
+  --accent2: #FF7A4A;
+  --accent3: #9A8DF9;
+  --focus-ring: #7C6BF0;
+
+  --cyan: #17B3E8;
+  --green: #34D399;
+  --purple: #7C6BF0;
+  --yellow: #FBBF24;
+
+  --success: #34D399;
+  --warning: #FBBF24;
+  --error: #F87171;
+
+  --border: #2B2B38;
+  --border-hover: #3C3C4D;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --card-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -270,6 +348,7 @@ a:hover {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  border-radius: var(--radius-sm, 0);
 }
 
 .btn-primary {
@@ -279,6 +358,18 @@ a:hover {
 
 .btn-primary:hover {
   background: var(--accent-hover);
+}
+
+/* Tema Luxio New: tombol primary memakai gradient ungu→oranye. */
+[data-theme="luxio-new-light"] .btn-primary,
+[data-theme="luxio-new-dark"] .btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+}
+
+[data-theme="luxio-new-light"] .btn-primary:hover,
+[data-theme="luxio-new-dark"] .btn-primary:hover {
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent2));
 }
 
 .btn-secondary {
@@ -336,6 +427,7 @@ a:hover {
   border: 1px solid var(--border);
   outline: none;
   transition: all 0.15s;
+  border-radius: var(--radius-sm, 0);
 }
 
 /* Native <select> modern — same appearance as custom Select */
@@ -381,6 +473,7 @@ textarea.input {
   border: 1px solid var(--border);
   padding: var(--space-6);
   box-shadow: var(--card-shadow);
+  border-radius: var(--radius-md, 0);
 }
 
 .card:hover {

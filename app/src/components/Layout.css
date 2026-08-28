@@ -190,6 +190,7 @@
   text-align: left;
   white-space: nowrap;
   flex-shrink: 0;
+  border-radius: var(--radius-sm, 0);
 }
 
 .nav-item svg {

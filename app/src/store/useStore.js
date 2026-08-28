@@ -20,16 +20,25 @@ export const APP_THEME_CONFIG = {
   light: { scheme: 'light', color: '#F1F1F3' },
   'main-white-light': { scheme: 'light', color: '#FFFFFF' },
   'main-white-dark': { scheme: 'dark', color: '#000000' },
+  'luxio-new-light': { scheme: 'light', color: '#F4F4FB' },
+  'luxio-new-dark': { scheme: 'dark', color: '#101014' },
 }
 
 export const APP_THEME_VALUES = Object.keys(APP_THEME_CONFIG)
 export const normalizeAppTheme = (theme) => APP_THEME_VALUES.includes(theme) ? theme : 'dark'
 export const getAppThemeConfig = (theme) => APP_THEME_CONFIG[normalizeAppTheme(theme)]
-export const getAppThemeFamily = (theme) => normalizeAppTheme(theme).startsWith('main-white') ? 'main-white' : 'luxio'
+export const getAppThemeFamily = (theme) => {
+  const t = normalizeAppTheme(theme)
+  if (t.startsWith('main-white')) return 'main-white'
+  if (t.startsWith('luxio-new')) return 'luxio-new'
+  return 'luxio'
+}
 export const getAppThemeMode = (theme) => normalizeAppTheme(theme).endsWith('light') ? 'light' : 'dark'
-export const makeAppTheme = (family, mode) => family === 'main-white'
-  ? `main-white-${mode === 'light' ? 'light' : 'dark'}`
-  : mode === 'light' ? 'light' : 'dark'
+export const makeAppTheme = (family, mode) => {
+  if (family === 'main-white') return `main-white-${mode === 'light' ? 'light' : 'dark'}`
+  if (family === 'luxio-new') return `luxio-new-${mode === 'light' ? 'light' : 'dark'}`
+  return mode === 'light' ? 'light' : 'dark'
+}
 export const toggleAppThemeMode = (theme) => makeAppTheme(getAppThemeFamily(theme), getAppThemeMode(theme) === 'dark' ? 'light' : 'dark')
 
 // Daftar badge gamification beserta ambang XP untuk membukanya.
