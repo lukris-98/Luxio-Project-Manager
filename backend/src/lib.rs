@@ -133,6 +133,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/owner/config", get(owner::owner_get_config))
         .route("/api/owner/logs", get(owner::owner_logs))
         .route("/api/owner/neon/status", get(owner::neon_status))
+        .route("/api/owner/neon/proxy", post(owner::neon_proxy))
         .route("/api/owner/b2/status", get(owner::b2_status))
         // Profil views (TikTok-style)
         .route("/api/profile/{id}/view", post(owner::record_profile_view))

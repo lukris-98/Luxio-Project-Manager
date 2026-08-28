@@ -67,6 +67,20 @@ async fn cfg_put(db: &PgPool, key: &str, value: Value) -> Result<(), StatusCode>
     Ok(())
 }
 
+/// Ambil API key Neon: prioritaskan env `NEON_API_KEY`, fallback ke konfigurasi
+/// owner (owner_config key "neon" -> api_key).
+async fn neon_api_key(state: &AppState) -> String {
+    if let Ok(k) = std::env::var("NEON_API_KEY") {
+        if !k.is_empty() {
+            return k;
+        }
+    }
+    cfg_get_async(&state.db, "neon")
+        .await
+        .and_then(|v| v.get("api_key").and_then(|k| k.as_str()).map(|s| s.to_string()))
+        .unwrap_or_default()
+}
+
 /// PUT /api/owner/config — simpan konfigurasi owner (umami, neon, backblaze).
 pub async fn owner_config(
     State(state): State<AppState>,
@@ -176,10 +190,9 @@ pub async fn neon_status(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    let neon = cfg_get_async(&state.db, "neon").await.unwrap_or_else(|| json!({}));
-    let api_key = neon.get("api_key").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let api_key = neon_api_key(&state).await;
     if api_key.is_empty() {
-        return Ok(Json(json!({ "configured": false, "message": "API key Neon belum diatur." })));
+        return Ok(Json(json!({ "configured": false, "message": "API key Neon belum diatur (env NEON_API_KEY atau konfigurasi owner)." })));
     }
 
     // Panggil Neon API: daftar project + konsumsi.
@@ -218,6 +231,83 @@ pub async fn neon_status(
         "projects": projects.get("projects").cloned().unwrap_or_else(|| json!([])),
         "consumption": consumption,
     })))
+}
+
+/// POST /api/owner/neon/proxy — proxy API Neon (khusus owner).
+///
+/// Browser tidak bisa memanggil `console.neon.tech` langsung karena API Neon
+/// tidak mengirim header CORS untuk origin aplikasi. Proxy ini meneruskan
+/// panggilan dari frontend ke Neon secara server-to-server memakai API key
+/// yang tersimpan di backend (env `NEON_API_KEY` / owner config).
+///
+/// Body: { "method": "GET|POST|PATCH|PUT|DELETE", "path": "/projects", "body": {...}? }
+pub async fn neon_proxy(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let api_key = neon_api_key(&state).await;
+    // Frontend boleh mengirim key sendiri (NeonExplorer) — dipakai bila ada,
+    // kalau tidak pakai key yang tersimpan di backend.
+    if let Some(k) = payload.get("api_key").and_then(|v| v.as_str()) {
+        if !k.trim().is_empty() {
+            let key = k.trim().to_string();
+            return neon_proxy_forward(&state, &key, payload).await;
+        }
+    }
+    if api_key.is_empty() {
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    }
+    neon_proxy_forward(&state, &api_key, payload).await
+}
+
+/// Teruskan permintaan ke API Neon (server-to-server).
+async fn neon_proxy_forward(
+    _state: &AppState,
+    api_key: &str,
+    payload: Value,
+) -> Result<Json<Value>, StatusCode> {
+    let method = payload.get("method").and_then(|v| v.as_str()).unwrap_or("GET").to_uppercase();
+    let path = payload.get("path").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    // Path wajib diawali "/" dan tidak boleh berisi skema lain (anti-SSRF ringan).
+    if !path.starts_with('/') || path.contains("://") {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let body = payload.get("body").cloned();
+
+    let client = reqwest::Client::new();
+    let url = format!("https://console.neon.tech/api/v2{path}");
+
+    let mut req = match method.as_str() {
+        "GET" => client.get(&url),
+        "POST" => client.post(&url),
+        "PATCH" => client.patch(&url),
+        "PUT" => client.put(&url),
+        "DELETE" => client.delete(&url),
+        _ => return Err(StatusCode::BAD_REQUEST),
+    };
+    req = req.header("Authorization", format!("Bearer {api_key}"));
+    if let Some(b) = &body {
+        req = req.json(b);
+    }
+
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[NEON PROXY] request gagal: {}", e);
+            StatusCode::BAD_GATEWAY
+        })?;
+
+    let status = resp.status().as_u16();
+    let data: Value = resp.json().await.unwrap_or_else(|_| json!({}));
+    // Balikkan status asli Neon + data, supaya frontend bisa bedakan sukses/gagal.
+    Ok(Json(json!({ "status": status, "data": data })))
 }
 
 /// GET /api/owner/b2/status — cek akun Backblaze B2 via API.

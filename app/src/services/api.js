@@ -207,7 +207,13 @@ export const api = {
   ownerGetConfig: () => get('/api/owner/config'),
   ownerSetConfig: (key, value) => put('/api/owner/config', { key, value }),
   ownerLogs: () => get('/api/owner/logs'),
+  // Neon status via backend (pemantauan kuota & konsumsi).
   neonStatus: () => get('/api/owner/neon/status'),
+  // Proxy API Neon lewat backend (hindari CORS console.neon.tech).
+  // method: GET/POST/PATCH/PUT/DELETE, path: '/projects' dst, body opsional,
+  // apiKey opsional (bila kosong backend pakai NEON_API_KEY env/owner config).
+  neonProxy: (method, path, body, apiKey) =>
+    post('/api/owner/neon/proxy', { method, path, body, api_key: apiKey || '' }),
   b2Status: () => get('/api/owner/b2/status'),
   // Konfigurasi Neon aktif (dari .env, owner).
   neonActiveConfig: () => get('/api/owner/neon/active'),

@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Database, KeyRound, LogIn, LogOut, RefreshCw, Plus, Trash2, X, Check, Play, Pause, Copy, FolderOpen, GitBranch, Server, HardDrive, Activity, KeySquare, Globe, ChevronDown, ChevronRight, Loader2, Save, ExternalLink, Circle } from 'lucide-react'
+import { api } from '../services/api'
 import './NeonExplorer.css'
 
 // =====================================================================
 // NeonExplorer — Explorer lengkap API Neon (console.neon.tech/api/v2).
 // =====================================================================
-// - Login dengan API key (Bearer). Verifikasi via GET /users/me.
+// - Login dengan API key. Verifikasi via GET /users/me.
 // - Tab: Ringkasan, Project, Branch, Endpoint, Konsumsi, API Key, Raw.
-// - Semua panggilan langsung ke Neon API dari browser.
-// - 2FA di akun Neon: API key yang dibuat sudah melewati verifikasi 2FA
-//   di console; key inilah yang dipakai untuk auth mesin-ke-mesin.
+// - SEMUA panggilan lewat BACKEND PROXY (/api/owner/neon/proxy) karena
+//   API Neon tidak mengizinkan CORS dari browser (origin aplikasi).
+// - Bila key lokal kosong, backend otomatis memakai env NEON_API_KEY.
 // =====================================================================
 
 const NEON_BASE = 'https://console.neon.tech/api/v2'
@@ -71,24 +72,15 @@ export default function NeonExplorer({ savedApiKey, onSaveApiKey }) {
     window.setTimeout(() => setToast(''), 2500)
   }
 
-  // Helper: panggil API Neon dengan Bearer key.
+  // Helper: panggil API Neon VIA BACKEND PROXY (hindari CORS console.neon.tech).
+  // Key dari input user dikirim ke backend; bila kosong, backend pakai NEON_API_KEY env.
   const call = useCallback(async (method, path, body) => {
-    const res = await fetch(`${NEON_BASE}${path}`, {
-      method,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    })
-    let data = null
-    try { data = await res.json() } catch { /* body kosong */ }
-    if (!res.ok) {
-      const msg = data?.message || data?.error || data?.error_code || `HTTP ${res.status}`
+    const res = await api.neonProxy(method, path, body, apiKey)
+    if (res.status >= 400) {
+      const msg = res.data?.message || res.data?.error || res.data?.error_code || `HTTP ${res.status}`
       throw new Error(msg)
     }
-    return data
+    return res.data
   }, [apiKey])
 
   // ---------- LOGIN ----------
@@ -97,13 +89,11 @@ export default function NeonExplorer({ savedApiKey, onSaveApiKey }) {
     if (!key) { setError('Masukkan API key Neon terlebih dahulu.'); return }
     setLoading(true); setError('')
     try {
-      const res = await fetch(`${NEON_BASE}/users/me`, { headers: { 'Authorization': `Bearer ${key}` } })
-      let data = null
-      try { data = await res.json() } catch { /* noop */ }
-      if (!res.ok) {
-        throw new Error(data?.message || data?.error || 'API key tidak valid')
+      const res = await api.neonProxy('GET', '/users/me', null, key)
+      if (res.status >= 400) {
+        throw new Error(res.data?.message || res.data?.error || 'API key tidak valid')
       }
-      setMe(data)
+      setMe(res.data)
       setApiKey(key)
       setLoggedIn(true)
       onSaveApiKey?.(key)
@@ -131,19 +121,17 @@ export default function NeonExplorer({ savedApiKey, onSaveApiKey }) {
     setBusy('memuat')
     setError('')
     try {
-      const setB = (label) => (p) => { /* noop */ }
-      void setB
       const [p, r, c] = await Promise.allSettled([
-        fetch(`${NEON_BASE}/projects`, { headers: { 'Authorization': `Bearer ${k}` } }).then(r2 => r2.json()),
-        fetch(`${NEON_BASE}/regions`, { headers: { 'Authorization': `Bearer ${k}` } }).then(r2 => r2.json()),
-        fetch(`${NEON_BASE}/consumption_history/v2/projects?limit=1`, { headers: { 'Authorization': `Bearer ${k}` } }).then(r2 => r2.json()),
+        call('GET', '/projects'),
+        call('GET', '/regions'),
+        call('GET', '/consumption_history/v2/projects?limit=1'),
       ])
       if (p.status === 'fulfilled' && p.value.projects) setProjects(p.value.projects)
       if (r.status === 'fulfilled' && r.value.regions) setRegions(r.value.regions)
       if (c.status === 'fulfilled' && c.value.projects) setConsumption(c.value.projects[0])
       // API keys (mungkin 403 utk user biasa)
       try {
-        const ak = await fetch(`${NEON_BASE}/api_keys`, { headers: { 'Authorization': `Bearer ${k}` } }).then(r2 => r2.json())
+        const ak = await call('GET', '/api_keys')
         if (ak.api_keys) setApiKeys(ak.api_keys)
       } catch { /* noop */ }
     } catch (e) {
