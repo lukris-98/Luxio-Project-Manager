@@ -134,6 +134,20 @@ pub struct VerifyEmailRequest {
     pub token: String,
 }
 
+/// Body request untuk endpoint POST /api/auth/forgot-password — lupa password.
+#[derive(Debug, Deserialize)]
+pub struct ForgotPasswordRequest {
+    pub email: String,
+}
+
+/// Body request untuk endpoint POST /api/auth/reset-password — atur ulang
+/// password memakai token dari email lupa password.
+#[derive(Debug, Deserialize)]
+pub struct ResetPasswordRequest {
+    pub token: String,
+    pub password: String,
+}
+
 /// Body request untuk endpoint POST /api/auth/2fa/verify — verifikasi kode
 /// 2FA setelah login (email + kode).
 #[derive(Debug, Deserialize)]

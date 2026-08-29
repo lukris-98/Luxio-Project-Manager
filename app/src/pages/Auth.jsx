@@ -1,25 +1,42 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
-import { ArrowLeft, LogIn, UserPlus, Mail, Lock, User, ShieldCheck, MailCheck, RefreshCw, KeyRound, KeySquare } from 'lucide-react'
+import { ArrowLeft, LogIn, UserPlus, Mail, Lock, User, ShieldCheck, MailCheck, RefreshCw, KeyRound, KeySquare, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import Logo from '../components/Logo'
 import './Auth.css'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
+// Aturan format password (wajib dipenuhi semua):
+const PASSWORD_RULES = [
+  { id: 'len', label: 'Minimal 8 karakter', test: (p) => p.length >= 8 },
+  { id: 'upper', label: '1 huruf besar (A-Z)', test: (p) => /[A-Z]/.test(p) },
+  { id: 'lower', label: '1 huruf kecil (a-z)', test: (p) => /[a-z]/.test(p) },
+  { id: 'digit', label: '1 angka (0-9)', test: (p) => /\d/.test(p) },
+  { id: 'symbol', label: '1 simbol (!@#$%^&*)', test: (p) => /[^A-Za-z0-9\s]/.test(p) },
+]
+const passwordMeetsRules = (p) => PASSWORD_RULES.every((r) => r.test(p || ''))
+
 export default function Auth() {
-  const { setAppState, login, register, verify2FA, verifyEmail, verifyPin, googleLogin } = useStore()
+  const { setAppState, login, register, verify2FA, verifyEmail, verifyPin, googleLogin, forgotPassword, resetPassword } = useStore()
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   // Alur verifikasi
-  // stage: 'form' | 'otp' | 'pin' | 'confirm-sent' | 'verifying'
+  // stage: 'form' | 'otp' | 'pin' | 'confirm-sent' | 'verifying' |
+  //        'forgot' | 'forgot-sent' | 'reset'
   const [stage, setStage] = useState('form')
   const [otp, setOtp] = useState('')
   const [otpEmail, setOtpEmail] = useState('')
   const [pin, setPin] = useState('')
   const [pinMode, setPinMode] = useState('verify') // 'verify' | 'setup'
+
+  // State lupa password
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [resetToken, setResetToken] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const [form, setForm] = useState({
     name: '',
@@ -47,6 +64,16 @@ export default function Auth() {
       })()
     }
   }, [verifyEmail, setAppState])
+
+  // Bila dibuka dari link reset password: ?reset_token=xxx
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const resetTok = params.get('reset_token')
+    if (resetTok) {
+      setResetToken(resetTok)
+      setStage('reset')
+    }
+  }, [])
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -110,8 +137,8 @@ export default function Auth() {
           setLoading(false)
           return
         }
-        if (form.password.length < 8) {
-          setError('Password minimal 8 karakter')
+        if (!passwordMeetsRules(form.password)) {
+          setError('Password harus: minimal 8 karakter, 1 huruf besar, 1 huruf kecil, 1 angka, dan 1 simbol.')
           setLoading(false)
           return
         }
@@ -172,6 +199,71 @@ export default function Auth() {
     setLoading(false)
   }
 
+  // ---------- LUPA PASSWORD ----------
+  // Kirim email reset password.
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault()
+    if (!forgotEmail.trim()) {
+      setError('Masukkan email kamu.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    const result = await forgotPassword(forgotEmail.trim())
+    setLoading(false)
+    if (result.success) {
+      setStage('forgot-sent')
+    } else {
+      setError(result.message || 'Terjadi kesalahan. Coba lagi.')
+    }
+  }
+
+  // Atur ulang password memakai token.
+  const handleResetSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!passwordMeetsRules(newPassword)) {
+      setError('Password belum memenuhi format yang diminta.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Password tidak cocok.')
+      return
+    }
+    setLoading(true)
+    const result = await resetPassword(resetToken, newPassword)
+    setLoading(false)
+    if (result.success) {
+      // Bersihkan query string reset_token dari URL lalu kembali ke login.
+      const url = new URL(window.location.href)
+      url.searchParams.delete('reset_token')
+      window.history.replaceState({}, '', url.toString())
+      setStage('form')
+      setMode('login')
+      setNewPassword('')
+      setConfirmPassword('')
+      setError('')
+      alert(result.message || 'Password berhasil diubah. Silakan login dengan password baru.')
+    } else {
+      setError(result.message || 'Token tidak valid. Silakan minta link reset baru.')
+    }
+  }
+
+  // Indikator format password: checklist per aturan, hijau jika lolos.
+  const renderPasswordRules = (value) => (
+    <div className="password-rules">
+      {PASSWORD_RULES.map((rule) => {
+        const ok = rule.test(value || '')
+        return (
+          <span key={rule.id} className={`pwd-rule ${ok ? 'ok' : 'no'}`}>
+            {ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+            {rule.label}
+          </span>
+        )
+      })}
+    </div>
+  )
+
   const handlePinSubmit = async (e) => {
     e.preventDefault()
     if (!pin || !/^\d{4,6}$/.test(pin)) {
@@ -194,6 +286,12 @@ export default function Auth() {
     setStage('form')
     setMode('login')
     setError('')
+  }
+
+  const openForgot = () => {
+    setStage('forgot')
+    setError('')
+    setForgotEmail('')
   }
 
   const showTabs = stage === 'form'
@@ -299,6 +397,129 @@ export default function Auth() {
               <button className="btn btn-primary" style={{ width: '100%' }} onClick={goBackToLogin}>
                 <LogIn size={16} /> Kembali ke Login
               </button>
+            </div>
+          )}
+
+          {/* ---------- LAYAR LUPA PASSWORD (masukkan email) ---------- */}
+          {stage === 'forgot' && (
+            <div className="auth-content">
+              <div className="auth-icon-big"><AlertCircle size={36} /></div>
+              <h1>Lupa Password</h1>
+              <p className="auth-subtitle">
+                Masukkan email yang terdaftar. Kami akan mengirim link untuk mereset password kamu.
+              </p>
+
+              {error && <div className="auth-error">{error}</div>}
+
+              <form onSubmit={handleForgotSubmit} className="auth-form">
+                <div className="input-group">
+                  <label className="input-label" htmlFor="forgot-email">Email</label>
+                  <div className="input-icon">
+                    <Mail size={16} />
+                    <input
+                      type="email"
+                      id="forgot-email"
+                      className="input"
+                      placeholder="nama@email.com"
+                      autoFocus
+                      value={forgotEmail}
+                      onChange={(e) => { setForgotEmail(e.target.value); setError('') }}
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading}>
+                  {loading ? 'Mengirim…' : 'Kirim Link Reset'}
+                </button>
+              </form>
+
+              <div className="auth-footer">
+                <button className="auth-link" onClick={goBackToLogin}>
+                  Kembali ke Login
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ---------- LAYAR EMAIL RESET TERKIRIM ---------- */}
+          {stage === 'forgot-sent' && (
+            <div className="auth-content">
+              <div className="auth-icon-big"><MailCheck size={36} /></div>
+              <h1>Cek Email Kamu</h1>
+              <p className="auth-subtitle">
+                Jika <strong>{forgotEmail}</strong> terdaftar, link reset password sudah dikirim.
+                Klik tombol di email tersebut untuk membuat password baru.
+              </p>
+              <p className="auth-subtitle" style={{ marginTop: 8 }}>
+                Tidak menerima? Periksa folder spam. Link berlaku 1 jam.
+              </p>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={goBackToLogin}>
+                <LogIn size={16} /> Kembali ke Login
+              </button>
+            </div>
+          )}
+
+          {/* ---------- LAYAR ATUR ULANG PASSWORD (dari email) ---------- */}
+          {stage === 'reset' && (
+            <div className="auth-content">
+              <div className="auth-icon-big"><KeyRound size={36} /></div>
+              <h1>Atur Ulang Password</h1>
+              <p className="auth-subtitle">
+                Buat password baru untuk akun kamu. Pastikan memenuhi semua format di bawah ini.
+              </p>
+
+              {error && <div className="auth-error">{error}</div>}
+
+              <form onSubmit={handleResetSubmit} className="auth-form">
+                <div className="input-group">
+                  <label className="input-label" htmlFor="reset-password">Password Baru</label>
+                  <div className="input-icon">
+                    <Lock size={16} />
+                    <input
+                      type="password"
+                      id="reset-password"
+                      className="input"
+                      placeholder="••••••••"
+                      autoFocus
+                      value={newPassword}
+                      onChange={(e) => { setNewPassword(e.target.value); setError('') }}
+                    />
+                  </div>
+                  {renderPasswordRules(newPassword)}
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label" htmlFor="reset-confirm">Konfirmasi Password Baru</label>
+                  <div className="input-icon">
+                    <Lock size={16} />
+                    <input
+                      type="password"
+                      id="reset-confirm"
+                      className="input"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => { setConfirmPassword(e.target.value); setError('') }}
+                    />
+                  </div>
+                  {newPassword && newPassword !== confirmPassword && (
+                    <div className="pwd-mismatch">Password tidak cocok.</div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-lg"
+                  style={{ width: '100%' }}
+                  disabled={loading || !passwordMeetsRules(newPassword) || newPassword !== confirmPassword}
+                >
+                  {loading ? 'Menyimpan…' : 'Simpan Password Baru'}
+                </button>
+              </form>
+
+              <div className="auth-footer">
+                <button className="auth-link" onClick={goBackToLogin}>
+                  Kembali ke Login
+                </button>
+              </div>
             </div>
           )}
 
@@ -495,6 +716,7 @@ export default function Auth() {
                         onChange={handleChange}
                       />
                     </div>
+                    {mode === 'register' && renderPasswordRules(form.password)}
                   </div>
 
                   {mode === 'register' && (
@@ -512,6 +734,9 @@ export default function Auth() {
                           onChange={handleChange}
                         />
                       </div>
+                      {form.password && form.password !== form.confirmPassword && (
+                        <div className="pwd-mismatch">Password tidak cocok.</div>
+                      )}
                     </div>
                   )}
 
@@ -550,12 +775,17 @@ export default function Auth() {
 
                 <div className="auth-footer">
                   {mode === 'login' ? (
-                    <p>
-                      Belum punya akun?{' '}
-                      <button className="auth-link" onClick={() => setMode('register')}>
-                        Daftar gratis
+                    <>
+                      <button type="button" className="auth-link" onClick={openForgot}>
+                        Lupa Password?
                       </button>
-                    </p>
+                      <p>
+                        Belum punya akun?{' '}
+                        <button className="auth-link" onClick={() => setMode('register')}>
+                          Daftar gratis
+                        </button>
+                      </p>
+                    </>
                   ) : (
                     <p>
                       Sudah punya akun?{' '}

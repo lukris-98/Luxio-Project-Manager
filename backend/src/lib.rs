@@ -106,6 +106,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/auth/register", post(handlers::register))
         .route("/api/auth/login", post(handlers::login))
         .route("/api/auth/verify", post(handlers::verify_email))
+        .route("/api/auth/forgot-password", post(handlers::forgot_password))
+        .route("/api/auth/reset-password", post(handlers::reset_password))
         .route("/api/auth/2fa/verify", post(handlers::verify_2fa))
         .route("/api/auth/verify-pin", post(handlers::verify_pin))
         .route("/api/auth/google", post(handlers::google_auth))

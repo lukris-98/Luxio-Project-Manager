@@ -1131,6 +1131,31 @@ export const useStore = create(
   },
 
   /**
+   * Kirim email reset password (lupa password). Jika email tidak terdaftar,
+   * backend mengembalikan success=false dengan pesan sesuai.
+   */
+  forgotPassword: async (email) => {
+    try {
+      const res = await api.forgotPassword(email)
+      return { success: res.success, message: res.message }
+    } catch (err) {
+      return { success: false, message: err.message }
+    }
+  },
+
+  /**
+   * Atur ulang password memakai token dari email reset.
+   */
+  resetPassword: async (token, password) => {
+    try {
+      const res = await api.resetPassword(token, password)
+      return { success: res.success, message: res.message }
+    } catch (err) {
+      return { success: false, message: err.message }
+    }
+  },
+
+  /**
    * Login/daftar via Google (token id_token dari Google Identity Services).
    * Berhasil => sesi langsung dibuat seperti verify2FA (tanpa 2FA/PIN).
    */

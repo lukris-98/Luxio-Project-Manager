@@ -262,4 +262,8 @@ export const api = {
   updateAIProvider: (id, data) => put(`/api/agent/providers/${id}`, data),
   deleteAIProvider: (id) => del(`/api/agent/providers/${id}`, {}),
   fetchAIModels: (data) => post('/api/agent/providers/fetch-models', data),
+
+  // ---- Lupa Password ----
+  forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
+  resetPassword: (token, password) => post('/api/auth/reset-password', { token, password }),
 }

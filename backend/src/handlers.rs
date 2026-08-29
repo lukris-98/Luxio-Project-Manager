@@ -79,9 +79,17 @@ fn validate_email(email: &str) -> Result<(), StatusCode> {
     Ok(())
 }
 
-/// Validasi password: minimal 8 karakter, maksimal 128.
+/// Validasi password: minimal 8 karakter, maksimal 128, dan wajib berisi
+/// minimal 1 huruf besar, 1 huruf kecil, 1 angka, dan 1 simbol.
 fn validate_password(password: &str) -> Result<(), StatusCode> {
     if password.len() < 8 || password.len() > 128 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let has_upper = password.chars().any(|c| c.is_uppercase());
+    let has_lower = password.chars().any(|c| c.is_lowercase());
+    let has_digit = password.chars().any(|c| c.is_ascii_digit());
+    let has_symbol = password.chars().any(|c| !c.is_alphanumeric() && !c.is_whitespace());
+    if !(has_upper && has_lower && has_digit && has_symbol) {
         return Err(StatusCode::BAD_REQUEST);
     }
     Ok(())
@@ -470,6 +478,142 @@ pub async fn verify_email(
             requires_pin: None,
             requires_pin_setup: None,
     }))
+}
+
+/// POST /api/auth/forgot-password — lupa password. Kirim link reset ke email
+/// bila terdaftar; bila tidak, beri tahu bahwa email belum terdaftar.
+pub async fn forgot_password(
+    State(state): State<AppState>,
+    Json(payload): Json<ForgotPasswordRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let email = payload.email.trim().to_lowercase();
+    if let Err(e) = validate_email(&email) {
+        return Err(e);
+    }
+
+    // Rate limit: 5 permintaan / 10 menit per email.
+    if rate_limited(&format!("forgot:{}", &email), 5, 600) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    // Cek apakah email terdaftar.
+    let row = sqlx::query("SELECT id, name FROM users WHERE email = $1")
+        .bind(&email)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    match row {
+        Some(user) => {
+            let user_id: String = user.get("id");
+            let name: String = user.get("name");
+            let reset_token = Uuid::new_v4().to_string();
+            let expires = Utc::now() + Duration::hours(1);
+
+            sqlx::query("UPDATE users SET reset_token = $1, reset_expires = $2 WHERE id = $3")
+                .bind(&reset_token)
+                .bind(&expires)
+                .bind(&user_id)
+                .execute(&state.db)
+                .await
+                .map_err(|e| {
+                    eprintln!("[DB ERROR] {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+
+            // Kirim email reset password (best-effort).
+            tokio::spawn({
+                let to = email.clone();
+                let name = name.clone();
+                let token = reset_token.clone();
+                async move {
+                    match crate::mail::send_password_reset(&to, &name, &token).await {
+                        Ok(true) => tracing::info!(event = "reset_email_sent", to = %to),
+                        _ => tracing::warn!(event = "reset_email_skipped", to = %to),
+                    }
+                }
+            });
+
+            Ok(Json(json!({
+                "success": true,
+                "message": "Jika email terdaftar, link reset password telah dikirim. Cek email kamu (termasuk folder spam).".to_string(),
+            })))
+        }
+        None => {
+            // Sesuai permintaan user: beri tahu bahwa email belum terdaftar.
+            Ok(Json(json!({
+                "success": false,
+                "message": "Email ini belum terdaftar. Silakan daftar dulu.".to_string(),
+            })))
+        }
+    }
+}
+
+/// POST /api/auth/reset-password — atur ulang password memakai token dari email.
+pub async fn reset_password(
+    State(state): State<AppState>,
+    Json(payload): Json<ResetPasswordRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    // Rate limit per token: 5 percobaan / 10 menit.
+    if rate_limited(&format!("reset:{}", &payload.token), 5, 600) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    // Validasi password baru.
+    validate_password(&payload.password)?;
+
+    let now = Utc::now();
+    let row = sqlx::query(
+        "SELECT id, name FROM users WHERE reset_token = $1 AND reset_expires > $2",
+    )
+    .bind(&payload.token)
+    .bind(&now)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let user = match row {
+        Some(r) => r,
+        None => {
+            return Ok(Json(json!({
+                "success": false,
+                "message": "Token reset tidak valid atau sudah kedaluwarsa (1 jam). Silakan minta link reset baru.".to_string(),
+            })));
+        }
+    };
+
+    let user_id: String = user.get("id");
+    let new_hash = hash_password(&payload.password)?;
+
+    // Update password + hapus reset token + hapus semua sesi (paksa logout).
+    sqlx::query("UPDATE users SET password_hash = $1, reset_token = NULL, reset_expires = NULL WHERE id = $2")
+        .bind(&new_hash)
+        .bind(&user_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            eprintln!("[DB ERROR] {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    // Hapus sesi aktif untuk mengamankan akun (paksa login ulang).
+    let _ = sqlx::query("DELETE FROM sessions WHERE user_id = $1")
+        .bind(&user_id)
+        .execute(&state.db)
+        .await;
+
+    tracing::info!(event = "password_reset", user_id = %user_id, "password reset successful");
+
+    Ok(Json(json!({
+        "success": true,
+        "message": "Password berhasil diubah. Silakan login dengan password baru.".to_string(),
+    })))
 }
 
 /// POST /api/auth/login — tahap 1: verifikasi email & password.

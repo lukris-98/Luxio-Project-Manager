@@ -11,7 +11,7 @@ use sqlx::{postgres::PgPoolOptions, PgPool};
 /// `database_url` biasanya diambil dari env `DATABASE_URL` (lihat .env.example).
 pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
     PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(15)
         .connect(database_url)
         .await
 }
@@ -68,9 +68,21 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
-    // Kolom profil lengkap user (Item 2: Settings profil). Ditambah bertahap
-    // agar tabel lama tetap kompatibel.
-    for (column, sql_type) in [
+        // Kolom profil lengkap user (Item 2: Settings profil). Ditambah bertahap
+        // agar tabel lama tetap kompatibel.
+        // Kolom reset password (lupa password): token & waktu kedaluwarsa.
+        sqlx::query(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT",
+        )
+        .execute(db)
+        .await?;
+        sqlx::query(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMPTZ",
+        )
+        .execute(db)
+        .await?;
+
+        for (column, sql_type) in [
         ("phone", "TEXT NOT NULL DEFAULT ''"),
         ("gender", "TEXT NOT NULL DEFAULT ''"),
         ("address", "TEXT NOT NULL DEFAULT ''"),

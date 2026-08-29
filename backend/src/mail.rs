@@ -376,6 +376,31 @@ pub async fn send_confirmation(
     send_html(to, subject, &html, &text).await
 }
 
+/// Email reset password berisi tombol link ke halaman atur ulang password.
+pub async fn send_password_reset(to: &str, name: &str, token: &str) -> Result<bool, String> {
+    let link = format!("{}/?reset_token={}", crate::mail::app_url(), token);
+    let subject = "Reset Password Luxio";
+    let text = format!(
+        "Halo {name},\n\n\
+         Kami menerima permintaan untuk mereset password akun Luxio kamu.\n\n\
+         Klik tautan berikut untuk membuat password baru:\n\
+         {link}\n\n\
+         Tautan berlaku 1 jam. Jika kamu tidak meminta reset password, abaikan email ini.\n\n\
+         Tim Luxio"
+    );
+    let html = html_template(
+        subject,
+        &format!(
+            "<p>Halo <strong>{name}</strong>,</p>\
+             <p>Kami menerima permintaan untuk mereset password akun Luxio kamu. Klik tombol di bawah untuk membuat password baru:</p>\
+             <p style=\"font-size:13px;color:#A1A1A6;\">Tautan berlaku <strong>1 jam</strong>. Jika kamu tidak meminta reset password, abaikan email ini.</p>",
+            name = body_html_escape(name),
+        ),
+        Some((&link, "Atur Ulang Password")),
+    );
+    send_html(to, subject, &html, &text).await
+}
+
 /// Email berisi kode 2FA untuk login.
 pub async fn send_login_otp(to: &str, name: &str, code: &str) -> Result<bool, String> {
     let subject = "Kode Masuk Luxio (2FA)";

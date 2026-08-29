@@ -278,6 +278,44 @@
   padding: var(--space-4) 0;
 }
 
+/* Indikator format password (checklist aturan) */
+.password-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg-secondary, rgba(255,255,255,0.03));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.pwd-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.pwd-rule.ok {
+  color: var(--success, #34d399);
+}
+
+.pwd-rule.no {
+  color: var(--text-muted);
+}
+
+.pwd-mismatch {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--danger, #f87171);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }
