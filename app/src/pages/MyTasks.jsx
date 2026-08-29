@@ -1,5 +1,4 @@
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
@@ -37,7 +36,7 @@ export default function MyTasks() {
   }
   
   return (
-    <Layout>
+    <>
       <motion.div 
         className="my-tasks-page"
         variants={containerVariants}
@@ -111,6 +110,6 @@ export default function MyTasks() {
           onClose={() => setDeleteTarget(null)}
         />
       )}
-    </Layout>
+    </>
   )
 }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore, dataKeyFor } from '../store/useStore'
-import Layout from '../components/Layout'
 import { Clock, Timer, AlarmClock, Play, Pause, RotateCcw, Plus, Trash2, Bell, BellOff } from 'lucide-react'
 import './AlarmTimer.css'
 
@@ -144,7 +143,7 @@ export default function AlarmTimer() {
   }
 
   return (
-    <Layout>
+    <>
       <div className="alarm-page">
         <div className="page-header">
           <div className="page-header-left">
@@ -277,6 +276,6 @@ export default function AlarmTimer() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   )
 }

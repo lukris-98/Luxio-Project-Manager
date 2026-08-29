@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import { api } from '../services/api'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { MessageSquare, Send, Plus, Users, UserPlus, X, Search, User, ArrowLeft, ChevronDown, Globe, Hash, Eye, Building2 } from 'lucide-react'
 import './Chat.css'
@@ -153,7 +152,7 @@ export default function ChatPage() {
   }
 
   return (
-    <Layout>
+    <>
       <div className="chat-page">
         {/* Sidebar: daftar percakapan */}
         <div className={`chat-sidebar ${mobilePanel === 'list' ? 'mobile-show' : ''}`}>
@@ -463,6 +462,6 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   )
 }

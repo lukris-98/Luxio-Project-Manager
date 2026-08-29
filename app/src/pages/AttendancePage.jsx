@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { MapPin, Camera, Upload, X, AlertTriangle, CheckCircle2, Clock, Loader2, LogIn, LogOut, Video } from 'lucide-react'
 import { api } from '../services/api'
@@ -219,7 +218,7 @@ export default function AttendancePage() {
     t ? new Date(t).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="attendance-page"
         initial={{ opacity: 0 }}
@@ -476,6 +475,6 @@ export default function AttendancePage() {
           )}
         </div>
       </motion.div>
-    </Layout>
+    </>
   )
 }

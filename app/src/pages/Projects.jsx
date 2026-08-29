@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import TargetForm from '../components/TargetForm'
 import LabelFilterBar from '../components/LabelFilterBar'
 import { motion } from 'framer-motion'
@@ -94,7 +93,7 @@ export default function Projects() {
   }
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="projects-page"
         variants={containerVariants}
@@ -227,6 +226,6 @@ export default function Projects() {
           />
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }

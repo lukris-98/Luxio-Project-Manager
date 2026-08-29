@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useStore, useEffectiveRole } from '../store/useStore'
-import Layout from '../components/Layout'
 import InviteUsers from '../components/InviteUsers'
 import TargetBoard from '../components/TargetBoard'
 import ThemeSelect from '../components/ThemeSelect'
@@ -119,7 +118,7 @@ export default function Kanban() {
   })
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="kanban-page"
         initial={{ opacity: 0 }}
@@ -328,6 +327,6 @@ export default function Kanban() {
           />
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }

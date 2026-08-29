@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { Rocket, Building2, GraduationCap, HeartHandshake, Users, Briefcase, ArrowRight, Check, X } from 'lucide-react'
 import './UpgradeAkun.css'
@@ -85,7 +84,7 @@ export default function UpgradeAkun() {
   const isAlreadyUpgraded = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'owner'
 
   return (
-    <Layout>
+    <>
       <motion.div className="upgrade-page" variants={containerVariants} initial="hidden" animate="visible">
         <motion.div className="page-header" variants={itemVariants}>
           <div className="page-header-left">
@@ -229,6 +228,6 @@ export default function UpgradeAkun() {
           </>
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }

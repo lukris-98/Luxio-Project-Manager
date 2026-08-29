@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react'
 import { useStore, useEffectiveRole } from '../store/useStore'
 import { can as canAuthority, getAuthorityLabel as authLabel } from '../utils/permissions'
 import { api } from '../services/api'
-import Layout from '../components/Layout'
 import Select from '../components/Select'
 import { motion } from 'framer-motion'
 import { Users, Building2, Mail, Plus, Trash2, Pencil, Crown, X, Shield, Check, Phone, Briefcase, Calendar, MapPin, BadgeCheck, Send, Lock, Eye, EyeOff, MoreVertical } from 'lucide-react'
@@ -165,7 +164,7 @@ export default function Team() {
       : 'Daftar anggota tim (hanya lihat)'
 
   return (
-    <Layout>
+    <>
       <motion.div className="team-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         {/* Header */}
         <motion.div className="page-header" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
@@ -513,7 +512,7 @@ export default function Team() {
           }}
         />
       )}
-    </Layout>
+    </>
   )
 }
 

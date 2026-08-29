@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore, dataKeyFor } from '../store/useStore'
-import Layout from '../components/Layout'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { Plus, X, Key, Globe, AtSign, Eye, EyeOff, Copy, Pencil, FolderOpen, ExternalLink, Server, Wifi, Building2, CreditCard, Smartphone, FileKey, Lock, User, Network, Hash, IdCard, Calendar, DollarSign, Link, LockOpen, Shield, Check, KeyRound, ArrowLeft } from 'lucide-react'
 import './Vault.css'
@@ -275,7 +274,7 @@ export default function Vault() {
   // ============ GATE: SETUP / LOCKED ============
   if (vaultGate === 'setup') {
     return (
-      <Layout>
+      <>
         <div className="vault-page">
           <div className="vault-gate">
             <Shield size={48} />
@@ -309,13 +308,13 @@ export default function Vault() {
             )}
           </div>
         </div>
-      </Layout>
+      </>
     )
   }
 
   if (vaultGate === 'locked') {
     return (
-      <Layout>
+      <>
         <div className="vault-page">
           <div className="vault-gate">
             <Lock size={48} />
@@ -330,13 +329,13 @@ export default function Vault() {
             </button>
           </div>
         </div>
-      </Layout>
+      </>
     )
   }
 
   // ============ UTAMA: Brankas terbuka ============
   return (
-    <Layout>
+    <>
       <div className="vault-page">
         <div className="page-header">
           <div className="page-header-left">
@@ -564,6 +563,6 @@ export default function Vault() {
           onClose={() => setDeleteTarget(null)}
         />
       )}
-    </Layout>
+    </>
   )
 }

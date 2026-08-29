@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useStore, dataKeyFor } from '../store/useStore'
 import DOMPurify from 'dompurify'
-import Layout from '../components/Layout'
 import InviteUsers from '../components/InviteUsers'
 import ThemeSelect from '../components/ThemeSelect'
 import LabelFilterBar from '../components/LabelFilterBar'
@@ -356,7 +355,7 @@ export default function PrivateNote() {
   })
 
   return (
-    <Layout>
+    <>
       <div className="note-page">
         <div className="page-header note-page-header">
           <div className="page-header-left">
@@ -757,6 +756,6 @@ export default function PrivateNote() {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   )
 }

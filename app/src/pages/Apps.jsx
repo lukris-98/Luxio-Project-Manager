@@ -1,5 +1,4 @@
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import {
   LayoutDashboard,
   Target,
@@ -56,7 +55,7 @@ export default function Apps() {
   const { setCurrentPage } = useStore()
 
   return (
-    <Layout>
+    <>
       <div className="apps-page">
         <div className="page-header">
           <div className="page-header-left">
@@ -135,6 +134,6 @@ export default function Apps() {
           </div>
         </section>
       </div>
-    </Layout>
+    </>
   )
 }

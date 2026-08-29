@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { getAppThemeConfig, normalizeAppTheme, useStore } from './store/useStore'
 import { initModalFocus } from './utils/modalFocus'
 import UrlSync from './components/UrlSync'
+import Layout from './components/Layout'
 // =====================================================================
 // App.jsx — Router utama aplikasi.
 // =====================================================================
@@ -164,7 +165,11 @@ function App() {
   // appState sempat tertinggal 'landing'; langsung render halaman app.
   let content
   if (appState === 'landing') {
-    content = isAuthenticated ? renderApp() : <Landing />
+    content = isAuthenticated ? (
+      <Layout>{renderApp()}</Layout>
+    ) : (
+      <Landing />
+    )
   } else if (appState === 'pricing') {
     content = <Pricing />
   } else if (appState === 'faq') {
@@ -178,7 +183,7 @@ function App() {
   } else if (!isAuthenticated) {
     content = <Landing />
   } else {
-    content = renderApp()
+    content = <Layout>{renderApp()}</Layout>
   }
 
   return (

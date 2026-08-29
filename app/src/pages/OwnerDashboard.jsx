@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { BarChart3, Database, HardDrive, ScrollText, Lightbulb, Save, RefreshCw, KeyRound, FolderOpen, Plus, X, Check, Crown, ExternalLink, Plug } from 'lucide-react'
 import { api } from '../services/api'
@@ -269,7 +268,7 @@ export default function OwnerDashboard() {
   if (!isOwner) return null
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="owner-dashboard-page"
         initial={{ opacity: 0 }}
@@ -371,7 +370,7 @@ export default function OwnerDashboard() {
           </div>
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }
 

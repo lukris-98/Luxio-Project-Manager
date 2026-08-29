@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useStore, dataKeyFor } from '../store/useStore'
-import Layout from '../components/Layout'
 import {
   Mail, CalendarDays, Send, MessageCircle, MessageSquare, BookOpen, Code, Folder,
   Plug, Link2, Unplug, Check, X, ShieldCheck,
@@ -52,7 +51,7 @@ export default function Connect() {
   }
 
   return (
-    <Layout>
+    <>
       <div className="connect-page">
         <div className="page-header">
           <div className="page-header-left">
@@ -159,6 +158,6 @@ export default function Connect() {
           <Check size={15} /> {toast}
         </div>
       )}
-    </Layout>
+    </>
   )
 }

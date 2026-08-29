@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import './Calendar.css'
@@ -109,7 +108,7 @@ export default function Calendar() {
   const days = getDaysInMonth(currentDate)
   
   return (
-    <Layout>
+    <>
       <motion.div 
         className="calendar-page"
         initial={{ opacity: 0 }}
@@ -193,6 +192,6 @@ export default function Calendar() {
           )}
         </div>
       </motion.div>
-    </Layout>
+    </>
   )
 }

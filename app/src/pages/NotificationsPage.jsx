@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { Megaphone, Users, Loader2, Send, BellRing, Search } from 'lucide-react'
 import { api } from '../services/api'
@@ -128,7 +127,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="notif-send-page"
         initial={{ opacity: 0 }}
@@ -263,6 +262,6 @@ export default function NotificationsPage() {
           </button>
         </div>
       </motion.div>
-    </Layout>
+    </>
   )
 }

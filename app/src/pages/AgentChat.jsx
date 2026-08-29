@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { Bot, Send, Trash2, Terminal, Key, Loader, User, ChevronDown, Settings } from 'lucide-react'
 import './AgentChat.css'
@@ -92,7 +91,7 @@ export default function AgentChat() {
   }
 
   return (
-    <Layout>
+    <>
       <div className="agent-page">
         {/* Header */}
         <div className="agent-header">
@@ -270,6 +269,6 @@ export default function AgentChat() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   )
 }

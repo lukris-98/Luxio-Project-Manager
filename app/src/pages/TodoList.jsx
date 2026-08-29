@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import Layout from '../components/Layout'
 import InviteUsers from '../components/InviteUsers'
 import TargetTodo from '../components/TargetTodo'
 import LabelFilterBar from '../components/LabelFilterBar'
@@ -65,7 +64,7 @@ export default function TodoList() {
   })
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="todo-page"
         initial={{ opacity: 0 }}
@@ -128,6 +127,6 @@ export default function TodoList() {
           </div>
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }

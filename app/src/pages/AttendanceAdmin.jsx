@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import Select from '../components/Select'
 import { motion } from 'framer-motion'
 import { ClipboardList, Users, Loader2, X, Eye, Plus, DollarSign, Printer } from 'lucide-react'
@@ -154,7 +153,7 @@ export default function AttendanceAdmin() {
   if (!isAllowed) return null
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="att-admin-page"
         initial={{ opacity: 0 }}
@@ -473,7 +472,7 @@ export default function AttendanceAdmin() {
           </div>
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }
 

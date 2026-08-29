@@ -1,5 +1,4 @@
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { Target, CheckCircle, Clock, AlertTriangle, TrendingUp, ArrowRight, Users, Folder, CalendarClock } from 'lucide-react'
 import { deadlineText } from '../utils/deadline'
@@ -21,7 +20,7 @@ export default function Dashboard() {
   }
   
   return (
-    <Layout>
+    <>
       <motion.div 
         className="dashboard"
         variants={containerVariants}
@@ -170,6 +169,6 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </motion.div>
-    </Layout>
+    </>
   )
 }

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { Star, Users, Search, Trash2, MessageSquare, BarChart3, ThumbsUp, Calendar, Building2, Briefcase } from 'lucide-react'
 import './Performance.css'
@@ -108,7 +107,7 @@ export default function Performance() {
 
   if (!isAllowed) {
     return (
-      <Layout>
+      <>
         <div className="perf-page">
           <div className="page-header">
             <div className="page-header-left">
@@ -122,12 +121,12 @@ export default function Performance() {
             <p>Halaman ini hanya dapat diakses oleh admin, super admin, atau owner.</p>
           </div>
         </div>
-      </Layout>
+      </>
     )
   }
 
   return (
-    <Layout>
+    <>
       <motion.div className="perf-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <div className="page-header">
           <div className="page-header-left">
@@ -274,6 +273,6 @@ export default function Performance() {
           ))
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }

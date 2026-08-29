@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import Select from '../components/Select'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { motion } from 'framer-motion'
@@ -198,7 +197,7 @@ export default function AdminUsers() {
   }
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="admin-users-page"
         initial={{ opacity: 0 }}
@@ -503,6 +502,6 @@ export default function AdminUsers() {
           />
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }

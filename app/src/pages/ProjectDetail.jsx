@@ -1,5 +1,4 @@
 import { useStore, useEffectiveRole } from '../store/useStore'
-import Layout from '../components/Layout'
 import InviteUsers from '../components/InviteUsers'
 import TargetBoard from '../components/TargetBoard'
 import TargetTodo from '../components/TargetTodo'
@@ -53,7 +52,7 @@ export default function ProjectDetail() {
 
   if (!project) {
     return (
-      <Layout>
+      <>
         <div className="project-detail-empty">
           <Target size={48} />
           <h2>Belum ada target</h2>
@@ -62,7 +61,7 @@ export default function ProjectDetail() {
             Kembali ke Target
           </button>
         </div>
-      </Layout>
+      </>
     )
   }
 
@@ -77,7 +76,7 @@ export default function ProjectDetail() {
   const todoCount = tasks.filter((t) => t.projectId === project.id).length
 
   return (
-    <Layout>
+    <>
       <ConfettiBurst active={confetti} />
 
       <motion.div
@@ -269,6 +268,6 @@ export default function ProjectDetail() {
           />
         )}
       </motion.div>
-    </Layout>
+    </>
   )
 }

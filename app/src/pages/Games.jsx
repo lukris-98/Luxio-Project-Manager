@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useStore, dataKeyFor, GAMIFICATION_BADGES, levelFromXp, xpForNextLevel } from '../store/useStore'
-import Layout from '../components/Layout'
 import { motion } from 'framer-motion'
 import { Award, Star, Trophy, Zap, CheckCircle, FolderOpen, FileText, Sparkles } from 'lucide-react'
 import './Games.css'
@@ -46,7 +45,7 @@ export default function Games() {
   }
 
   return (
-    <Layout>
+    <>
       <motion.div className="games-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <div className="page-header">
           <div className="page-header-left">
@@ -136,6 +135,6 @@ export default function Games() {
           </div>
         </div>
       </motion.div>
-    </Layout>
+    </>
   )
 }

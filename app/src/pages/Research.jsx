@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useStore, dataKeyFor } from '../store/useStore'
-import Layout from '../components/Layout'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { Search, Plus, X, Trash2, Lightbulb, FolderOpen, Pencil, Check, BookOpen, Hash, Tag } from 'lucide-react'
 import './Research.css'
@@ -99,7 +98,7 @@ export default function Research() {
   const orderedGroups = CATEGORIES.filter((c) => groups[c]).map((c) => [c, groups[c]])
 
   return (
-    <Layout>
+    <>
       <div className="research-page">
         <div className="page-header">
           <div className="page-header-left">
@@ -277,6 +276,6 @@ export default function Research() {
           onClose={() => setDeleteTarget(null)}
         />
       )}
-    </Layout>
+    </>
   )
 }

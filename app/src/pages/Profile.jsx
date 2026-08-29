@@ -3,7 +3,6 @@ import { useStore } from '../store/useStore'
 import { api } from '../services/api'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, Share2, Plus, X, Send, ChevronDown, ChevronUp, Search, Eye, User } from 'lucide-react'
-import Layout from '../components/Layout'
 import './Profile.css'
 
 export default function Profile() {
@@ -95,7 +94,7 @@ export default function Profile() {
   }
 
   return (
-    <Layout>
+    <>
       <div className="profile-page">
         <div className="profile-header-row">
           <div className="profile-header-left">
@@ -232,6 +231,6 @@ export default function Profile() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   )
 }

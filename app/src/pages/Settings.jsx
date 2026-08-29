@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { getAppThemeFamily, getAppThemeMode, makeAppTheme, useStore } from '../store/useStore'
-import Layout from '../components/Layout'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { motion } from 'framer-motion'
 import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, Palette, Trash2, Plus } from 'lucide-react'
@@ -352,7 +351,7 @@ export default function Settings() {
   )
 
   return (
-    <Layout>
+    <>
       <motion.div
         className="settings-page"
         variants={containerVariants}
@@ -954,7 +953,7 @@ export default function Settings() {
       )}
 
       {toast && <div className="settings-toast"><CheckIcon /> {toast}</div>}
-    </Layout>
+    </>
   )
 }
 
