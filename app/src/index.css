@@ -586,6 +586,112 @@ textarea.input {
   background-size: 24px 24px;
 }
 
+/* =====================================================================
+   LUXIO NEW — stylistic overrides (struktur, bukan hanya warna).
+   Berlaku hanya di tema luxio-new-light / luxio-new-dark agar tidak
+   mengubah tema klasik. Menerapkan ciri khas desain folder /ui:
+   tombol pill, kontainer rounded + border tipis & shadow lembut,
+   badge pill pastel, panel dengan header terpisah, dsb.
+   ===================================================================== */
+[data-theme="luxio-new-light"].luxio-new,
+[data-theme="luxio-new-dark"].luxio-new,
+[data-theme="luxio-new-light"] body,
+[data-theme="luxio-new-dark"] body {
+  letter-spacing: 0.005em;
+}
+
+/* Tombol pill & typography lebih besar */
+[data-theme="luxio-new-light"] .btn,
+[data-theme="luxio-new-dark"] .btn {
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="luxio-new-light"] .btn-primary,
+[data-theme="luxio-new-dark"] .btn-primary {
+  box-shadow: 0 6px 16px rgba(108, 46, 242, 0.28);
+}
+
+[data-theme="luxio-new-light"] .btn-primary:hover,
+[data-theme="luxio-new-dark"] .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(108, 46, 242, 0.32);
+}
+
+/* Input rounded penuh & background terang */
+[data-theme="luxio-new-light"] .input,
+[data-theme="luxio-new-dark"] .input {
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  border-color: transparent;
+}
+
+[data-theme="luxio-new-light"] .input:focus,
+[data-theme="luxio-new-dark"] .input:focus {
+  background: var(--bg-secondary);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-muted);
+}
+
+[data-theme="luxio-new-light"] textarea.input,
+[data-theme="luxio-new-dark"] textarea.input,
+[data-theme="luxio-new-light"] select.input,
+[data-theme="luxio-new-dark"] select.input {
+  border-radius: var(--radius-md);
+}
+
+/* Kartu: border sangat tipis + shadow lembut + rounded besar */
+[data-theme="luxio-new-light"] .card,
+[data-theme="luxio-new-dark"] .card {
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+}
+
+/* Badge jadi pill lembut */
+[data-theme="luxio-new-light"] .badge,
+[data-theme="luxio-new-dark"] .badge {
+  border-radius: 999px;
+  padding: 4px 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+/* Sidebar: item menu rounded + icon berwarna; active = pill indigo lembut */
+[data-theme="luxio-new-light"] .nav-item,
+[data-theme="luxio-new-dark"] .nav-item {
+  border-radius: 12px;
+  margin: 2px var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-weight: 500;
+}
+
+[data-theme="luxio-new-light"] .nav-item svg,
+[data-theme="luxio-new-dark"] .nav-item svg {
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+[data-theme="luxio-new-light"] .nav-item.active,
+[data-theme="luxio-new-dark"] .nav-item.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+[data-theme="luxio-new-light"] .nav-item.active svg,
+[data-theme="luxio-new-dark"] .nav-item.active svg {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* Topbar search */
+[data-theme="luxio-new-light"] .searchbar,
+[data-theme="luxio-new-dark"] .searchbar {
+  border-radius: 999px;
+}
+
 @media (max-width: 768px) {
   h1 { font-size: 1.125rem; }   /* 18px */
   h2 { font-size: 1rem; }       /* 16px */

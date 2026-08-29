@@ -255,16 +255,16 @@ export default function Layout({ children }) {
   }, [isAuthenticated])
 
   const handleNotifClick = () => {
+    // Buka/tutup panel DULU (jangan biarkan request izin menunda/error).
+    const willOpen = !notifOpen
+    setNotifOpen(willOpen)
+    if (!willOpen) return
+    // Saat pertama kali dibuka, minta izin notifikasi (jika belum) + daftarkan Web Push.
     requestNotificationPermission()
       .then((perm) => {
-        // Izinkan notifikasi → daftarkan juga Web Push (notif walau app tertutup).
         if (perm === 'granted') subscribeToPush()
       })
-    setNotifOpen((v) => !v)
-    if (!notifOpen) {
-      markAllNotificationsRead()
-      api.readNotifications([], true).catch(() => {})
-    }
+      .catch(() => {})
   }
 
   // Klik satu notifikasi → tandai dibaca + pindah ke halaman terkait.
