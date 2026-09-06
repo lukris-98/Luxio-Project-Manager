@@ -78,7 +78,7 @@
 }
 
 .app-card:focus-visible {
-  border-color: var(--accent);
+  outline: none;
 }
 
 .app-card-icon {

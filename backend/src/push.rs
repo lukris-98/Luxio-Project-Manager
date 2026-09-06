@@ -15,8 +15,10 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use crate::handlers::require_auth;
+#[cfg(feature = "push")]
 use crate::owner::is_owner;
 
+#[cfg(feature = "push")]
 use web_push::{
     ContentEncoding, IsahcWebPushClient, SubscriptionInfo, VapidSignatureBuilder, WebPushClient,
     WebPushMessageBuilder,
@@ -93,6 +95,7 @@ pub async fn push_unsubscribe(
 
 /// POST /api/push/send — kirim push ke user (user_id kosong => semua user
 /// dalam workspace/akun). Khusus owner/super_admin/admin.
+#[cfg(feature = "push")]
 pub async fn push_send(
     State(state): State<crate::AppState>,
     headers: axum::http::HeaderMap,
@@ -183,6 +186,20 @@ pub async fn push_send(
     }
 
     Ok(Json(json!({ "sent": sent, "failed": failed })))
+}
+
+#[cfg(not(feature = "push"))]
+pub async fn push_send(
+    State(state): State<crate::AppState>,
+    headers: axum::http::HeaderMap,
+    Json(_payload): Json<SendPayload>,
+) -> Result<Json<Value>, StatusCode> {
+    let _user_id = require_auth(&state, &headers).await?;
+    Ok(Json(json!({
+        "sent": 0,
+        "failed": 0,
+        "message": "Web Push dinonaktifkan di build ini. Jalankan dengan `cargo run --features push` setelah OpenSSL tersedia."
+    })))
 }
 
 /// GET /api/sync/blob/{key} — ambil blob terenkripsi user (mis. 'sync-all').

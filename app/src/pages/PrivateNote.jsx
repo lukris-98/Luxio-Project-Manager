@@ -360,7 +360,7 @@ export default function PrivateNote() {
         <div className="page-header note-page-header">
           <div className="page-header-left">
             <h1>Catatan</h1>
-            <p>Catatan pribadi kamu, bisa dikunci PIN per catatan</p>
+            <p>Simpan ide, informasi, dan hal penting dalam satu tempat.</p>
           </div>
           <div className="page-header-right">
             {active && (
@@ -379,9 +379,9 @@ export default function PrivateNote() {
         {showNewForm && (
           <div className="note-new-form">
             <div className="input-group">
-              <label className="input-label">Label</label>
+              <label className="input-label">Folder</label>
               <ThemeSelect value={newTheme} onChange={setNewTheme} />
-              <p className="field-hint">Kelompokkan catatan dalam label, mis. "Pekerjaan".</p>
+              <p className="field-hint">Kelompokkan catatan dalam folder, mis. "Pekerjaan". Satu folder bisa berisi beberapa catatan.</p>
             </div>
             <div className="note-new-actions">
               <button className="btn btn-secondary" onClick={() => setShowNewForm(false)}>Batal</button>
@@ -541,21 +541,36 @@ export default function PrivateNote() {
               <div key={theme || '__none__'} className="note-theme-section">
                 <div className="note-theme-head">
                   <FolderOpen size={16} />
-                  <h2>{theme || 'Tanpa Label'}</h2>
+                  <h2>{theme || 'Tanpa Folder'}</h2>
                   <span className="note-theme-count">{themeNotes.length} catatan</span>
                 </div>
                 <div className="note-card-grid">
                   {themeNotes.map((n) => (
                     <div key={n.id} className="note-card" onClick={() => openNote(n.id)}>
+                      <button
+                        className="note-card-pin-btn"
+                        onClick={(e) => { e.stopPropagation(); }}
+                        title="Sematkan"
+                      >
+                        <Check size={14} />
+                      </button>
                       <div className="note-card-title">
                         {n.pin && <Lock size={12} className="note-tab-lock" />}
                         <span className="note-card-title-text">{n.title || 'Tanpa judul'}</span>
                       </div>
                       <p className="note-card-snippet">{stripHtml(n.content) || 'Kosong'}</p>
+                      {(n.theme) && (
+                        <div className="note-card-tags">
+                          <span className={`note-tag-badge ${(n.theme || '').toLowerCase().replace(/\s+/g,'-')}`}>
+                            {n.theme}
+                          </span>
+                        </div>
+                      )}
                       <div className="note-card-meta">
                         <span>
-                          {new Date(n.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                          {new Date(n.updatedAt || n.createdAt || Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
+                        <div className="note-card-avatar">MO</div>
                         <button
                           className="note-card-delete"
                           onClick={(e) => { e.stopPropagation(); openDeleteModal(n.id) }}
@@ -573,9 +588,20 @@ export default function PrivateNote() {
               <div className="note-empty">
                 <FileText size={40} />
                 <h3>Tidak ada catatan yang cocok</h3>
-                <p>Coba ubah filter label, tanggal, atau kata kunci pencarian</p>
+                <p>Coba ubah filter folder, tanggal, atau kata kunci pencarian</p>
               </div>
             )}
+            </div>
+            {/* Trash bar */}
+            <div className="note-trash-bar" onClick={() => {}}>  
+              <div className="note-trash-bar-left">
+                <Trash2 size={18} />
+                <div>
+                  <div>Sampah</div>
+                  <div className="note-trash-desc">Catatan yang dihapus akan otomatis terhapus permanen dalam 30 hari.</div>
+                </div>
+              </div>
+              <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
             </div>
           </>
         )}

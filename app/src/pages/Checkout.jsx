@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
 import { Check, ArrowLeft, Mail, LogIn, UserPlus, Landmark, Wallet } from 'lucide-react'
@@ -141,7 +141,7 @@ export default function Checkout() {
 
     // Transfer Bank - show account info
     if (bank) {
-      alert(`🏦 Transfer ${bank.name}\n\n No. Rekening: ${bank.account}\n Atas Nama: Luxio.id\n Jumlah: Rp ${formatPrice(amount)}\n\nPastikan transfer sesuai nominal untuk otomatis aktivasi.\n\nBelum teraktivasi? Hubungi hello@luxio.id`)
+      alert(`ðŸ¦ Transfer ${bank.name}\n\n No. Rekening: ${bank.account}\n Atas Nama: Luxio.id\n Jumlah: Rp ${formatPrice(amount)}\n\nPastikan transfer sesuai nominal untuk otomatis aktivasi.\n\nBelum teraktivasi? Hubungi master@luxio.web.id`)
     } else if (method === 'gopay' || method === 'dana') {
       // For GoPay or DANA - open the payment app directly
       const appName = method === 'gopay' ? 'GoPay' : 'DANA'
@@ -157,12 +157,12 @@ export default function Checkout() {
       }
       
       // Show payment info alert
-      alert(`📱 Pembayaran ${appName}\n\n Nomor: ${phoneNumber}\n Jumlah: Rp ${formatPrice(amount)}\n\nPastikan transfer sesuai nominal untuk otomatis aktivasi.\n\nBelum teraktivasi? Hubungi hello@luxio.id`)
+      alert(`ðŸ“± Pembayaran ${appName}\n\n Nomor: ${phoneNumber}\n Jumlah: Rp ${formatPrice(amount)}\n\nPastikan transfer sesuai nominal untuk otomatis aktivasi.\n\nBelum teraktivasi? Hubungi master@luxio.web.id`)
     }
     
-    // For demo, continue to setup after showing info
+    // For demo, continue to app after showing info
     setTimeout(() => {
-      setAppState('setup')
+      setAppState('app')
     }, 2000)
   }
   
@@ -186,7 +186,7 @@ export default function Checkout() {
           /* Step 1: Select Plan */
           <motion.div 
             className="checkout-step"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <div className="step-header">
@@ -227,7 +227,7 @@ export default function Checkout() {
                     <ul className="plan-not-included">
                       {plan.notIncluded.map((f, i) => (
                         <li key={i}>
-                          <span className="not-included-icon">✕</span>
+                          <span className="not-included-icon">âœ•</span>
                           {f}
                         </li>
                       ))}
@@ -248,7 +248,7 @@ export default function Checkout() {
           /* Step 2: Payment */
           <motion.div 
             className="checkout-step"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <div className="step-header">

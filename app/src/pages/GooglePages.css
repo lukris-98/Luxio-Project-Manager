@@ -1,0 +1,546 @@
+/* =====================================================================
+   GooglePages.css — Gaya bersama halaman layanan Google (grup "Google").
+   =====================================================================
+   Dipakai oleh DrivePage, GCalendarPage, dan YouTubePage. Sengaja dipisah
+   agar ketiga halaman tidak saling meminjam CSS satu sama lain seperti
+   BloggerPage yang bergantung pada GmailPage.css.
+
+   Konvensi kelas: prefiks `gp-` (google page).
+   ===================================================================== */
+
+/* ---------- Gate login OAuth ---------- */
+
+.gp-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.gp-gate-card {
+  max-width: 440px;
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gp-gate-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  background: var(--accent);
+}
+
+.gp-gate-card h2 { font-size: 1.25rem; margin: 0; }
+.gp-gate-card p { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
+
+.gp-gate-perms {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.gp-gate-perms li { display: flex; align-items: flex-start; gap: 8px; }
+.gp-gate-perms svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
+
+.gp-gate-btn { justify-content: center; }
+.gp-gate-note { color: var(--text-muted); font-size: 0.6875rem; line-height: 1.6; }
+
+/* ---------- Status umum ---------- */
+
+.gp-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #F87171;
+  font-size: 0.8125rem;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: var(--space-4);
+}
+
+.gp-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--accent-muted);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: var(--space-4);
+}
+.gp-notice svg { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+
+.gp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  padding: 48px 24px;
+  text-align: center;
+  min-height: 220px;
+  font-size: 0.875rem;
+}
+
+.gp-toast {
+  position: fixed;
+  bottom: 84px;
+  right: 24px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 0.8125rem;
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 300;
+  max-width: 320px;
+}
+
+.gp-spin { animation: gp-spin 1s linear infinite; }
+@keyframes gp-spin { to { transform: rotate(360deg); } }
+
+/* ---------- Tab ---------- */
+
+.gp-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-3);
+}
+
+.gp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.gp-tab:hover { color: var(--text); border-color: var(--accent); }
+
+.gp-tab.active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.gp-tab-sub {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+/* ---------- Kartu statistik ---------- */
+
+.gp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.gp-stat {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.gp-stat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.gp-stat-value { font-size: 1.375rem; font-weight: 700; line-height: 1.2; }
+.gp-stat-sub { color: var(--text-muted); font-size: 0.6875rem; margin-top: 4px; }
+.gp-stat-up { color: #34D399; }
+.gp-stat-down { color: #F87171; }
+
+/* ---------- Panel & daftar ---------- */
+
+.gp-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+}
+
+.gp-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.gp-panel-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+.gp-panel-body { padding: 14px 16px; }
+.gp-panel-body.flush { padding: 0; }
+
+.gp-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.gp-row:last-child { border-bottom: none; }
+.gp-row.clickable { cursor: pointer; }
+.gp-row.clickable:hover { background: var(--bg-tertiary); }
+
+.gp-row-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.gp-row-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+.gp-row-main { flex: 1; min-width: 0; }
+
+.gp-row-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gp-row-sub {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gp-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.gp-row-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 5px 7px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gp-row-actions button:hover { color: var(--accent); background: var(--bg-tertiary); }
+.gp-row-actions button.danger:hover { color: #F87171; }
+
+/* ---------- Tabel data ---------- */
+
+.gp-table-wrap { overflow-x: auto; }
+
+.gp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.gp-table th,
+.gp-table td {
+  text-align: left;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.gp-table th {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+}
+
+.gp-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.gp-table tbody tr:hover { background: var(--bg-tertiary); }
+
+/* ---------- Bar horizontal (share per kategori) ---------- */
+
+.gp-bar-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 150px) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  font-size: 0.8125rem;
+}
+
+.gp-bar-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gp-bar-track {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.gp-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.gp-bar-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ---------- Sparkline tren ---------- */
+
+.gp-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 72px;
+  padding: 0 16px 14px;
+}
+
+.gp-spark-bar {
+  flex: 1;
+  min-width: 2px;
+  background: var(--accent-muted);
+  border-top: 2px solid var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+
+/* ---------- Toolbar / filter ---------- */
+
+.gp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.gp-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 11px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.gp-search svg { color: var(--text-muted); flex-shrink: 0; }
+
+.gp-search input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 0.8125rem;
+  padding: 9px 0;
+  width: 100%;
+}
+
+/* ---------- Breadcrumb (Drive) ---------- */
+
+.gp-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  margin-bottom: var(--space-3);
+  color: var(--text-muted);
+}
+
+.gp-crumbs button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 6px;
+}
+.gp-crumbs button:hover { color: var(--accent); background: var(--bg-tertiary); }
+.gp-crumbs button.current { color: var(--text); font-weight: 600; }
+
+/* ---------- Progress bar (upload / kuota) ---------- */
+
+.gp-progress {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.gp-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s;
+}
+
+/* ---------- Badge kecil ---------- */
+
+.gp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+.gp-chip.accent { background: var(--accent-muted); border-color: var(--accent); color: var(--accent); }
+.gp-chip.warn { background: rgba(251, 191, 36, 0.14); border-color: rgba(251, 191, 36, 0.5); color: #FBBF24; }
+
+/* ---------- Modal ---------- */
+/* Sengaja punya kelas sendiri (`gp-modal-*`) dan tidak memakai `.modal-*`
+   dari Team.css, supaya halaman grup Google tidak bergantung pada CSS
+   halaman lain yang kebetulan sudah ter-preload. */
+
+.gp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 400;
+}
+
+.gp-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+.gp-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gp-modal-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gp-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.gp-modal-close:hover { color: var(--accent); background: var(--bg-tertiary); }
+
+.gp-modal-body {
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.gp-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- Responsif ---------- */
+
+@media (max-width: 900px) {
+  .gp-bar-row { grid-template-columns: minmax(70px, 110px) 1fr auto; }
+  .gp-toast { left: 16px; right: 16px; bottom: 96px; max-width: none; }
+}

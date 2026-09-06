@@ -1,0 +1,95 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0C0C0E" />
+  <title>Kebijakan Privasi â€” Luxio</title>
+  <meta name="description" content="Kebijakan Privasi Luxio - Project &amp; Target Manager. Bagaimana kami mengumpulkan, menggunakan, dan melindungi data kamu." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://luxio.web.id/privasi" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/legal.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo" aria-hidden="true">L</div>
+      <a class="brand" href="/">Luxio</a>
+    </header>
+
+    <h1>Kebijakan Privasi</h1>
+    <p class="updated">Terakhir diperbarui: 6 September 2026</p>
+
+    <p>Luxio ("kami") adalah aplikasi manajemen project &amp; target yang dapat diakses di <a href="https://luxio.web.id/">https://luxio.web.id</a>. Kebijakan ini menjelaskan data apa yang kami kumpulkan, cara penggunaannya, dan hak kamu sebagai pengguna.</p>
+
+    <h2 id="data">1. Data yang Kami Kumpulkan</h2>
+    <ul>
+      <li><strong>Data akun:</strong> nama, email, username, foto profil (opsional), dan password (disimpan sebagai hash Argon2id, tidak pernah dalam bentuk teks biasa).</li>
+      <li><strong>Data penggunaan aplikasi:</strong> project, task, catatan, absensi (foto selfie &amp; lokasi GPS saat absen), gaji/kompensasi, dan pesan chat antar anggota tim.</li>
+      <li><strong>Data integrasi Google (opsional):</strong> apabila kamu menghubungkan akun Google, kami menerima nama, email, dan foto profil Google kamu. Untuk fitur Gmail &amp; Blogger, access token OAuth disimpan <strong>hanya di browser kamu</strong> (sessionStorage) dan tidak dikirim ke server kami.</li>
+      <li><strong>Data teknis:</strong> alamat IP, jenis perangkat, dan browser yang tercatat pada log server untuk keamanan dan pencegahan penyalahgunaan.</li>
+    </ul>
+
+    <h2 id="google">2. Penggunaan Data Google</h2>
+    <p>Luxio meminta izin (scope) Google berikut hanya bila kamu mengaktifkan fitur terkait:</p>
+    <ul>
+      <li><strong>Profil dasar</strong> (openid, email, profile): untuk membuat dan mengenali akun kamu saat login dengan Google.</li>
+      <li><strong>Gmail</strong> (gmail.readonly, gmail.send, gmail.compose, gmail.modify, gmail.labels): untuk membaca, mengirim, dan mengelola email kamu langsung dari Luxio. Isi email tidak disimpan di server kami.</li>
+      <li><strong>Blogger</strong> (blogger): untuk mengelola post dan komentar blog kamu.</li>
+    </ul>
+    <p>Penggunaan dan pengalihan data yang diterima dari Google API mematuhi <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Kebijakan Data Pengguna API Layanan Google</a>, termasuk persyaratan <strong>Limited Use</strong>. Data Google tidak kami jual, tidak kami gunakan untuk iklan, dan tidak kami pakai untuk melatih model AI umum.</p>
+
+    <h2 id="penggunaan">3. Cara Kami Menggunakan Data</h2>
+    <ul>
+      <li>Menyediakan fungsi inti aplikasi (project, task, absensi, gaji, chat).</li>
+      <li>Mengirim email transaksional: verifikasi akun, kode 2FA, notifikasi tugas.</li>
+      <li>Mengirim notifikasi push apabila kamu mengizinkannya di browser/perangkat.</li>
+      <li>Menjaga keamanan layanan, mendeteksi penyalahgunaan, dan menangani laporan masalah.</li>
+      <li>Meningkatkan kualitas layanan melalui analitik agregat &amp; anonim.</li>
+    </ul>
+
+    <h2 id="cookie">4. Cookie &amp; Penyimpanan Lokal</h2>
+    <p>Luxio tidak memakai cookie iklan atau cookie pelacak pihak ketiga. Yang kami gunakan adalah penyimpanan pada browser kamu sendiri:</p>
+    <ul>
+      <li><strong>localStorage:</strong> menyimpan sesi login, preferensi tema, dan data aplikasi agar tetap bisa dibuka saat offline (PWA).</li>
+      <li><strong>sessionStorage:</strong> menyimpan access token Google selama tab masih terbuka.</li>
+      <li><strong>IndexedDB &amp; Cache Storage:</strong> dipakai service worker untuk menyimpan aset aplikasi dan antrean sinkronisasi offline.</li>
+    </ul>
+    <p>Menghapus data situs (site data) dari browser akan menghapus seluruh penyimpanan lokal tersebut dan mengeluarkan kamu dari sesi.</p>
+
+    <h2 id="keamanan">5. Penyimpanan &amp; Keamanan</h2>
+    <p>Data disimpan di basis data terkelola (PostgreSQL) dengan koneksi terenkripsi SSL, dan seluruh lalu lintas aplikasi berjalan lewat HTTPS. Password di-hash dengan Argon2id. Token akses Google hanya berada di perangkat kamu dan bisa dicabut kapan saja melalui tombol "Keluar" di halaman Gmail/Blogger, atau melalui halaman <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Aplikasi pihak ketiga di Akun Google</a>.</p>
+    <p>Tidak ada sistem yang sepenuhnya bebas risiko. Bila terjadi insiden keamanan yang berdampak pada data pribadi kamu, kami akan memberitahukannya melalui email atau pemberitahuan di dalam aplikasi.</p>
+
+    <h2 id="pembagian">6. Pembagian Data</h2>
+    <p>Kami <strong>tidak menjual</strong> data pribadi. Data hanya dibagikan kepada penyedia infrastruktur (hosting, database, pengiriman email, push notification) sebatas yang diperlukan untuk menjalankan layanan, kepada Google sesuai izin yang kamu berikan, dan kepada pihak berwenang apabila diwajibkan oleh hukum yang berlaku.</p>
+    <p>Perlu diketahui: data yang kamu masukkan ke dalam ruang kerja tim (project, task, absensi, gaji, chat) dapat dilihat oleh anggota dan admin tim tersebut sesuai peran masing-masing.</p>
+
+    <h2 id="retensi">7. Retensi &amp; Penghapusan</h2>
+    <p>Data akun disimpan selama akun masih aktif. Kamu dapat meminta penghapusan akun beserta seluruh datanya kapan saja melalui pemilik aplikasi atau email kontak di bawah; permintaan diproses dalam waktu wajar setelah identitas terverifikasi. Data absensi/foto yang diunggah tetap milik perusahaan/organisasi tempat kamu bergabung sesuai kesepakatan internal.</p>
+
+    <h2 id="hak">8. Hak Kamu</h2>
+    <ul>
+      <li>Mengakses dan memperbaiki data akun kapan saja di halaman Pengaturan.</li>
+      <li>Mencabut akses integrasi Google kapan saja.</li>
+      <li>Menolak atau mematikan notifikasi push dari pengaturan browser/perangkat.</li>
+      <li>Meminta salinan atau penghapusan data pribadi.</li>
+    </ul>
+
+    <h2 id="anak">9. Anak di Bawah Umur</h2>
+    <p>Luxio ditujukan untuk penggunaan kerja/organisasi dan tidak diperuntukkan bagi anak di bawah 13 tahun. Kami tidak dengan sengaja mengumpulkan data anak di bawah usia tersebut. Bila hal itu terjadi, hubungi kami agar datanya dihapus.</p>
+
+    <h2 id="perubahan">10. Perubahan Kebijakan</h2>
+    <p>Perubahan material kebijakan ini akan diumumkan melalui aplikasi atau email, dan tanggal "Terakhir diperbarui" di atas akan disesuaikan. Penggunaan berkelanjutan setelah perubahan dianggap persetujuan.</p>
+
+    <h2 id="kontak">11. Kontak</h2>
+    <p>Pertanyaan, permintaan akses, atau permintaan penghapusan data dapat dikirim ke <a href="mailto:master@luxio.web.id">master@luxio.web.id</a>. Ketentuan penggunaan layanan diatur terpisah di halaman <a href="/syarat">Syarat &amp; Ketentuan</a>.</p>
+
+    <footer>
+      <span>&copy; 2026 Luxio â€” Project &amp; Target Manager</span>
+      <span><a href="/syarat">Syarat &amp; Ketentuan</a> &middot; <a href="/">Beranda</a></span>
+    </footer>
+  </div>
+</body>
+</html>

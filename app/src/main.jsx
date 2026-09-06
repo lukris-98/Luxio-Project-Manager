@@ -18,3 +18,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </HashRouter>
   </React.StrictMode>,
 )
+
+// Firebase Analytics (GA4, project luxio-id) di-init SETELAH render pertama
+// supaya tidak memperlambat first paint. SDK dimuat dynamic import (chunk
+// terpisah); gagal loading analytics tidak boleh mengganggu aplikasi.
+import('./services/firebase')
+  .then((m) => m.initFirebaseAnalytics())
+  .catch(() => {})

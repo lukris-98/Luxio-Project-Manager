@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { MotionConfig } from 'framer-motion'
+import AnimatedDropdown from './AnimatedDropdown'
+import PinInput from './PinInput'
 import { getAppThemeMode, toggleAppThemeMode, useStore, dataKeyFor } from '../store/useStore'
 import { api } from '../services/api'
 import ReminderWatcher from './ReminderWatcher'
-import HeadlineMarquee from './HeadlineMarquee'
 import InstallAppButton from './InstallAppButton'
 import { requestNotificationPermission } from '../utils/notify'
 import { subscribeToPush } from '../utils/push'
 import { useAutoHideNav } from '../utils/useAutoHideNav'
 import Logo from './Logo'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, MessageSquare, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, Megaphone, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, AlarmClock, Trophy, Star, UserRound, AppWindow, Plug2 
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, Megaphone, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube
 } from 'lucide-react'
 import './Layout.css'
 
@@ -27,42 +29,122 @@ const ROLE_LABELS = {
 
 const ROLE_OPTIONS = ['owner', 'super_admin', 'admin', 'user']
 
-// Warna aksen tiap ikon sidebar (mengikuti warna brand, dibedakan per item).
+// Warna aksen tiap ikon sidebar — semua seragam orange (aksen tema).
 const NAV_COLORS = {
   dashboard: 'var(--accent)',
-  projects: '#F87171',
-  kanban: '#A78BFA',
-  'todo-list': '#4ADE80',
-  'private-note': '#FACC15',
-  calendar: '#22D3EE',
-  'my-tasks': '#34D399',
-  team: '#60A5FA',
-  chat: '#22D3EE',
-  agent: '#F472B6',
-  upgrade: '#FB923C',
-  'admin-users': '#FBBF24',
-  'owner-dashboard': '#A78BFA',
-  attendance: '#4ADE80',
-  'attendance-admin': '#60A5FA',
-  'send-notification': '#22D3EE',
-  research: '#34D399',
-  'alarm-timer': '#F472B6',
-  games: '#FACC15',
-  performance: '#FB923C',
-  apps: '#A78BFA',
-  connect: '#22D3EE',
-  profile: '#FF6B35',
+  projects: 'var(--accent)',
+  kanban: 'var(--accent)',
+  'todo-list': 'var(--accent)',
+  'private-note': 'var(--accent)',
+  calendar: 'var(--accent)',
+  'my-tasks': 'var(--accent)',
+  team: 'var(--accent)',
+  agent: 'var(--accent)',
+  upgrade: 'var(--accent)',
+  'admin-users': 'var(--accent)',
+  'owner-dashboard': 'var(--accent)',
+  attendance: 'var(--accent)',
+  'attendance-admin': 'var(--accent)',
+  'send-notification': 'var(--accent)',
+  research: 'var(--accent)',
+  apps: 'var(--accent)',
+  connect: 'var(--accent)',
+  tools: 'var(--accent)',
+  'metadata-creator': 'var(--accent)',
+  google: '#4285F4',
+  gmail: '#EA4335',
+  blogger: '#FF8000',
+  drive: '#1A73E8',
+  'google-calendar': '#4285F4',
+  youtube: '#FF0000',
 }
 
 // Link yang punya dropdown berisi item-nya (max 3 terlihat, scroll bila lebih).
 const DROPDOWN_IDS = new Set(['projects', 'kanban', 'todo-list', 'private-note'])
 
+// Dropdown "Tools" — berisi tautan ke tool khusus (static, bukan data).
+// Hanya dapat diakses lewat tombol dropdown ini.
+const TOOL_LINKS = [
+  {
+    key: 'tool-metadata-creator',
+    id: 'metadata-creator',
+    type: 'tool',
+    icon: Tags,
+    label: 'Metadata Creator',
+    sub: 'SEO nama & 40 label untuk Adobe Stock',
+    page: 'metadata-creator',
+  },
+]
+
+// Dropdown "Google" — semua halaman layanan API Google. Sama seperti
+// "Tools": 'google' bukan halaman nyata, hanya pemicu dropdown.
+const GOOGLE_LINKS = [
+  {
+    key: 'google-gmail',
+    id: 'gmail',
+    type: 'tool',
+    icon: Mail,
+    label: 'Gmail',
+    sub: 'Baca, kirim, dan kelola email',
+    page: 'gmail',
+  },
+  {
+    key: 'google-blogger',
+    id: 'blogger',
+    type: 'tool',
+    icon: Rss,
+    label: 'Blogger',
+    sub: 'Post, halaman, dan moderasi komentar',
+    page: 'blogger',
+  },
+  {
+    key: 'google-drive',
+    id: 'drive',
+    type: 'tool',
+    icon: HardDrive,
+    label: 'Drive',
+    sub: 'Unggah, bagikan, dan kelola file',
+    page: 'drive',
+  },
+  {
+    key: 'google-calendar',
+    id: 'google-calendar',
+    type: 'tool',
+    icon: CalendarDays,
+    label: 'Calendar',
+    sub: 'Acara, rapat berulang, dan Meet',
+    page: 'google-calendar',
+  },
+  {
+    key: 'google-youtube',
+    id: 'youtube',
+    type: 'tool',
+    icon: Youtube,
+    label: 'YouTube',
+    sub: 'Data, Analytics, dan Reporting API',
+    page: 'youtube',
+  },
+]
+
+// Grup statis: id item sidebar → daftar tautan anaknya. Dipakai render loop
+// untuk memutuskan apakah sebuah item hanya membuka dropdown (bukan halaman).
+const STATIC_GROUPS = {
+  tools: TOOL_LINKS,
+  google: GOOGLE_LINKS,
+}
+
+// Halaman anak tiap grup statis — dipakai untuk menandai item grup sebagai
+// "active" ketika salah satu halaman anaknya sedang dibuka.
+const STATIC_GROUP_PAGES = Object.fromEntries(
+  Object.entries(STATIC_GROUPS).map(([id, links]) => [id, links.map((l) => l.page)]),
+)
+
 // Ambil huruf awal untuk avatar.
 const initials = (name = '') =>
   name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'U'
 
-// Sumber gambar avatar: foto profil user (bila ada) atau logo Luxio.
-const avatarSrc = (user) => user?.avatar_url || `${import.meta.env.BASE_URL || '/'}luxio.png`
+// Sumber gambar avatar: foto profil user (bila ada) — fallback teks inisial.
+const avatarSrc = (user) => user?.avatar_url || null
 
 // Warna avatar kolaborator (dari palet brand).
 const AVATAR_COLORS = ['#FF6B35', '#22D3EE', '#A78BFA', '#4ADE80', '#FACC15', '#F472B6', '#60A5FA', '#F87171']
@@ -124,7 +206,7 @@ function buildDropdownItems(itemId, { projects, kanbanBoards, tasks, privateNote
     key: `lbl-${itemId}-${label || '__none__'}`,
     id: label,
     type: 'label',
-    label: label || 'Tanpa Label',
+    label: label || 'Tanpa Folder',
     page: PAGE_BY_ITEM[itemId] || itemId,
   }))
 }
@@ -134,20 +216,25 @@ export default function Layout({ children }) {
     currentPage, setCurrentPage, logout, currentUser, companyInfo, appState, setAppState,
     notifications, markAllNotificationsRead, markNotificationRead, loadServerNotifications,
     theme, setTheme, activeRole, setActiveRole, setLabelFilter,
-    userPin, setUserPin, isAuthenticated,
+    userPin, setUserPin, isAuthenticated, members,
     projects, kanbanBoards, tasks, privateNotes, selectedNoteId, setSelectedNoteId,
     openProject, openKanbanBoard,
   } = useStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pinModalOpen, setPinModalOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true) // default mengecil
+  const [sidebarHover, setSidebarHover] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [roleOpen, setRoleOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [openDropdown, setOpenDropdown] = useState(null)
   const [toast, setToast] = useState(null)
-  const lastToastId = useRef(null)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const topbarHidden = useAutoHideNav()
+
+  // Sidebar terlipat EFEKTIF: saat mode "perkecil", hover melebarkan sementara
+  // dan keluar hover mengecilkan lagi. Mode "perbesar" mengunci tetap lebar.
+  const isCollapsed = sidebarCollapsed && !sidebarHover
 
   // Role efektif: untuk OWNER bisa act-as (owner/super_admin/admin/user),
   // untuk akun lain = role aslinya.
@@ -158,7 +245,7 @@ export default function Layout({ children }) {
   // Nav disusun ulang sesuai role efektif.
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { id: 'projects', icon: Target, label: 'Target' },
+    { id: 'projects', icon: Target, label: 'Project' },
     { id: 'kanban', icon: KanbanSquare, label: 'Kanban' },
     { id: 'todo-list', icon: ListTodo, label: 'Todo' },
     { id: 'private-note', icon: StickyNote, label: 'Catatan' },
@@ -167,8 +254,6 @@ export default function Layout({ children }) {
     { id: 'my-tasks', icon: CheckSquare, label: 'Task Saya' },
     // Super Admin / Owner => Divisi (CRUD divisi+tim), Admin/User => Tim.
     { id: 'team', icon: isDivisiMode ? Building2 : Users, label: isDivisiMode ? 'Divisi' : 'Tim' },
-    // Chat (Item 5) — semua role dengan akses.
-    { id: 'chat', icon: MessageSquare, label: 'Chat' },
     // AI Agent (Item 8) — owner/super_admin.
     ...(effRole === 'owner' || effRole === 'super_admin' ? [{ id: 'agent', icon: Bot, label: 'AI Agent' }] : []),
     // Upgrade akun (Item 4) — khusus role user.
@@ -189,20 +274,15 @@ export default function Layout({ children }) {
       : []),
     // Riset konten — semua role.
     { id: 'research', icon: Search, label: 'Riset Konten' },
-    // Alarm & Timer — semua role.
-    { id: 'alarm-timer', icon: AlarmClock, label: 'Alarm & Timer' },
-    // Mode game (level + badge) — semua role.
-    { id: 'games', icon: Trophy, label: 'Game Mode' },
-    // Penilaian kinerja tim — khusus admin/super_admin/owner.
-    ...(effRole === 'admin' || effRole === 'super_admin' || effRole === 'owner'
-      ? [{ id: 'performance', icon: Star, label: 'Penilaian Kinerja' }]
-      : []),
     // Aplikasi (hub launcher) — semua role.
     { id: 'apps', icon: AppWindow, label: 'Aplikasi' },
     // Connect (integrasi eksternal) — semua role.
     { id: 'connect', icon: Plug2, label: 'Connect' },
-    // Profil sosial (TikTok-style): foto, like, komentar, share.
-    { id: 'profile', icon: UserRound, label: 'Profil' },
+    // Google — dropdown berisi semua halaman layanan API Google
+    // (Gmail, Blogger, Drive, Calendar, YouTube). Bukan halaman sendiri.
+    { id: 'google', icon: Chrome, label: 'Google' },
+    // Tools — dropdown berisi tautan tool khusus (mis. Metadata Creator).
+    { id: 'tools', icon: Wrench, label: 'Tools' },
   ]
 
   const handleRoleChange = (role) => {
@@ -220,17 +300,6 @@ export default function Layout({ children }) {
       setCurrentPage('dashboard')
     }
   }, [effRole, currentPage, setCurrentPage])
-
-  // Toast untuk notifikasi terbaru (muncul beberapa detik di dalam web).
-  useEffect(() => {
-    if (notifications.length === 0) return
-    const latest = notifications[0]
-    if (lastToastId.current === latest.id) return
-    lastToastId.current = latest.id
-    setToast(latest)
-    const t = setTimeout(() => setToast(null), 6000)
-    return () => clearTimeout(t)
-  }, [notifications])
 
   const themeMode = getAppThemeMode(theme)
   const isDarkTheme = themeMode === 'dark'
@@ -277,8 +346,6 @@ export default function Layout({ children }) {
       openProject(p.projectId || p.id)
     } else if (n.page === 'kanban') {
       openKanbanBoard(p.boardId)
-    } else if (n.page === 'chat') {
-      setCurrentPage('chat')
     } else {
       setCurrentPage(n.page)
     }
@@ -311,7 +378,9 @@ export default function Layout({ children }) {
   // Buka item dari dropdown: label => buka halaman dgn filter label; item lain
   // (project/board/note) => route berdasarkan jenis item.
   const handleDropdownItem = (entry) => {
-    if (entry.type === 'label') {
+    if (entry.type === 'tool') {
+      setCurrentPage(entry.page)
+    } else if (entry.type === 'label') {
       setLabelFilter(entry.id === '' ? '' : entry.id)
       setCurrentPage(entry.page)
     } else if (entry.type === 'note') {
@@ -345,11 +414,15 @@ export default function Layout({ children }) {
   }, [isAuthenticated, userPin])
 
   return (
-    <div className={`app-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <div className={`app-layout ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
       <ReminderWatcher />
 
       {/* Sidebar */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''} ${openDropdown ? 'nav-dropdown-open' : ''}`}>
+      <aside
+        className={`sidebar ${sidebarOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''} ${openDropdown ? 'nav-dropdown-open' : ''}`}
+        onMouseEnter={() => setSidebarHover(true)}
+        onMouseLeave={() => setSidebarHover(false)}
+      >
           <div className="sidebar-header">
             <Logo onClick={() => setCurrentPage('dashboard')} />
             <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
@@ -360,49 +433,66 @@ export default function Layout({ children }) {
         <nav className="sidebar-nav">
           {navItems.map(item => {
             // Item dropdown untuk link ini (dihitung sekali per render).
-            const dropdownItems = DROPDOWN_IDS.has(item.id)
-              ? buildDropdownItems(item.id, { projects, kanbanBoards, tasks, privateNotes, currentUser, activeRole })
-              : []
-            const hasDropdown = dropdownItems.length > 0
+            // Grup statis ("Tools", "Google") memakai daftar tautan tetap;
+            // grup lain (project/kanban/todo/catatan) dibangun dari data.
+            const staticLinks = STATIC_GROUPS[item.id]
+            const isStaticGroup = Boolean(staticLinks)
+            const dropdownItems = isStaticGroup
+              ? staticLinks
+              : DROPDOWN_IDS.has(item.id)
+                ? buildDropdownItems(item.id, { projects, kanbanBoards, tasks, privateNotes, currentUser, activeRole })
+                : []
+            const hasDropdown = isStaticGroup || dropdownItems.length > 0
+            // Grup statis bukan halaman nyata: tandai aktif bila salah satu
+            // halaman anaknya sedang dibuka.
+            const isActive = isStaticGroup
+              ? STATIC_GROUP_PAGES[item.id].includes(currentPage)
+              : currentPage === item.id
             return (
             <div key={item.id} className="nav-item-wrap">
               <button
-                className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
+                className={`nav-item ${isActive ? 'active' : ''}`}
                 onClick={() =>
-                  DROPDOWN_IDS.has(item.id) && hasDropdown
+                  isStaticGroup || (DROPDOWN_IDS.has(item.id) && hasDropdown)
                     ? handleDropdownToggle(item)
                     : handleNavClick(item.id)
                 }
-                title={sidebarCollapsed ? item.label : undefined}
+                title={isCollapsed ? item.label : undefined}
               >
-                <item.icon size={18} style={{ color: NAV_COLORS[item.id] || 'var(--accent)' }} />
+                <item.icon size={14} style={{ color: NAV_COLORS[item.id] || 'var(--accent)' }} />
                 <span>{item.label}</span>
                 {hasDropdown && (
                   <ChevronRight
-                    size={14}
+                    size={12}
                     className={`nav-drop-chevron ${openDropdown === item.id ? 'open' : ''}`}
                   />
                 )}
               </button>
 
-              {/* Dropdown item link (target/kanban/todo/catatan) */}
-              {hasDropdown && openDropdown === item.id && (
+              {/* Dropdown item link (target/kanban/todo/catatan/tool/google) */}
+              {hasDropdown && (
+                <AnimatedDropdown show={openDropdown === item.id}>
                 <div className="nav-dropdown" onClick={(e) => e.stopPropagation()}>
                   <div className="nav-dropdown-head">
                     <span>{item.label}</span>
-                    <button className="nav-dropdown-all" onClick={() => handleNavClick(item.id)}>
-                      Semua
-                    </button>
+                    {/* Grup statis tidak punya halaman "Semua". */}
+                    {!isStaticGroup && (
+                      <button className="nav-dropdown-all" onClick={() => handleNavClick(item.id)}>
+                        Semua
+                      </button>
+                    )}
                   </div>
                   <div className="nav-dropdown-list">
                     {dropdownItems.map((entry) => (
                       <button
                         key={entry.key}
-                        className="nav-dropdown-item"
+                        className={`nav-dropdown-item ${currentPage === entry.page ? 'active' : ''}`}
                         onClick={() => handleDropdownItem(entry)}
                       >
-                        <span className="nav-drop-item-icon" style={{ color: NAV_COLORS[item.id] }}>
-                          {entry.icon || <item.icon size={16} />}
+                        <span className="nav-drop-item-icon" style={{ color: NAV_COLORS[entry.id] || NAV_COLORS[item.id] }}>
+                          {entry.icon
+                            ? (React.isValidElement(entry.icon) ? entry.icon : <entry.icon size={16} />)
+                            : <item.icon size={16} />}
                         </span>
                         <span className="nav-drop-item-main">
                           <span className="nav-drop-item-name">{entry.label}</span>
@@ -425,6 +515,7 @@ export default function Layout({ children }) {
                     ))}
                   </div>
                 </div>
+                </AnimatedDropdown>
               )}
             </div>
             )
@@ -432,84 +523,6 @@ export default function Layout({ children }) {
         </nav>
         
         <div className="sidebar-footer">
-          <div className="profile-wrap">
-            <button
-              className="profile-btn"
-              onClick={() => setProfileOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={profileOpen}
-              title={currentUser?.name || 'Profil'}
-            >
-              <div className="user-avatar">
-                <img src={avatarSrc(currentUser)} alt="Avatar" />
-              </div>
-              <div className="user-details">
-                <span className="user-name">{currentUser?.name || 'User'}</span>
-              </div>
-              <ChevronDown size={16} className="profile-chevron" />
-            </button>
-
-            {profileOpen && (
-              <>
-                <div className="profile-menu-backdrop" onClick={() => setProfileOpen(false)} />
-                <div className="profile-menu" role="menu">
-                  <div className="profile-menu-head">
-                    <div className="profile-menu-avatar">
-                      <img src={avatarSrc(currentUser)} alt="Avatar" />
-                    </div>
-                    <div className="profile-menu-identity">
-                      <span className="profile-menu-name">{currentUser?.name || 'User'}</span>
-                      <span className="profile-menu-email">{currentUser?.email || ''}</span>
-                    </div>
-                  </div>
-
-                  <div className="profile-menu-group">
-                    <span className="profile-menu-group-label">Akun</span>
-                    <button
-                      className="profile-menu-item"
-                      role="menuitem"
-                      onClick={() => handleNavClick('settings')}
-                    >
-                      <UserRound size={16} />
-                      <span>Profil</span>
-                    </button>
-                    <button
-                      className="profile-menu-item"
-                      role="menuitem"
-                      onClick={() => handleNavClick('settings')}
-                    >
-                      <Settings size={16} />
-                      <span>Pengaturan</span>
-                    </button>
-                  </div>
-
-                  <div className="profile-menu-group">
-                    <span className="profile-menu-group-label">Keuangan</span>
-                    <button
-                      className="profile-menu-item"
-                      role="menuitem"
-                      onClick={() => { setProfileOpen(false); setAppState('pricing') }}
-                    >
-                      <CreditCard size={16} />
-                      <span>Langganan / Payment</span>
-                    </button>
-                  </div>
-
-                  <div className="profile-menu-group">
-                    <button
-                      className="profile-menu-item danger"
-                      role="menuitem"
-                      onClick={() => { setProfileOpen(false); handleLogout() }}
-                    >
-                      <LogOut size={16} />
-                      <span>Keluar</span>
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
           <div className="sidebar-bottom">
             <span className="sidebar-version" title="Versi aplikasi">v1.0.5</span>
             <button
@@ -537,6 +550,15 @@ export default function Layout({ children }) {
           <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
             <Menu size={20} />
           </button>
+
+          <div className="mobile-topbar-brand">
+            <Logo onClick={() => setCurrentPage('dashboard')} />
+          </div>
+
+          <div className="topbar-search" role="search">
+            <Search size={18} />
+            <input type="search" placeholder="Cari tugas, proyek, atau tim..." aria-label="Cari tugas, proyek, atau tim" />
+          </div>
           
           <div className="topbar-right">
             {isRealOwner && (
@@ -553,25 +575,25 @@ export default function Layout({ children }) {
                   {roleOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {roleOpen && (
-                  <>
-                    <div className="role-switch-backdrop" onClick={() => setRoleOpen(false)} />
-                    <div className="role-switch-menu" role="menu">
-                      <div className="role-switch-head">Masuk sebagai</div>
-                      {ROLE_OPTIONS.map((r) => (
-                        <button
-                          key={r}
-                          className={`role-switch-option ${effRole === r ? 'active' : ''}`}
-                          role="menuitem"
-                          onClick={() => handleRoleChange(r)}
-                        >
-                          <ShieldCheck size={14} />
-                          <span>{ROLE_LABELS[r]}</span>
-                          {effRole === r && <Check size={14} className="role-switch-check" />}
-                        </button>
-                      ))}
-                    </div>
-                  </>
+                  <div className="role-switch-backdrop" onClick={() => setRoleOpen(false)} />
                 )}
+                <AnimatedDropdown show={roleOpen}>
+                  <div className="role-switch-menu" role="menu">
+                    <div className="role-switch-head">Masuk sebagai</div>
+                    {ROLE_OPTIONS.map((r) => (
+                      <button
+                        key={r}
+                        className={`role-switch-option ${effRole === r ? 'active' : ''}`}
+                        role="menuitem"
+                        onClick={() => handleRoleChange(r)}
+                      >
+                        <ShieldCheck size={14} />
+                        <span>{ROLE_LABELS[r]}</span>
+                        {effRole === r && <Check size={14} className="role-switch-check" />}
+                      </button>
+                    ))}
+                  </div>
+                </AnimatedDropdown>
               </div>
             )}
 
@@ -591,7 +613,7 @@ export default function Layout({ children }) {
                 {unreadCount > 0 && <span className="notification-dot">{unreadCount > 99 ? '99+' : unreadCount}</span>}
               </button>
 
-              {notifOpen && (
+              <AnimatedDropdown show={notifOpen}>
                 <div className="notifications-panel">
                   <div className="notifications-panel-header">
                     <span>Notifikasi</span>
@@ -630,17 +652,104 @@ export default function Layout({ children }) {
                     )}
                   </div>
                 </div>
+                </AnimatedDropdown>
+            </div>
+
+            <div className="profile-wrap topbar-profile-wrap">
+              <button
+                className="profile-btn topbar-profile-btn"
+                onClick={() => setProfileOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                title={currentUser?.name || 'Profil'}
+              >
+                <div className="user-avatar">
+                  {avatarSrc(currentUser) ? (
+                    <img src={avatarSrc(currentUser)} alt="Avatar" />
+                  ) : (
+                    <span className="avatar-initials">{initials(currentUser?.name)}</span>
+                  )}
+                </div>
+                <div className="user-details">
+                  <span className="user-name">{currentUser?.name || 'User'}</span>
+                </div>
+                <ChevronDown size={16} className="profile-chevron" />
+              </button>
+
+              {profileOpen && (
+                <>
+                  <div className="profile-menu-backdrop" onClick={() => setProfileOpen(false)} />
+                  <AnimatedDropdown show={profileOpen}>
+                  <div className="profile-menu" role="menu">
+                    <div className="profile-menu-head">
+                      <div className="profile-menu-avatar">
+                        {avatarSrc(currentUser) ? (
+                          <img src={avatarSrc(currentUser)} alt="Avatar" />
+                        ) : (
+                          <span className="avatar-initials">{initials(currentUser?.name)}</span>
+                        )}
+                      </div>
+                      <div className="profile-menu-identity">
+                        <span className="profile-menu-name">{currentUser?.name || 'User'}</span>
+                        <span className="profile-menu-email">{currentUser?.email || ''}</span>
+                      </div>
+                    </div>
+
+                    <div className="profile-menu-group">
+                      <span className="profile-menu-group-label">Akun</span>
+                      <button
+                        className="profile-menu-item"
+                        role="menuitem"
+                        onClick={() => handleNavClick('settings')}
+                      >
+                        <UserRound size={16} />
+                        <span>Profil</span>
+                      </button>
+                      <button
+                        className="profile-menu-item"
+                        role="menuitem"
+                        onClick={() => handleNavClick('settings')}
+                      >
+                        <Settings size={16} />
+                        <span>Pengaturan</span>
+                      </button>
+                    </div>
+
+                    <div className="profile-menu-group">
+                      <span className="profile-menu-group-label">Keuangan</span>
+                      <button
+                        className="profile-menu-item"
+                        role="menuitem"
+                        onClick={() => { setProfileOpen(false); setAppState('pricing') }}
+                      >
+                        <CreditCard size={16} />
+                        <span>Langganan / Payment</span>
+                      </button>
+                    </div>
+
+                    <div className="profile-menu-group">
+                      <button
+                        className="profile-menu-item danger"
+                        role="menuitem"
+                        onClick={() => { setProfileOpen(false); setLogoutConfirmOpen(true) }}
+                      >
+                        <LogOut size={16} />
+                        <span>Keluar</span>
+                      </button>
+                    </div>
+                  </div>
+                  </AnimatedDropdown>
+                </>
               )}
             </div>
           </div>
         </header>
 
-        {/* Headline berita berjalan */}
-        <HeadlineMarquee />
-
         {/* Page Content */}
         <div className="page-content">
-          {children}
+          <MotionConfig reducedMotion="always">
+            {children}
+          </MotionConfig>
         </div>
       </main>
 
@@ -666,6 +775,36 @@ export default function Layout({ children }) {
         </div>
       )}
 
+      <nav className="mobile-bottom-nav" aria-label="Navigasi utama mobile">
+        <button className={currentPage === 'dashboard' ? 'active' : ''} onClick={() => handleNavClick('dashboard')}>
+          <LayoutDashboard size={19} />
+          <span>Beranda</span>
+        </button>
+        <button className={currentPage === 'my-tasks' ? 'active' : ''} onClick={() => handleNavClick('my-tasks')}>
+          <CheckSquare size={19} />
+          <span>Tugas</span>
+        </button>
+        <button className="mobile-bottom-fab" onClick={() => handleNavClick('projects')} aria-label="Buat proyek">
+          <Plus size={24} />
+        </button>
+        <button className={currentPage === 'attendance' ? 'active' : ''} onClick={() => handleNavClick('attendance')}>
+          <Clock size={19} />
+          <span>Absen</span>
+        </button>
+        <button className={currentPage === 'settings' ? 'active' : ''} onClick={() => handleNavClick('settings')}>
+          <Settings size={19} />
+          <span>Akun</span>
+        </button>
+      </nav>
+
+      {/* Konfirmasi keluar akun */}
+      {logoutConfirmOpen && (
+        <LogoutConfirmModal
+          onCancel={() => setLogoutConfirmOpen(false)}
+          onConfirm={() => { setLogoutConfirmOpen(false); handleLogout() }}
+        />
+      )}
+
       {/* Modal wajib: set PIN akun (muncul setelah login bila belum di-set) */}
       {pinModalOpen && (
         <PinSetupModal
@@ -684,12 +823,17 @@ function PinSetupModal({ onClose, onSet, closable }) {
   const [pin, setPin] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
+  const confirmRef = useRef(null)
 
   const handleSet = () => {
     if (!pin.trim()) return setError('PIN tidak boleh kosong.')
     if (!/^\d{4,6}$/.test(pin.trim())) return setError('PIN harus 4–6 digit angka.')
     if (pin !== confirm) return setError('PIN tidak sama dengan konfirmasi.')
     onSet(pin.trim())
+  }
+
+  const handleFirstComplete = () => {
+    confirmRef.current?.focus()
   }
 
   return (
@@ -705,32 +849,42 @@ function PinSetupModal({ onClose, onSet, closable }) {
         </p>
         <div className="input-group">
           <label className="input-label">PIN (4–6 digit)</label>
-          <input
-            type="password"
-            className="input"
-            inputMode="numeric"
-            placeholder="cth: 1234"
-            value={pin}
-            onChange={(e) => { setPin(e.target.value); setError('') }}
-          />
+          <PinInput length={6} value={pin} onChange={(v) => { setPin(v); setError('') }} onComplete={handleFirstComplete} />
         </div>
         <div className="input-group">
           <label className="input-label">Ulangi PIN</label>
-          <input
-            type="password"
-            className="input"
-            inputMode="numeric"
-            placeholder="Ulangi PIN"
-            value={confirm}
-            onChange={(e) => { setConfirm(e.target.value); setError('') }}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSet() }}
-          />
+          <PinInput length={6} value={confirm} onChange={(v) => { setConfirm(v); setError('') }} onComplete={handleSet} autoFocus={false} inputRef={confirmRef} />
         </div>
         {error && <span className="pin-modal-error">{error}</span>}
         <div className="pin-modal-actions">
           {closable && <button className="btn btn-ghost" onClick={onClose}>Nanti</button>}
           <button className="btn btn-primary" disabled={!pin.trim() || !confirm.trim()} onClick={handleSet}>
             <Check size={16} /> Simpan PIN
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ---------- Konfirmasi Keluar Akun ---------- */
+
+function LogoutConfirmModal({ onCancel, onConfirm }) {
+  return (
+    <div className="pin-modal-overlay">
+      <div className="pin-modal">
+        <div className="pin-modal-icon">
+          <LogOut size={24} />
+        </div>
+        <h2>Keluar Akun?</h2>
+        <p>
+          Kamu akan keluar dari akun ini. Pastikan semua data sudah tersinkron.
+          Klik <strong>Ya, Keluar</strong> untuk mengakhiri sesi.
+        </p>
+        <div className="pin-modal-actions">
+          <button className="btn btn-ghost" onClick={onCancel}>Batal</button>
+          <button className="btn btn-primary" onClick={onConfirm}>
+            <LogOut size={16} /> Ya, Keluar
           </button>
         </div>
       </div>

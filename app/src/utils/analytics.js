@@ -4,10 +4,9 @@
 // Menyediakan `track(event, props)` untuk event penting (signup, login,
 // create_project, create_target, complete_task, use_ai_agent, ...).
 //
-// Saat ini handler default hanya log ke console (mode dev). Untuk produksi,
-// daftarkan handler ke `analytics.onTrack(handler)` — misalnya kirim ke
-// Google Analytics / Plausible / server sendiri. Struktur event mengikuti
-// development-standards-seo-adsense.md (S27).
+// Handler produksi: firebase.js memasang handler yang meneruskan event
+// ke Google Analytics 4 (GA4, property luxio-id) — lihat services/firebase.js.
+// Struktur event mengikuti development-standards-seo-adsense.md (S27).
 // =====================================================================
 
 const handlers = []
@@ -34,6 +33,19 @@ export function track(event, props = {}) {
     console.debug(`[track] ${event}`, props)
   }
 }
+
+// Handler GA4 didaftarkan SECARA LAZY (dynamic import) supaya modul
+// services/firebase.js — beserta SDK Firebase yang di dalamnya — tidak
+// masuk graph utama dan tidak ikut di-resolve saat testing.
+let firebaseHandlerAdded = false
+function ensureFirebaseHandler() {
+  if (firebaseHandlerAdded) return
+  firebaseHandlerAdded = true
+  import('../services/firebase')
+    .then((m) => onTrack(m.firebaseTrackHandler))
+    .catch(() => {})
+}
+ensureFirebaseHandler()
 
 // Default handler dev: tampilkan di console saja.
 if (import.meta.env.DEV) {

@@ -71,15 +71,38 @@ export default function TargetTodo({ projectId, theme, tasks: tasksProp }) {
 
   return (
     <>
-      {/* Tombol tambah — form hanya muncul saat diklik */}
-      {!showForm ? (
-        <div className="add-todo-bar">
+      {/* Toolbar: tombol tambah di kiri, filter di kanan */}
+      <div className="todo-toolbar">
+        {!showForm && (
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={16} />
             Tambah To-do
           </button>
+        )}
+
+        <div className="filter-tabs">
+          <button
+            className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            Semua ({projectTasks.length})
+          </button>
+          <button
+            className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}
+            onClick={() => setFilter('pending')}
+          >
+            Pending ({pendingCount})
+          </button>
+          <button
+            className={`filter-tab ${filter === 'completed' ? 'active' : ''}`}
+            onClick={() => setFilter('completed')}
+          >
+            Selesai ({completedCount})
+          </button>
         </div>
-      ) : (
+      </div>
+
+      {showForm && (
         <div className="add-todo-form">
           <div className="input-group">
             <label className="input-label">Apa yang perlu dilakukan?</label>
@@ -135,27 +158,6 @@ export default function TargetTodo({ projectId, theme, tasks: tasksProp }) {
           </div>
         </div>
       )}
-
-      <div className="filter-tabs">
-        <button
-          className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          Semua ({projectTasks.length})
-        </button>
-        <button
-          className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}
-          onClick={() => setFilter('pending')}
-        >
-          Pending ({pendingCount})
-        </button>
-        <button
-          className={`filter-tab ${filter === 'completed' ? 'active' : ''}`}
-          onClick={() => setFilter('completed')}
-        >
-          Selesai ({completedCount})
-        </button>
-      </div>
 
       <div className="todo-list">
         {filteredTasks.length > 0 ? (

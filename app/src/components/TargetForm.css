@@ -86,6 +86,28 @@
   text-overflow: ellipsis;
 }
 
+.collab-chip-div {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.contributor-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+}
+
+.contributor-filter .input {
+  flex: 1;
+}
+
 /* Kartu pilihan cara kelola */
 .viewtype-grid {
   display: grid;

@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { getAppThemeFamily, getAppThemeMode, makeAppTheme, useStore } from '../store/useStore'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import PinInput from '../components/PinInput'
 import { motion } from 'framer-motion'
-import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, Palette, Trash2, Plus } from 'lucide-react'
+import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, Palette, Trash2, Plus, Cloud, CloudOff, RefreshCw, Database } from 'lucide-react'
 import { api } from '../services/api'
+import useSyncStatus, { STORAGE_SOFT_LIMIT_BYTES } from '../hooks/useSyncStatus'
 import './Settings.css'
 
 // =====================================================================
@@ -29,6 +31,72 @@ const THEME_MODE_OPTIONS = [
   { value: 'dark', label: 'Dark' },
   { value: 'light', label: 'Light' },
 ]
+
+// =====================================================================
+// SyncSettingsPanel — Status sinkronisasi & penyimpanan lokal (Tahap 4).
+// Muncul DI SINI (halaman Pengaturan) saja, bukan di topbar.
+// =====================================================================
+function SyncSettingsPanel() {
+  const { online, pending, storage, storageLabel, storagePct, flushing, syncNow } = useSyncStatus()
+  const nearLimit = storage > STORAGE_SOFT_LIMIT_BYTES * 0.9
+
+  return (
+    <>
+      <div className="settings-item column-item">
+        <div>
+          <span className="item-label">Status koneksi</span>
+          <span className="item-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span className={`sync-dot ${online ? 'on' : 'off'}`} />
+            {online ? 'Online — terhubung ke server' : 'Offline — bekerja dari data lokal'}
+          </span>
+        </div>
+      </div>
+
+      <div className="settings-item column-item">
+        <div>
+          <span className="item-label">Perubahan menunggu dikirim</span>
+          <span className="item-value">
+            {pending === 0
+              ? 'Semua tersinkron.'
+              : `${pending} operasi menunggu — akan otomatis terkirim saat koneksi pulih.`}
+          </span>
+        </div>
+        {pending > 0 && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ marginTop: 10 }}
+            onClick={() => syncNow()}
+            disabled={flushing || !online}
+          >
+            <RefreshCw size={14} className={flushing ? 'spin' : ''} />
+            {flushing ? 'Menyinkronkan…' : 'Sinkronkan sekarang'}
+          </button>
+        )}
+      </div>
+
+      <div className="settings-item column-item">
+        <div>
+          <span className="item-label">Penyimpanan lokal perangkat</span>
+          <span className="item-value">
+            {storageLabel} digunakan ({storagePct}% dari {Math.round(STORAGE_SOFT_LIMIT_BYTES / (1024 * 1024))} MB)
+          </span>
+        </div>
+        <div className="storage-meter">
+          <div
+            className={`storage-meter-fill ${nearLimit ? 'warn' : ''}`}
+            style={{ width: `${storagePct}%` }}
+          />
+        </div>
+        <p className="item-hint">
+          {nearLimit
+            ? 'Penyimpanan hampir penuh. Data lama akan dibersihkan otomatis atau hapus data yang tidak terpakai.'
+            : 'Data disimpan di perangkat agar cepat tampil & bisa diakses offline. Data lama dibersihkan otomatis.'}
+        </p>
+      </div>
+    </>
+  )
+}
 
 export default function Settings() {
   const {
@@ -75,6 +143,9 @@ export default function Settings() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const avatarInputRef = useRef(null)
+  // Auto-fetch model saat Base URL / API Key berubah (form AI provider).
+  const lastFetchedUrlRef = useRef('')
+  const autoFetchTimerRef = useRef(null)
 
   const isEditingOther = Boolean(selectedUserId) && selectedUserId !== (currentUser?.id || '')
 
@@ -157,17 +228,67 @@ export default function Settings() {
     if (!aiForm.base_url.trim()) return
     setFetchingModels(true)
     setAiConfigMsg('')
+
+    const baseUrl = aiForm.base_url.trim().replace(/\/+$/, '').replace(/\/models$/, '')
+    // Coba langsung dari browser dulu (tanpa backend), fallback ke server.
+    let models = []
+    let usedBackend = false
     try {
-      const res = await api.fetchAIModels({ api_type: aiForm.api_type, base_url: aiForm.base_url.trim(), api_key: aiForm.api_key.trim() })
-      setAiModels(res.models || [])
-      if ((res.models || []).length > 0) setAiConfigMsg(`${res.models.length} model ditemukan.`)
-      else setAiConfigMsg('Tidak ada model ditemukan. Cek Base URL & API Key.')
-    } catch (e) {
-      setAiConfigMsg('Gagal fetch model. Periksa Base URL & API Key.')
-    } finally {
-      setFetchingModels(false)
+      const url = `${baseUrl}/models`
+      const headers = { 'Content-Type': 'application/json' }
+      if (aiForm.api_type === 'anthropic-messages') {
+        headers['x-api-key'] = aiForm.api_key.trim()
+        headers['anthropic-version'] = '2023-06-01'
+      } else {
+        headers['Authorization'] = `Bearer ${aiForm.api_key.trim()}`
+      }
+      const res = await fetch(url, { method: 'GET', headers })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const body = await res.json()
+      if (Array.isArray(body.data)) {
+        models = body.data.map((m) => (m && (m.id || m.model)) || null).filter(Boolean)
+      } else if (Array.isArray(body)) {
+        models = body.map((m) => (m && (m.id || m.name)) || null).filter(Boolean)
+      } else if (body.models && Array.isArray(body.models)) {
+        models = body.models.map((m) => (typeof m === 'string' ? m : (m && m.id) || null)).filter(Boolean)
+      }
+      models = models.map(String)
+    } catch {
+      try {
+        const res = await api.fetchAIModels({ api_type: aiForm.api_type, base_url: baseUrl, api_key: aiForm.api_key.trim() })
+        models = res.models || []
+        usedBackend = true
+      } catch (e) {
+        setAiConfigMsg('Gagal fetch model. Periksa Base URL, API Key, dan koneksi.')
+        setFetchingModels(false)
+        return
+      }
     }
+
+    setAiModels(models)
+    if (models.length > 0) setAiConfigMsg(`${models.length} model ditemukan${usedBackend ? ' (via server)' : ' (langsung browser)'}.`)
+    else setAiConfigMsg('Tidak ada model ditemukan. Cek Base URL & API Key.')
+    setFetchingModels(false)
   }
+
+  // Auto-fetch daftar model saat Base URL / API Key / tipe API berubah
+  // (debounce 1,2 detik) — selama form AI provider terbuka.
+  useEffect(() => {
+    if (!showAiForm) return
+    if (autoFetchTimerRef.current) clearTimeout(autoFetchTimerRef.current)
+    const baseUrl = (aiForm.base_url || '').trim().replace(/\/+$/, '').replace(/\/models$/, '')
+    const hasKey = Boolean(aiForm.api_key && aiForm.api_key.trim())
+    const urlComplete = /^https?:\/\/.+\..+/.test(baseUrl)
+    if (!baseUrl || !hasKey || !urlComplete) return
+    const key = `${aiForm.api_type}|${baseUrl}`
+    if (key === lastFetchedUrlRef.current) return
+    setAiModels([])
+    autoFetchTimerRef.current = setTimeout(() => {
+      handleFetchModels()
+    }, 1200)
+    return () => { if (autoFetchTimerRef.current) clearTimeout(autoFetchTimerRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAiForm, aiForm.base_url, aiForm.api_key, aiForm.api_type])
 
   const handleSaveProvider = async () => {
     setAiConfigMsg('')
@@ -319,11 +440,11 @@ export default function Settings() {
   }
 
   const containerVariants = {
-    hidden: { opacity: 0 },
+    hidden: { opacity: 1 },
     visible: { opacity: 1, transition: { staggerChildren: 0.08 } }
   }
   const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
+    hidden: { opacity: 1, y: 15 },
     visible: { opacity: 1, y: 0 }
   }
 
@@ -375,6 +496,17 @@ export default function Settings() {
                 ? ` Sisa ${remainingSelf} edit untuk bulan ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}.`
                 : ' Kuota habis — tunggu bulan berikutnya untuk mengedit lagi.'}
             </span>
+          </motion.div>
+
+          {/* Sinkronisasi & Penyimpanan Lokal */}
+          <motion.div className="settings-section" variants={itemVariants}>
+            <div className="section-header">
+              <Database size={18} />
+              <h2>Sinkronisasi &amp; Penyimpanan</h2>
+            </div>
+            <div className="settings-card">
+              <SyncSettingsPanel />
+            </div>
           </motion.div>
 
           {/* Tampilan */}
@@ -573,7 +705,7 @@ export default function Settings() {
                         <div className="viewer-info">
                           <span className="viewer-name">{v.name}</span>
                           <span className="viewer-meta">
-                            {[v.position, v.company_name].filter(Boolean).join(' · ') || v.email || '-'}
+                            {[v.position, v.company_name].filter(Boolean).join(' Â· ') || v.email || '-'}
                           </span>
                         </div>
                         <span className="viewer-time">
@@ -671,7 +803,7 @@ export default function Settings() {
                         <div className="ai-provider-main">
                           <span className="ai-provider-name">{p.display_name || p.provider_id || 'Provider'}</span>
                           <span className="ai-provider-meta">
-                            {p.api_type} · {p.model || 'tanpa model'}{p.is_active ? ' · aktif' : ''}
+                            {p.api_type} Â· {p.model || 'tanpa model'}{p.is_active ? ' Â· aktif' : ''}
                           </span>
                         </div>
                         <div className="ai-provider-actions">
@@ -801,28 +933,15 @@ export default function Settings() {
             <p className="settings-modal-desc">PIN dipakai untuk membuka Catatan Pribadi yang dikunci.</p>
             <div className="input-group">
               <label className="input-label">PIN saat ini</label>
-              <input
-                type="password" className="input" inputMode="numeric" placeholder="PIN saat ini"
-                value={pinForm.current}
-                onChange={(e) => { setPinForm({ ...pinForm, current: e.target.value }); setPinError('') }}
-              />
+              <PinInput length={6} value={pinForm.current} onChange={(v) => { setPinForm({ ...pinForm, current: v }); setPinError('') }} />
             </div>
             <div className="input-group">
               <label className="input-label">PIN baru (4–6 digit)</label>
-              <input
-                type="password" className="input" inputMode="numeric" placeholder="PIN baru"
-                value={pinForm.pin}
-                onChange={(e) => { setPinForm({ ...pinForm, pin: e.target.value }); setPinError('') }}
-              />
+              <PinInput length={6} value={pinForm.pin} onChange={(v) => { setPinForm({ ...pinForm, pin: v }); setPinError('') }} />
             </div>
             <div className="input-group">
               <label className="input-label">Ulangi PIN baru</label>
-              <input
-                type="password" className="input" inputMode="numeric" placeholder="Ulangi PIN baru"
-                value={pinForm.confirm}
-                onChange={(e) => { setPinForm({ ...pinForm, confirm: e.target.value }); setPinError('') }}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleChangePin() }}
-              />
+              <PinInput length={6} value={pinForm.confirm} onChange={(v) => { setPinForm({ ...pinForm, confirm: v }); setPinError('') }} onComplete={handleChangePin} />
             </div>
             {pinError && <span className="settings-modal-error">{pinError}</span>}
             <div className="settings-modal-actions">
@@ -888,7 +1007,7 @@ export default function Settings() {
                 value={aiForm.base_url}
                 onChange={(e) => setAiForm({ ...aiForm, base_url: e.target.value })}
               />
-              <p className="field-hint">Ollama lokal: http://localhost:11434/v1</p>
+              <p className="field-hint">Ollama lokal: http://localhost:11434/v1 · Daftar model otomatis diambil dari {aiForm.base_url.trim().replace(/\/+$/, '').replace(/\/models$/, '') ? `${aiForm.base_url.trim().replace(/\/+$/, '').replace(/\/models$/, '')}/models` : 'GET {base_url}/models'} begitu Base URL &amp; API Key terisi.</p>
             </div>
 
             <div className="input-group">
@@ -909,9 +1028,10 @@ export default function Settings() {
                 <select
                   className="input"
                   value={aiForm.model}
+                  disabled={fetchingModels}
                   onChange={(e) => setAiForm({ ...aiForm, model: e.target.value })}
                 >
-                  <option value="">— pilih model —</option>
+                  <option value="">{fetchingModels ? 'Mengambil daftar model…' : (aiModels.length ? '— pilih model —' : '— ketik Base URL + API Key —')}</option>
                   {aiModels.map((m) => (
                     <option key={m} value={m}>{m}</option>
                   ))}
@@ -925,7 +1045,9 @@ export default function Settings() {
                   {fetchingModels ? 'Memuat...' : 'Fetch Models'}
                 </button>
               </div>
-              <p className="field-hint">Tempel Base URL + API Key lalu klik Fetch Models untuk auto-muat semua model.</p>
+              {aiModels.length > 0 && (
+                <p className="field-hint" style={{ color: 'var(--success)' }}>{aiModels.length} model tersedia dari Base URL ini.</p>
+              )}
             </div>
 
             <div className="input-group">

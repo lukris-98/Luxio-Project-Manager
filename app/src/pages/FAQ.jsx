@@ -1,11 +1,11 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { ArrowLeft, MessageCircle } from 'lucide-react'
 import './FAQ.css'
 
 const faqs = [
   { 
     q: 'Apa itu Luxio?', 
-    a: 'Luxio adalah aplikasi untuk mengelola target dan project tim. Bisa digunakan untuk personal, keluarga, sekolah, instansi pemerintah, maupun perusahaan. Semua data tersimpan aman di database Neon.' 
+    a: 'Luxio adalah aplikasi untuk mengelola project dan tim. Bisa digunakan untuk personal, keluarga, sekolah, instansi pemerintah, maupun perusahaan. Semua data tersimpan aman di database Neon.' 
   },
   { 
     q: 'Bagaimana cara mulai?', 
@@ -17,7 +17,7 @@ const faqs = [
   },
   { 
     q: 'Bisa untuk personal saja?', 
-    a: 'Bisa! Plan Personal gratis untuk 1 orang. Cocok untuk mahasiswa, freelancer, atau siapa saja yang ingin mengelola target pribadi.' 
+    a: 'Bisa! Plan Personal gratis untuk 1 orang. Cocok untuk mahasiswa, freelancer, atau siapa saja yang ingin mengelola project pribadi.' 
   },
   { 
     q: 'Apakah tersedia untuk sekolah?', 
@@ -29,7 +29,7 @@ const faqs = [
   },
   { 
     q: 'Bagaimana dengan rencana keluarga?', 
-    a: 'Plan Keluarga bisa untuk sampai 5 anggota. Cocok untuk mengelola target bersama keluarga, dari anak-anak sampai dewasa.' 
+    a: 'Plan Keluarga bisa untuk sampai 5 anggota. Cocok untuk mengelola project bersama keluarga, dari anak-anak sampai dewasa.' 
   },
   { 
     q: 'Apakah ada gratis?', 
@@ -37,7 +37,7 @@ const faqs = [
   },
   { 
     q: 'Bagaimana jika butuh bantuan?', 
-    a: 'Bisa email ke hello@luxio.id. Untuk plan Pro ke atas dapat priority support.' 
+    a: 'Bisa email ke master@luxio.web.id. Untuk plan Pro ke atas dapat priority support.' 
   },
 ]
 
@@ -49,13 +49,13 @@ export default function FAQ() {
           <ArrowLeft size={18} /> Kembali
         </a>
         <motion.h1 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
           Pertanyaan Umum
         </motion.h1>
         <motion.p 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
@@ -68,7 +68,7 @@ export default function FAQ() {
           <motion.div 
             key={idx}
             className="faq-item"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.05 }}
           >
@@ -80,8 +80,8 @@ export default function FAQ() {
 
       <div className="faq-contact">
         <MessageCircle size={24} />
-        <p>Tidak найден ответ yang kamu cari?</p>
-        <a href="mailto:hello@luxio.id" className="btn btn-primary">
+        <p>Tidak Ð½Ð°Ð¹Ð´ÐµÐ½ Ð¾Ñ‚Ð²ÐµÑ‚ yang kamu cari?</p>
+        <a href="mailto:master@luxio.web.id" className="btn btn-primary">
           Hubungi Kami
         </a>
       </div>

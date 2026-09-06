@@ -1,15 +1,16 @@
-import { useStore, useEffectiveRole } from '../store/useStore'
+﻿import { useStore, useEffectiveRole } from '../store/useStore'
 import InviteUsers from '../components/InviteUsers'
+import TargetForm from '../components/TargetForm'
 import TargetBoard from '../components/TargetBoard'
 import TargetTodo from '../components/TargetTodo'
-import TargetKanban from '../components/TargetKanban'
 import TargetStats from '../components/TargetStats'
+import ProjectDashboard from '../components/ProjectDashboard'
 import ConfettiBurst from '../components/ConfettiBurst'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { deadlineText } from '../utils/deadline'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Calendar, CalendarClock, User, Check, Lock, Target, KanbanSquare, ListTodo, GitBranch, Trash2, X, FolderOpen } from 'lucide-react'
+import { ArrowLeft, Calendar, CalendarClock, User, Check, Lock, Target, KanbanSquare, ListTodo, GitBranch, Trash2, X, FolderOpen, Pencil } from 'lucide-react'
 import './ProjectDetail.css'
 
 const VIEW_BADGE = {
@@ -18,13 +19,18 @@ const VIEW_BADGE = {
   workflow: { label: 'Workflow', icon: GitBranch },
 }
 
-// Dashboard progress & analitik satu target. Target bisa berisi lebih dari
-// satu board kanban DAN beberapa to-do list sekaligus (bukan multi-tab).
+// Dashboard progress & analitik satu project. Halaman menampung lebih dari
+// satu kanban DAN lebih dari satu to-do list sekaligus lewat multi-tab
+// (tab bisa discroll horizontal). Urutan: dashboard/chart di atas,
+// kanban & to-do list di bawahnya.
 export default function ProjectDetail() {
   const { projects, kanbanBoards, tasks, members, selectedProjectId, deleteProject, toggleChecklist, completeStage, setCurrentPage, toggleProjectCollaborator } = useStore()
   const role = useEffectiveRole()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
   const [confetti, setConfetti] = useState(false)
+  const [kanbanTab, setKanbanTab] = useState(0)
+  const [todoTab, setTodoTab] = useState(0)
   const prevStatus = useRef(null)
 
   // Detail target yang dibuka (via openProject / klik kartu target).
@@ -50,13 +56,44 @@ export default function ProjectDetail() {
     setCurrentPage('projects')
   }
 
+  // Semua board kanban milik target ini (bisa lebih dari satu).
+  const boards = kanbanBoards.filter((b) => b.projectId === project.id)
+  const assignee = members.find((m) => m.id === project.assigneeId)
+  const collaborators = (project.collaboratorIds || [])
+    .map((id) => members.find((m) => m.id === id))
+    .filter(Boolean)
+
+  // To-do list project dikelompokkan per "list" (theme/listName) agar bisa
+  // ditampilkan sebagai multi-tab; task tanpa grup masuk tab "Semua".
+  const projectTasks = useMemo(
+    () => tasks.filter((t) => t.projectId === project.id),
+    [tasks, project.id]
+  )
+  const todoLists = useMemo(() => {
+    const groups = []
+    const seen = new Set()
+    projectTasks.forEach((t) => {
+      const g = t.listName || t.theme || ''
+      if (!seen.has(g)) { seen.add(g); groups.push(g) }
+    })
+    if (groups.length === 0) groups.push('')
+    return groups.map((g) => ({
+      name: g || 'Semua To-do',
+      tasks: projectTasks.filter((t) => (t.listName || t.theme || '') === g),
+    }))
+  }, [projectTasks])
+
+  // Reset tab aktif bila daftar berubah.
+  useEffect(() => { if (kanbanTab >= boards.length) setKanbanTab(0) }, [boards.length, kanbanTab])
+  useEffect(() => { if (todoTab >= todoLists.length) setTodoTab(0) }, [todoLists.length, todoTab])
+
   if (!project) {
     return (
       <>
         <div className="project-detail-empty">
           <Target size={48} />
           <h2>Belum ada target</h2>
-          <p>Buat target dulu untuk melihat detail</p>
+          <p>Buat project dulu untuk melihat detail</p>
           <button className="btn btn-primary" onClick={() => setCurrentPage('projects')}>
             Kembali ke Target
           </button>
@@ -67,13 +104,8 @@ export default function ProjectDetail() {
 
   const viewBadge = VIEW_BADGE[project.viewType]
   const ViewIcon = viewBadge?.icon || Target
-  // Semua board kanban milik target ini (bisa lebih dari satu).
-  const boards = kanbanBoards.filter((b) => b.projectId === project.id)
-  const assignee = members.find((m) => m.id === project.assigneeId)
-  const collaborators = (project.collaboratorIds || [])
-    .map((id) => members.find((m) => m.id === id))
-    .filter(Boolean)
-  const todoCount = tasks.filter((t) => t.projectId === project.id).length
+  const activeBoard = boards[kanbanTab]
+  const activeTodoList = todoLists[todoTab]
 
   return (
     <>
@@ -81,7 +113,7 @@ export default function ProjectDetail() {
 
       <motion.div
         className="project-detail"
-        initial={{ opacity: 0 }}
+        initial={{ opacity: 1 }}
         animate={{ opacity: 1 }}
       >
         {/* Header */}
@@ -98,6 +130,13 @@ export default function ProjectDetail() {
                   onToggle={(id) => toggleProjectCollaborator(project.id, id)}
                 />
               )}
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowEdit(true)}
+              >
+                <Pencil size={16} />
+                Edit
+              </button>
               {canDelete && (
                 <button
                   className="btn btn-danger btn-sm"
@@ -149,13 +188,14 @@ export default function ProjectDetail() {
         {/* Statistik progress — ring persen, bar selesai/belum, count kanban & to-do */}
         <TargetStats project={project} />
 
-        {/* Dashboard & analitik target */}
+        {/* ===== Dashboard & analitik (pie + line + ringkasan) ===== */}
         <div className="manage-head">
           <h2>Dashboard & Analitik</h2>
-          <p>Target ini berisi {boards.length} board kanban dan {todoCount} to-do list.</p>
+          <p>Project ini berisi {boards.length} board kanban dan {todoLists.length} to-do list.</p>
         </div>
+        <ProjectDashboard project={project} boards={boards} projectTasks={projectTasks} />
 
-        {/* ===== Kanban boards (bisa lebih dari satu) ===== */}
+        {/* ===== Multi-tab Kanban boards (scroll horizontal) ===== */}
         {boards.length > 0 && (
           <div className="detail-board-section">
             <div className="detail-sub-head">
@@ -163,38 +203,55 @@ export default function ProjectDetail() {
               <h3>Board Kanban</h3>
               <span className="detail-sub-count">{boards.length}</span>
             </div>
-            {boards.map((board) => (
-              <div key={board.id} className="detail-view detail-board">
-                <div className="detail-board-title">{board.name}</div>
-                <TargetBoard board={board} />
+            {boards.length > 1 && (
+              <div className="detail-tabs detail-tabs-scroll">
+                {boards.map((board, i) => (
+                  <button
+                    key={board.id}
+                    className={`detail-tab ${kanbanTab === i ? 'active' : ''}`}
+                    onClick={() => setKanbanTab(i)}
+                  >
+                    <KanbanSquare size={13} /> {board.name}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
+            {activeBoard && (
+              <div className="detail-view detail-board">
+                <div className="detail-board-title">{activeBoard.name}</div>
+                <TargetBoard board={activeBoard} />
+              </div>
+            )}
           </div>
         )}
 
-        {/* ===== Kanban alur (legacy target kanban) ===== */}
-        {project.viewType === 'kanban' && project.stages.length > 0 && (
-          <div className="detail-board-section">
-            <div className="detail-sub-head">
-              <KanbanSquare size={16} />
-              <h3>Alur Kanban</h3>
-            </div>
-            <div className="detail-view">
-              <TargetKanban project={project} />
-            </div>
-          </div>
-        )}
-
-        {/* ===== To-do list target ===== */}
+        {/* ===== Multi-tab To-do list (scroll horizontal) ===== */}
         <div className="detail-board-section">
           <div className="detail-sub-head">
             <ListTodo size={16} />
             <h3>To-do List</h3>
-            <span className="detail-sub-count">{todoCount}</span>
+            <span className="detail-sub-count">{todoLists.length}</span>
           </div>
-          <div className="detail-view detail-todo">
-            <TargetTodo projectId={project.id} />
-          </div>
+          {todoLists.length > 1 && (
+            <div className="detail-tabs detail-tabs-scroll">
+              {todoLists.map((list, i) => (
+                <button
+                  key={list.name + i}
+                  className={`detail-tab ${todoTab === i ? 'active' : ''}`}
+                  onClick={() => setTodoTab(i)}
+                >
+                  <ListTodo size={13} /> {list.name} ({list.tasks.length})
+                </button>
+              ))}
+            </div>
+          )}
+          {activeTodoList && (
+            <div className="detail-view detail-todo">
+              <div className="detail-todo-list">
+                <TargetTodo projectId={project.id} tasks={activeTodoList.tasks} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ===== Workflow (legacy) ===== */}
@@ -265,6 +322,15 @@ export default function ProjectDetail() {
             message={`Semua tahap kanban & to-do list di dalamnya akan ikut terhapus. Tindakan ini tidak bisa dibatalkan.`}
             onConfirm={handleDelete}
             onClose={() => setShowDeleteConfirm(false)}
+          />
+        )}
+
+        {/* Edit project */}
+        {showEdit && (
+          <TargetForm
+            initial={project}
+            onClose={() => setShowEdit(false)}
+            onCreated={() => setShowEdit(false)}
           />
         )}
       </motion.div>

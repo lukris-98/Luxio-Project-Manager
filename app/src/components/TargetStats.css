@@ -133,13 +133,13 @@
   gap: var(--space-4);
 }
 
-.stats-card {
+.stats-card{
   display: flex;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-5);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 50%);
+  border: 1px solid var(--border-strong);
   border-radius: 16px;
   transition: all 0.2s ease;
 }
@@ -204,6 +204,156 @@
 }
 
 @media (max-width: 640px) {
+  .stats-pie-wrap {
+    position: relative;
+    width: 240px;
+    height: 240px;
+    flex-shrink: 0;
+    margin: 0 auto;
+  }
+}
+
+.stats-pie-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.stats-pie-center strong {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stats-pie-center span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.stats-pie-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.stats-pie-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.stats-pie-legend-item .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Persen besar di sisi kanan */
+.stats-progress-big {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: var(--space-2);
+}
+
+.stats-progress-big strong {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.stats-progress-big span {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* Baris info: timer & strike */
+.stats-info-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+}
+
+.stats-info-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.stats-info-row strong {
+  color: var(--text-primary);
+}
+
+.stats-info-row.strike strong {
+  color: #F97316;
+}
+
+/* Api beranimasi (flicker) */
+.flame-anim {
+  color: #F97316;
+  animation: flameFlicker 1.1s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+
+@keyframes flameFlicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); opacity: 1; }
+  30% { transform: scale(1.15) rotate(3deg); opacity: 0.9; }
+  60% { transform: scale(0.95) rotate(-3deg); opacity: 1; }
+  80% { transform: scale(1.1) rotate(2deg); opacity: 0.95; }
+}
+
+.stats-hero-numbers {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.stats-hero-number {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stats-hero-number strong {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stats-hero-number span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.stats-hero-number .legend-done { color: #00D9A5; }
+.stats-hero-number .legend-pending { color: #FFB830; }
+
+.stats-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 50%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
   .stats-hero {
     flex-direction: column;
     align-items: flex-start;

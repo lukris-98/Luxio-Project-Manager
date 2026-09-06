@@ -3,8 +3,8 @@ import { useStore } from '../store/useStore'
 import './LabelFilterBar.css'
 
 // =====================================================================
-// LabelFilterBar — Filter umum untuk halaman Target, Kanban, Todo, Catatan.
-//  - Filter berdasarkan nama label
+// FolderFilterBar — Filter umum untuk halaman Target, Kanban, Todo, Catatan.
+//  - Filter berdasarkan nama folder
 //  - Urutkan naik/turun (tanggal atau nama)
 //  - Filter rentang tanggal (createdAt)
 //  - Pencarian teks
@@ -38,7 +38,7 @@ export default function LabelFilterBar({
   return (
     <div className="label-filter-bar">
       <div className="label-filter-group">
-        <label className="label-filter-label">Label</label>
+        <label className="label-filter-label">Folder</label>
         <select
           className="input label-filter-input"
           value={labelFilter === null ? '__all__' : labelFilter}
@@ -47,10 +47,10 @@ export default function LabelFilterBar({
             setLabelFilter(v === '__all__' ? null : v)
           }}
         >
-          <option value="__all__">Semua label</option>
+          <option value="__all__">Semua folder</option>
           {options.map((l) => (
             <option key={l || '__none__'} value={l}>
-              {l || 'Tanpa label'}
+              {l || 'Tanpa folder'}
             </option>
           ))}
         </select>

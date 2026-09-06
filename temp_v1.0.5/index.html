@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0C0C0E" />
+    <meta name="description" content="Luxio — Aplikasi manajemen project & target untuk tim. Kelola target, divisi, dan progress dalam satu tempat." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://diarsipin.web.id/" />
+    <title>Luxio - Project & Target Manager</title>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Luxio" />
+    <meta property="og:title" content="Luxio - Project & Target Manager" />
+    <meta property="og:description" content="Aplikasi manajemen project & target untuk tim. Kelola target, divisi, dan progress dalam satu tempat." />
+    <meta property="og:url" content="https://diarsipin.web.id/" />
+    <meta property="og:locale" content="id_ID" />
+    <meta property="og:image" content="https://diarsipin.web.id/icon-512.png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Luxio - Project & Target Manager" />
+    <meta name="twitter:description" content="Aplikasi manajemen project & target untuk tim. Kelola target, divisi, dan progress dalam satu tempat." />
+    <meta name="twitter:image" content="https://diarsipin.web.id/icon-512.png" />
+
+    <!-- Structured data: WebSite + Organization (Schema.org) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "name": "Luxio",
+          "url": "https://diarsipin.web.id/",
+          "description": "Aplikasi manajemen project & target untuk tim."
+        },
+        {
+          "@type": "Organization",
+          "name": "Luxio",
+          "url": "https://diarsipin.web.id/"
+        }
+      ]
+    }
+    </script>
+
+    <script>
+      try {
+        var t = (function () {
+          try { return JSON.parse(localStorage.getItem('luxio-store')).state.theme } catch (e) { return null }
+        })()
+        var themes = {
+          dark: { scheme: 'dark', color: '#0C0C0E' },
+          light: { scheme: 'light', color: '#F1F1F3' },
+          'main-white-light': { scheme: 'light', color: '#FFFFFF' },
+          'main-white-dark': { scheme: 'dark', color: '#000000' }
+        }
+        if (themes[t]) {
+          document.documentElement.setAttribute('data-theme', t)
+          document.documentElement.style.colorScheme = themes[t].scheme
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', themes[t].color)
+        }
+      } catch (e) {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Roboto:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/assets/index-CBie5oI2.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-DeqpH3Fu.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-state-CEAX7SP9.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-CuqWcDDs.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-pdf-2mF2gJBa.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DEnrW6R7.css">
+  <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

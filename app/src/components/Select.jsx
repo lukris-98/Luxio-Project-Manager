@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
+import AnimatedDropdown from './AnimatedDropdown'
 import './Select.css'
 
 // =====================================================================
@@ -61,7 +62,7 @@ export default function Select({
         <ChevronDown size={16} className="select-chevron" />
       </button>
 
-      {open && (
+      <AnimatedDropdown show={open}>
         <div className="select-menu" role="listbox">
           {allowReset && (
             <button
@@ -92,7 +93,7 @@ export default function Select({
             )
           })}
         </div>
-      )}
+      </AnimatedDropdown>
     </div>
   )
 }

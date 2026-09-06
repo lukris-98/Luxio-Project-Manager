@@ -1,197 +1,257 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import './Calendar.css'
+
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+]
+const DAY_NAMES  = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+
+const EVENT_COLORS = [
+  '#6C2EF2', '#0780FA', '#00D9A5', '#FFB830', '#E94560', '#EC4899'
+]
+
+function buildDays(date) {
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const prevLast = new Date(year, month, 0).getDate()
+  const days = []
+  for (let i = firstDay - 1; i >= 0; i--) {
+    days.push({ day: prevLast - i, cur: false, date: new Date(year, month - 1, prevLast - i) })
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push({ day: i, cur: true, date: new Date(year, month, i) })
+  }
+  const rem = 42 - days.length
+  for (let i = 1; i <= rem; i++) {
+    days.push({ day: i, cur: false, date: new Date(year, month + 1, i) })
+  }
+  return days
+}
+
+function isToday(date) {
+  const t = new Date()
+  return date.getDate() === t.getDate() && date.getMonth() === t.getMonth() && date.getFullYear() === t.getFullYear()
+}
+
+function isSameDate(a, b) {
+  return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
+}
 
 export default function Calendar() {
   const { tasks, projects } = useStore()
-  const [currentDate, setCurrentDate] = useState(new Date())
-  
-  const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ]
-  
-  const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
-  
-  const getDaysInMonth = (date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const daysInMonth = lastDay.getDate()
-    const startingDay = firstDay.getDay()
-    
-    const days = []
-    
-    // Previous month days
-    const prevMonthLastDay = new Date(year, month, 0).getDate()
-    for (let i = startingDay - 1; i >= 0; i--) {
-      days.push({
-        day: prevMonthLastDay - i,
-        isCurrentMonth: false,
-        date: new Date(year, month - 1, prevMonthLastDay - i)
-      })
-    }
-    
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({
-        day: i,
-        isCurrentMonth: true,
-        date: new Date(year, month, i)
-      })
-    }
-    
-    // Next month days
-    const remainingDays = 42 - days.length
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({
-        day: i,
-        isCurrentMonth: false,
-        date: new Date(year, month + 1, i)
-      })
-    }
-    
-    return days
-  }
-  
-  const getTasksForDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    
-    // Get tasks from projects/stages
-    const projectTasks = []
-    projects.forEach(project => {
-      project.stages?.forEach(stage => {
+  const [current, setCurrent] = useState(new Date())
+  const [selected, setSelected] = useState(new Date())
+  const [view, setView] = useState('Bulan') // Bulan | Minggu | Hari
+  const [miniDate, setMiniDate] = useState(new Date())
+
+  const mainDays  = useMemo(() => buildDays(current),  [current])
+  const miniDays  = useMemo(() => buildDays(miniDate), [miniDate])
+
+  // Collect all events from tasks + projects
+  const allEvents = useMemo(() => {
+    const evs = []
+    let colorIdx = 0
+    projects.forEach((p, pi) => {
+      const color = EVENT_COLORS[pi % EVENT_COLORS.length]
+      p.stages?.forEach(stage => {
         stage.checklist?.forEach(item => {
-          // Use dueDate if available, otherwise use created date simulation
-          const taskDate = new Date(project.createdAt || Date.now())
-          const taskDateStr = taskDate.toISOString().split('T')[0]
-          
-          if (taskDateStr === dateStr) {
-            projectTasks.push({
+          if (p.createdAt) {
+            evs.push({
+              id: `${p.id}-${item.id || Math.random()}`,
               title: item.text,
-              project: project.name,
-              completed: item.completed
+              date: new Date(p.createdAt),
+              color,
+              type: 'project',
+              project: p.name,
             })
           }
         })
       })
     })
-    
-    // Get from tasks array
-    const regularTasks = tasks.filter(task => {
-      if (!task.dueDate) return false
-      const taskDate = new Date(task.dueDate).toISOString().split('T')[0]
-      return taskDate === dateStr
+    tasks.forEach((t, ti) => {
+      if (t.dueDate) {
+        evs.push({
+          id: t.id,
+          title: t.title,
+          date: new Date(t.dueDate),
+          color: EVENT_COLORS[(ti + 2) % EVENT_COLORS.length],
+          type: 'task',
+          project: t.project || '',
+        })
+      }
     })
-    
-    return [...projectTasks, ...regularTasks]
-  }
-  
-  const prevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-  }
-  
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-  }
-  
-  const isToday = (date) => {
-    const today = new Date()
-    return date.getDate() === today.getDate() && 
-           date.getMonth() === today.getMonth() && 
-           date.getFullYear() === today.getFullYear()
-  }
-  
-  const days = getDaysInMonth(currentDate)
-  
+    return evs
+  }, [tasks, projects])
+
+  const getEventsForDate = (date) => allEvents.filter(e => isSameDate(e.date, date))
+
+  const selectedEvents = useMemo(() => getEventsForDate(selected), [selected, allEvents])
+
+  // Calendar legend
+  const legend = [
+    { label: 'Tugas Project', color: '#6C2EF2' },
+    { label: 'Deadline', color: '#E94560' },
+    { label: 'Selesai', color: '#00D9A5' },
+    { label: 'Pribadi', color: '#FFB830' },
+  ]
+
+  // My Calendar & Team Calendar placeholders
+  const myCalendars = ['Semua Kegiatan', 'Jadwal Pribadi', 'Deadline Proyek', 'Rapat Tim']
+  const teamCalendars = ['Tim Teknis', 'Tim Desain', 'Tim Marketing']
+
   return (
-    <>
-      <motion.div 
-        className="calendar-page"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        {/* Header */}
-        <div className="page-header">
-          <div className="page-header-left">
-            <h1>Kalender</h1>
-            <p>Lihat semua tugas berdasarkan tanggal</p>
-          </div>
+    <motion.div className="cal-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      {/* Header */}
+      <div className="cal-topbar">
+        <div>
+          <h1>Kalender</h1>
+          <p>Pantau semua tugas, deadline, dan jadwal tim dalam satu tampilan.</p>
         </div>
-        
-        {/* Calendar */}
-        <div className="calendar-container">
-          {/* Month Navigation */}
-          <div className="calendar-header">
-            <button className="nav-btn" onClick={prevMonth}>
-              <ChevronLeft size={20} />
+        <div className="cal-view-tabs">
+          {['Bulan', 'Minggu', 'Hari'].map(v => (
+            <button key={v} className={`cal-view-btn ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>
+              {v}
             </button>
-            <h2>{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
-            <button className="nav-btn" onClick={nextMonth}>
-              <ChevronRight size={20} />
-            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="cal-body">
+        {/* ── Sidebar ── */}
+        <aside className="cal-sidebar">
+          {/* Mini Calendar */}
+          <div className="mini-cal">
+            <div className="mini-cal-nav">
+              <button onClick={() => setMiniDate(new Date(miniDate.getFullYear(), miniDate.getMonth() - 1, 1))}><ChevronLeft size={14} /></button>
+              <span>{MONTH_NAMES[miniDate.getMonth()]} {miniDate.getFullYear()}</span>
+              <button onClick={() => setMiniDate(new Date(miniDate.getFullYear(), miniDate.getMonth() + 1, 1))}><ChevronRight size={14} /></button>
+            </div>
+            <div className="mini-grid-head">
+              {DAY_NAMES.map(d => <div key={d}>{d[0]}</div>)}
+            </div>
+            <div className="mini-grid">
+              {miniDays.map((d, i) => (
+                <button
+                  key={i}
+                  className={[
+                    'mini-day',
+                    !d.cur ? 'other' : '',
+                    isToday(d.date) ? 'today' : '',
+                    isSameDate(d.date, selected) ? 'selected' : '',
+                  ].join(' ')}
+                  onClick={() => { setSelected(d.date); setCurrent(new Date(d.date.getFullYear(), d.date.getMonth(), 1)) }}
+                >
+                  {d.day}
+                </button>
+              ))}
+            </div>
           </div>
-          
-          {/* Day Names */}
-          <div className="calendar-grid-header">
-            {dayNames.map((day, idx) => (
-              <div key={idx} className="day-name">{day}</div>
+
+          {/* My Calendar */}
+          <div className="sidebar-cal-section">
+            <h4>Kalender Saya</h4>
+            {myCalendars.map((c, i) => (
+              <label key={c} className="cal-check-item">
+                <input type="checkbox" defaultChecked={i < 3} />
+                <span className="cal-dot" style={{ background: EVENT_COLORS[i] }} />
+                <span>{c}</span>
+              </label>
             ))}
           </div>
-          
-          {/* Calendar Days */}
-          <div className="calendar-grid">
-            {days.map((day, idx) => {
-              const tasksForDay = getTasksForDate(day.date)
+
+          {/* Team Calendar */}
+          <div className="sidebar-cal-section">
+            <h4>Kalender Tim</h4>
+            {teamCalendars.map((c, i) => (
+              <label key={c} className="cal-check-item">
+                <input type="checkbox" defaultChecked />
+                <span className="cal-dot" style={{ background: EVENT_COLORS[i + 2] }} />
+                <span>{c}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div className="sidebar-cal-section">
+            <h4>Keterangan</h4>
+            {legend.map(l => (
+              <div key={l.label} className="cal-legend-item">
+                <span className="cal-legend-dot" style={{ background: l.color }} />
+                <span>{l.label}</span>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        {/* ── Main Calendar ── */}
+        <div className="cal-main">
+          {/* Month nav */}
+          <div className="cal-nav">
+            <div className="cal-nav-left">
+              <button className="cal-nav-btn" onClick={() => setCurrent(new Date(current.getFullYear(), current.getMonth() - 1, 1))}><ChevronLeft size={18} /></button>
+              <h2 className="cal-month-title">{MONTH_NAMES[current.getMonth()]} {current.getFullYear()}</h2>
+              <button className="cal-nav-btn" onClick={() => setCurrent(new Date(current.getFullYear(), current.getMonth() + 1, 1))}><ChevronRight size={18} /></button>
+            </div>
+            <button className="cal-today-btn" onClick={() => { const t = new Date(); setCurrent(new Date(t.getFullYear(), t.getMonth(), 1)); setSelected(t); }}>Hari Ini</button>
+          </div>
+
+          {/* Day headers */}
+          <div className="cal-grid-head">
+            {DAY_NAMES.map(d => <div key={d}>{d}</div>)}
+          </div>
+
+          {/* Grid */}
+          <div className="cal-grid">
+            {mainDays.map((d, idx) => {
+              const events = getEventsForDate(d.date)
               return (
-                <div 
-                  key={idx} 
-                  className={`calendar-day ${!day.isCurrentMonth ? 'other-month' : ''} ${isToday(day.date) ? 'today' : ''}`}
+                <div
+                  key={idx}
+                  className={[
+                    'cal-cell',
+                    !d.cur ? 'other-month' : '',
+                    isToday(d.date) ? 'today' : '',
+                    isSameDate(d.date, selected) ? 'selected' : '',
+                  ].join(' ')}
+                  onClick={() => setSelected(d.date)}
                 >
-                  <span className="day-number">{day.day}</span>
-                  <div className="day-tasks">
-                    {tasksForDay.slice(0, 2).map((task, tIdx) => (
-                      <div 
-                        key={tIdx} 
-                        className={`task-dot ${task.completed ? 'completed' : ''}`}
-                        title={task.title}
-                      >
-                        {task.title}
+                  <span className="cal-cell-num">{d.day}</span>
+                  <div className="cal-cell-events">
+                    {events.slice(0, 3).map((ev, ei) => (
+                      <div key={ei} className="cal-event-pill" style={{ background: `${ev.color}18`, color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
+                        {ev.title}
                       </div>
                     ))}
-                    {tasksForDay.length > 2 && (
-                      <span className="more-tasks">+{tasksForDay.length - 2} lagi</span>
-                    )}
+                    {events.length > 3 && <span className="cal-more">+{events.length - 3} lagi</span>}
                   </div>
                 </div>
               )
             })}
           </div>
-        </div>
-        
-        {/* Task List for Selected Day (optional - shows all tasks) */}
-        <div className="calendar-task-list">
-          <h3>Semua Tugas</h3>
-          {tasks.length > 0 ? (
-            <div className="task-items">
-              {tasks.map(task => (
-                <div key={task.id} className="task-item">
-                  <input type="checkbox" />
-                  <span className={`task-title ${task.status === 'completed' ? 'completed' : ''}`}>
-                    {task.title}
-                  </span>
-                  <span className="task-project">{task.project}</span>
-                </div>
-              ))}
+
+          {/* Selected day events panel */}
+          {selectedEvents.length > 0 && (
+            <div className="cal-day-panel">
+              <h4>{selected.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h4>
+              <div className="cal-day-events">
+                {selectedEvents.map(ev => (
+                  <div key={ev.id} className="cal-day-event-item" style={{ borderLeft: `4px solid ${ev.color}` }}>
+                    <span className="cal-day-event-title">{ev.title}</span>
+                    {ev.project && <span className="cal-day-event-project">{ev.project}</span>}
+                    <span className="cal-day-event-type" style={{ color: ev.color }}>{ev.type === 'project' ? 'Project' : 'Tugas'}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ) : (
-            <p className="no-tasks">Belum ada tugas. Buat target terlebih dahulu.</p>
           )}
         </div>
-      </motion.div>
-    </>
+      </div>
+    </motion.div>
   )
 }

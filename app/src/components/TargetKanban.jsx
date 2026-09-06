@@ -1,11 +1,11 @@
 import { useStore } from '../store/useStore'
-import { Check, Lock, Sparkles } from 'lucide-react'
+import { Check, Lock, Sparkles, Play } from 'lucide-react'
 import './TargetKanban.css'
 
 // Kanban alur berurutan untuk target — kolom = tahap yang didefinisikan
 // saat target dibuat. Tahap hanya bisa dikerjakan setelah tahap sebelumnya
-// selesai (klik "Selesaikan Tahap"). Jika semua tahap selesai, target
-// dinyatakan tercapai.
+// selesai (klik "Selesaikan Tahap"). Tahap pertama (Todo) memiliki tombol
+// "Start" yang memulai alur ke tahap berikutnya.
 export default function TargetKanban({ project }) {
   const { toggleChecklist, completeStage } = useStore()
   const stages = project.stages || []
@@ -17,7 +17,7 @@ export default function TargetKanban({ project }) {
       {allDone && (
         <div className="kanban-achieved">
           <Sparkles size={18} />
-          <span>Target tercapai! Semua tahap kanban berhasil diselesaikan.</span>
+          <span>Project tercapai! Semua tahap kanban berhasil diselesaikan.</span>
         </div>
       )}
 
@@ -64,7 +64,11 @@ export default function TargetKanban({ project }) {
                     className="btn btn-primary btn-sm"
                     onClick={() => completeStage(project.id, stage.id)}
                   >
-                    <Check size={14} /> Selesaikan Tahap
+                    {stages[0] && stage.id === stages[0].id ? (
+                      <><Play size={14} /> Start</>
+                    ) : (
+                      <><Check size={14} /> Selesaikan Tahap</>
+                    )}
                   </button>
                 )}
               </div>

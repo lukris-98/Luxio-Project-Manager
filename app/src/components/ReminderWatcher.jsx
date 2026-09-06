@@ -145,7 +145,7 @@ export default function ReminderWatcher() {
     if (dirty) saveSeen(SEEN_PROJECTS_KEY, seenProjects.current)
     if (created.length > 0) {
       fire({
-        title: `Target baru dibuat (${created.length})`,
+        title: `Project baru dibuat (${created.length})`,
         body: created.slice(0, 5).join('\n') + (created.length > 5 ? `\n+${created.length - 5} lainnya` : ''),
         tag: `project-created-batch`,
         type: 'create',

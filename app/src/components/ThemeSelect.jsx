@@ -4,11 +4,11 @@ import { FolderOpen, Plus } from 'lucide-react'
 import './ThemeSelect.css'
 
 // =====================================================================
-// LabelSelect — Pilih / buat label untuk mengelompokkan item.
+// FolderSelect — Pilih / buat folder untuk mengelompokkan item.
 // Dipakai di form target, kanban, todo, dan catatan.
 // =====================================================================
 
-export default function ThemeSelect({ value, onChange, placeholder = 'Pilih atau ketik label baru...' }) {
+export default function ThemeSelect({ value, onChange, placeholder = 'Pilih atau ketik folder baru...' }) {
   const { themes, addTheme } = useStore()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
@@ -39,12 +39,12 @@ export default function ThemeSelect({ value, onChange, placeholder = 'Pilih atau
             value={value || ''}
             onChange={(e) => handlePick(e.target.value)}
           >
-            <option value="">Tanpa label</option>
+            <option value="">Tanpa folder</option>
             {themes.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-          <button type="button" className="theme-select-add" onClick={() => setCreating(true)} title="Label baru">
+          <button type="button" className="theme-select-add" onClick={() => setCreating(true)} title="Folder baru">
             <Plus size={14} />
           </button>
         </>
@@ -53,7 +53,7 @@ export default function ThemeSelect({ value, onChange, placeholder = 'Pilih atau
           <input
             className="input"
             autoFocus
-            placeholder="Nama label baru (mis. Project Rumah)"
+            placeholder="Nama folder baru (mis. Project Rumah)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}

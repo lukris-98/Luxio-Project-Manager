@@ -1,323 +1,820 @@
-/* Vault — penyimpanan akun & kredensial */
+/* ============================================================
+   Vault (Brankas) — redesigned CSS matching 6. brankas.png
+   ============================================================ */
 
+/* ── Gate (Setup / Locked) ─────────────────────────────────── */
 .vault-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-4);
 }
 
-.vault-page .page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-5);
-}
-
-.vault-page .page-header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.vault-page .page-header-left h1 {
-  font-size: 1.25rem;
-  margin-bottom: var(--space-1);
-}
-
-.vault-page .page-header-left p {
-  color: var(--text-muted);
-  font-size: 0.9375rem;
-}
-
-.vault-toolbar {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.vault-search {
-  flex: 1;
-}
-
-.vault-cat-select {
-  max-width: 240px;
-}
-
-.vault-groups {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-.vault-group-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
-}
-
-.vault-group-head h2 {
-  font-size: 1.0625rem;
-  margin: 0;
-}
-
-.vault-group-count {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  padding: 2px 8px;
-}
-
-.vault-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-3);
-}
-
-.vault-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.vault-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.vault-card-label {
-  font-weight: 700;
-  font-size: 0.9375rem;
-  word-break: break-word;
-}
-
-.vault-card-actions {
-  display: flex;
-  gap: var(--space-1);
-  flex-shrink: 0;
-}
-
-.vault-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-
-.vault-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.vault-btn-danger:hover {
-  color: var(--error);
-  background: rgba(248, 113, 113, 0.15);
-}
-
-.vault-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.vault-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 0.8125rem;
-}
-
-.vault-row-label {
-  color: var(--text-muted);
-  min-width: 70px;
-  flex-shrink: 0;
-}
-
-.vault-row-value {
-  color: var(--text-primary);
-  flex: 1;
-  word-break: break-all;
-}
-
-.vault-url {
-  color: var(--accent);
-}
-
-.vault-copy {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 2px;
-}
-
-.vault-copy:hover {
-  color: var(--accent);
-}
-
-.vault-notes {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.vault-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
-
-.vault-modal {
-  max-width: 520px;
-}
-
-/* ---------- Gate brankas (setup / terkunci) ---------- */
 .vault-gate {
-  max-width: 420px;
-  margin: 10vh auto 0;
-  padding: var(--space-6);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-5);
   text-align: center;
+  padding: var(--space-10) var(--space-8);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
 }
 
-.vault-gate > svg {
+.vault-gate svg {
   color: var(--accent);
+  opacity: 0.8;
 }
 
 .vault-gate h2 {
-  font-size: 1.25rem;
-  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .vault-gate p {
   color: var(--text-muted);
   font-size: 0.9375rem;
-  margin: 0;
 }
 
 .vault-gate-options {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-3);
   flex-wrap: wrap;
   justify-content: center;
 }
 
 .vault-gate-form {
-  width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  width: 100%;
+  max-width: 280px;
 }
 
 .vault-pin-error {
-  color: var(--error, #ef4444);
+  color: var(--error);
   font-size: 0.8125rem;
 }
 
-/* ---------- Kartu terkunci PIN ---------- */
-.vault-card-locked {
+/* ── Main Layout ────────────────────────────────────────────── */
+.vault-redesign {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-4) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.vault-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vault-header-info h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.vault-header-info p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.vault-header-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  padding: var(--space-3);
-  background: var(--bg-tertiary);
 }
 
-.vault-card-lock {
+.vault-action-select {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ── KPI Cards ───────────────────────────────────────────────── */
+.vault-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-4);
+}
+
+.kpi-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.kpi-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.07);
+}
+
+.kpi-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-icon-wrapper.blue   { background: rgba(7,128,250,0.12); color: #0780FA; }
+.kpi-icon-wrapper.purple { background: rgba(108,46,242,0.12); color: var(--accent); }
+.kpi-icon-wrapper.green  { background: rgba(0,217,165,0.12); color: #00D9A5; }
+.kpi-icon-wrapper.orange { background: rgba(255,184,48,0.12); color: #FFB830; }
+.kpi-icon-wrapper.red    { background: rgba(233,69,96,0.12); color: #E94560; }
+
+.kpi-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ── Main Body Layout ────────────────────────────────────────── */
+.vault-main-layout {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+.vault-sidebar {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  position: sticky;
+  top: 80px;
+}
+
+.sidebar-section h4 {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.folder-list,
+.tag-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.folder-item,
+.tag-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.folder-item:hover,
+.tag-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.folder-item.active,
+.tag-item.active {
+  background: var(--accent-muted);
   color: var(--accent);
-  margin-right: 4px;
+  font-weight: 600;
+}
+
+.badge-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+.folder-item.active .badge-count {
+  background: rgba(108,46,242,0.15);
+  color: var(--accent);
+}
+
+.tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.no-tags {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  padding: var(--space-2);
+}
+
+/* ── Central Content ─────────────────────────────────────────── */
+.vault-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Search/Sort Row */
+.vault-search-sort-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.search-box-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: var(--space-3);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.vault-search-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3) var(--space-2) 42px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.vault-search-input:focus {
+  border-color: var(--accent);
+}
+
+.clear-search {
+  position: absolute;
+  right: var(--space-3);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sort-box-wrapper select {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ── Table ───────────────────────────────────────────────────── */
+.vault-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.vault-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.vault-table thead {
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.vault-table th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.vault-row-item {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.vault-row-item:last-child {
+  border-bottom: none;
+}
+
+.vault-row-item:hover {
+  background: var(--bg-elevated);
+}
+
+.vault-table td {
+  padding: var(--space-3) var(--space-4);
   vertical-align: middle;
 }
 
-.vault-entry-pin-desc {
-  color: var(--text-muted);
+/* Identity cell */
+.item-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.item-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.item-name-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item-label {
   font-size: 0.875rem;
-  margin: 0 0 var(--space-3);
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-/* ---------- Opsi PIN per entri ---------- */
-.vault-pin-options {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px dashed var(--border);
+.item-credential-snippet {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
-.vault-pin-radio-group {
+.snippet-text {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.75rem;
+}
+
+.btn-copy-snippet {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.btn-copy-snippet:hover {
+  color: var(--accent);
+}
+
+/* Category badge */
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Folder & Tag badges */
+.folder-tag-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.folder-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.tag-badge {
+  padding: 2px 7px;
+  background: rgba(108,46,242,0.08);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+/* Date cell */
+.date-cell {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+}
+
+.date-main {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.date-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Security cell */
+.security-cell {
+  display: flex;
+  align-items: center;
   gap: var(--space-1);
 }
 
-.vault-pin-radio {
+.security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.security-badge.pinned {
+  background: rgba(0,217,165,0.1);
+  color: #00D9A5;
+}
+
+.security-badge.shared {
+  background: rgba(7,128,250,0.1);
+  color: #0780FA;
+}
+
+.security-badge.open {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+/* Action cell */
+.action-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.btn-icon-sm {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-icon-sm:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-icon-sm.danger:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+/* ── Empty State ─────────────────────────────────────────────── */
+.vault-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-12);
+  gap: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+}
+
+.vault-empty-state svg { opacity: 0.4; }
+.vault-empty-state h3 { font-size: 1.125rem; margin: 0; color: var(--text-primary); }
+.vault-empty-state p { color: var(--text-muted); font-size: 0.875rem; margin: 0; max-width: 340px; }
+
+/* ── Modal (Form) ────────────────────────────────────────────── */
+.vault-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+  padding: var(--space-5) var(--space-4);
+  overflow-y: auto;
+}
+
+.vault-form-sheet {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 560px;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: auto;
+}
+
+.vault-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-4);
+}
+
+.vault-form-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.vault-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.vault-form-section-head {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-2);
+}
+
+.vault-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.vault-pin-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.vault-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
+
+/* Category grid */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.category-opt-btn {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.875rem;
+  border-radius: var(--radius-md);
+  background: none;
   color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8125rem;
   transition: all 0.15s;
 }
 
-.vault-pin-radio.active {
+.category-opt-btn:hover {
+  background: var(--bg-elevated);
+}
+
+.category-opt-btn.selected {
   border-color: var(--accent);
   background: var(--accent-muted);
-  color: var(--text-primary);
+  color: var(--accent);
+  font-weight: 600;
 }
 
-.vault-pin-radio input {
-  accent-color: var(--accent);
-}
-
-.vault-pin-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* Inline field reveal */
+.field-reveal-row {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
+  position: relative;
+}
+
+.field-reveal-row .input {
+  flex: 1;
+  padding-right: 72px;
+}
+
+.reveal-actions {
+  position: absolute;
+  right: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.reveal-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  transition: color 0.15s;
+}
+
+.reveal-btn:hover { color: var(--accent); }
+
+/* Pin unlock modal */
+.entry-pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  backdrop-filter: blur(4px);
+}
+
+.entry-pin-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  text-align: center;
+  align-items: center;
+}
+
+.entry-pin-modal h3 {
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.entry-pin-modal p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.entry-pin-actions {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+  justify-content: center;
+}
+
+/* History Modal */
+.vault-history-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+}
+
+.vault-history-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 80vh;
+  overflow: hidden;
+}
+
+.vault-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vault-history-header h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.vault-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+}
+
+.vault-history-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+}
+
+.history-action-pill {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+}
+
+.history-action-pill.added { background: rgba(0,217,165,0.1); color: #00D9A5; }
+.history-action-pill.updated { background: rgba(255,184,48,0.1); color: #FFB830; }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .vault-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .vault-main-layout { grid-template-columns: 1fr; }
+  .vault-sidebar { position: static; }
 }
 
 @media (max-width: 640px) {
-  .vault-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .vault-cat-select {
-    max-width: none;
-  }
-  .vault-form-row {
-    grid-template-columns: 1fr;
-  }
-  .vault-pin-inputs {
-    grid-template-columns: 1fr;
-  }
+  .vault-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .category-grid { grid-template-columns: repeat(2, 1fr); }
+  .vault-form-row { grid-template-columns: 1fr; }
 }

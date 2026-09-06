@@ -13,6 +13,10 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 const TOKEN_KEY = 'luxio-token'
 
+// Lapisan sinkronisasi & cache (Tahap 2) — offline detection, stale-while-
+// revalidate untuk GET, dan antrean tulis offline untuk POST/PUT/DELETE.
+import { staleWhileRevalidate, isOnline, enqueueWrite, cacheInvalidate } from './sync'
+
 /**
  * Ambil session token dari localStorage.
  * Token dikirim pada header `Authorization: Bearer <token>` untuk setiap
@@ -110,6 +114,72 @@ async function del(path, body) {
   }
   if (res.status === 204) return null
   return res.json()
+}
+
+/**
+ * GET dengan cache (stale-while-revalidate) — Tahap 2.
+ * - Bila cache ada & masih fresh → langsung kembalikan (cepat).
+ * - Bila cache lama → tetap kembalikan, tapi validasi ulang di belakang.
+ * - Bila tidak ada cache → ambil dari server, simpan ke cache.
+ * @param {string} path
+ * @param {object} params
+ * @param {object} opts { key?: string, maxAgeMs?: number }
+ */
+async function getCached(path, params = {}, opts = {}) {
+  const key = opts.key || `${path}?${new URLSearchParams(params).toString()}`
+  const maxAgeMs = opts.maxAgeMs ?? 30_000
+  const res = await staleWhileRevalidate(key, () => get(path, params), maxAgeMs)
+  return res.value
+}
+
+/**
+ * Tulis (POST/PUT/DELETE) yang sadar-offline — Tahap 2.
+ * - Online  → kirim seperti biasa; sukses → invalidasi cache terkait.
+ * - Offline → masukkan ke antrean sync (dikirim saat online kembali),
+ *   kembalikan penanda `queued=true` agar UI bisa tampil optimistik.
+ * @param {string} method 'POST' | 'PUT' | 'DELETE'
+ * @param {string} path
+ * @param {object} body
+ * @param {object} opts { cacheKey?: string, optimistic?: any }
+ * @returns {Promise<object>}
+ */
+async function writeOffline(method, path, body, opts = {}) {
+  if (!isOnline()) {
+    enqueueWrite({ method, path, body })
+    return { success: true, queued: true, offline: true, data: opts.optimistic }
+  }
+  const fn = method === 'POST' ? post : method === 'PUT' ? put : del
+  const res = await fn(path, body)
+  if (opts.cacheKey) cacheInvalidate(opts.cacheKey)
+  return res
+}
+
+/**
+ * Kirim semua operasi yang terantre saat offline (dipanggil otomatis
+ * ketika koneksi pulih; bisa juga dipanggil manual dari UI "Sinkronkan").
+ * @returns {Promise<number>} jumlah operasi yang berhasil terkirim
+ */
+async function flushPending() {
+  const { flushQueue } = await import('./sync')
+  return flushQueue(async (item) => {
+    try {
+      await requestRaw(item.method, item.path, item.body)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e }
+    }
+  })
+}
+
+// Fetch mentah tanpa cache (dipakai replay antrean offline).
+async function requestRaw(method, path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.status === 204 ? null : res.json()
 }
 
 // Daftar semua endpoint yang tersedia. Tambahkan endpoint baru di sini
@@ -266,4 +336,12 @@ export const api = {
   // ---- Lupa Password ----
   forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
   resetPassword: (token, password) => post('/api/auth/reset-password', { token, password }),
+
+  // ---- Lapisan sinkronisasi (Tahap 2) ----
+  // GET dengan cache stale-while-revalidate.
+  getCached,
+  // Tulis offline-aware (antrean saat offline).
+  writeOffline,
+  // Kirim antrean offline (manual / dipanggil saat online).
+  flushPending,
 }

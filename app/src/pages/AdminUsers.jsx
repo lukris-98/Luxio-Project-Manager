@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 import Select from '../components/Select'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
@@ -200,10 +200,10 @@ export default function AdminUsers() {
     <>
       <motion.div
         className="admin-users-page"
-        initial={{ opacity: 0 }}
+        initial={{ opacity: 1 }}
         animate={{ opacity: 1 }}
       >
-        <motion.div className="page-header" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div className="page-header" initial={{ opacity: 1, y: 15 }} animate={{ opacity: 1, y: 0 }}>
           <div className="page-header-left">
             <h1>Kelola Akun</h1>
             <p>Pusat kendali seluruh akun Luxio (khusus Owner)</p>
@@ -268,7 +268,7 @@ export default function AdminUsers() {
                 <motion.div
                   key={user.id}
                   className="admin-user-row"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 1, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
                   <div className="admin-user-avatar">
@@ -394,7 +394,7 @@ export default function AdminUsers() {
                     options={PLAN_ORDER.map((p) => ({ value: p, label: PLAN_LABELS[p] }))}
                   />
                   <p className="field-hint">
-                    Role otomatis: Personal/Profesional = Member · Grup = Admin · Organisasi = Super Admin
+                    Role otomatis: Personal/Profesional = Member Â· Grup = Admin Â· Organisasi = Super Admin
                   </p>
                 </div>
               </div>

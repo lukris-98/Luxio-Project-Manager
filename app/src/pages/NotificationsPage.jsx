@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
 import { Megaphone, Users, Loader2, Send, BellRing, Search } from 'lucide-react'
@@ -130,13 +130,13 @@ export default function NotificationsPage() {
     <>
       <motion.div
         className="notif-send-page"
-        initial={{ opacity: 0 }}
+        initial={{ opacity: 1 }}
         animate={{ opacity: 1 }}
       >
-        <motion.div className="page-header" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div className="page-header" initial={{ opacity: 1, y: 15 }} animate={{ opacity: 1, y: 0 }}>
           <div className="page-header-left">
             <h1>Kirim Notifikasi</h1>
-            <p>Owner &gt; semua user · Super Admin / Admin &gt; bawahan</p>
+            <p>Owner &gt; semua user Â· Super Admin / Admin &gt; bawahan</p>
           </div>
         </motion.div>
 

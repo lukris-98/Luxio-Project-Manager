@@ -4,20 +4,23 @@ import Select from './Select'
 import ThemeSelect from './ThemeSelect'
 import StageEditor from './StageEditor'
 import DeadlinePicker from './DeadlinePicker'
-import { X, KanbanSquare, ListTodo, Target, Sparkles } from 'lucide-react'
+import { X, KanbanSquare, ListTodo, Target, Users, Filter } from 'lucide-react'
 import './TargetForm.css'
 
 // =====================================================================
-// TargetForm.jsx — Form "Tambah Target Baru" (sebuah visi).
+// TargetForm.jsx — Form "Tambah / Edit Project" (CRUD).
 // =====================================================================
-// Kolom yang tampil beda-beda tergantung role user & tipe akun:
-//   - super_admin : semua kolom (divisi, assignee, tipe target, cara kelola).
-//   - admin       : divisi, assignee, cara kelola (tanpa tipe target).
-//   - member      : hanya nama/visi, deskripsi, cara kelola (kanban/to-do),
-//                   prioritas & deadline — otomatis diassign ke dirinya.
-//   - akun individual : tanpa divisi/anggota — target otomatis diassign
-//                   ke pemilik akun (tidak ada dropdown divisi/assignee).
-// Cara kelola target: Kanban (board kolom) atau To-do List (daftar centang).
+// Kolom yang tampil:
+//   - Nama Project
+//   - Deskripsi Project
+//   - Contributor: pilih anggota tim (dari divisi manapun) yang ikut
+//     mengerjakan project — bisa lebih dari satu.
+//   - Cara Kelola: Kanban (kolom/tahap) atau To-do List (daftar centang).
+//     Kanban default: To Do → In Progress → Done, nama tahap bebas & bisa
+//     > 3 tahap, tiap tahap punya > 1 to-do. Tahap pertama (To Do) punya
+//     tombol Start untuk memindahkan ke tahap 2.
+// Prop `initial` (project yang sudah ada) => mode EDIT (updateProject);
+// tanpa prop => mode BUAT (createTarget).
 // =====================================================================
 
 const VIEW_TYPES = {
@@ -25,54 +28,44 @@ const VIEW_TYPES = {
   todo: { label: 'To-do List', desc: 'Daftar tugas dengan centang', icon: ListTodo },
 }
 
-const TYPE_OPTIONS = [
-  { value: 'weekly', label: 'Mingguan' },
-  { value: 'monthly', label: 'Bulanan' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'project', label: 'Project' },
+// Tahap kanban default: To Do → In Progress → Done (nama bebas, bisa ditambah).
+const DEFAULT_STAGES = [
+  { id: 1, name: 'To Do', todos: [] },
+  { id: 2, name: 'In Progress', todos: [] },
+  { id: 3, name: 'Done', todos: [] },
 ]
 
-const PRIORITY_OPTIONS = [
-  { value: 'high', label: 'Tinggi' },
-  { value: 'medium', label: 'Sedang' },
-  { value: 'low', label: 'Rendah' },
-]
+// Ubah stages store ({name, checklist}) menjadi format editor ({name, todos}).
+const stagesToEditor = (stages) =>
+  Array.isArray(stages) && stages.length
+    ? stages.map((s, i) => ({
+        id: s.id ?? i + 1,
+        name: s.name || '',
+        todos: (s.checklist || []).map((c) => c.text || ''),
+      }))
+    : DEFAULT_STAGES
 
-const ROLE_HINTS = {
-  super_admin: 'Kontrol penuh: divisi, assignee, tipe target, dan cara kelola.',
-  admin: 'Boleh atur divisi, assignee, dan cara kelola target.',
-  member: 'Target otomatis diassign ke kamu. Kolom divisi & assignee hanya untuk admin.',
-  individual: 'Akun individual: tanpa divisi/anggota, target otomatis diassign ke kamu.',
-}
-
-export default function TargetForm({ onClose, onCreated }) {
-  const { currentUser, divisions, members, companyInfo, createTarget } = useStore()
+export default function TargetForm({ onClose, onCreated, initial }) {
+  const { currentUser, divisions, members, companyInfo, createTarget, updateProject } = useStore()
   const role = useEffectiveRole()
 
+  const isEditing = Boolean(initial)
   const isIndividual = companyInfo?.type === 'individual'
   const isAdmin = (role === 'admin' || role === 'super_admin' || role === 'owner') && !isIndividual
-  const isSuper = (role === 'super_admin' || role === 'owner') && !isIndividual
-
-  // Pilihan cara kelola dibatasi per role (workflow tidak dipakai).
-  const viewTypeKeys = ['kanban', 'todo']
 
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    viewType: 'kanban',
-    theme: '',
-    divisionId: '',
-    assigneeId: '',
-    type: 'project',
-    priority: 'medium',
-    deadlineType: 'deadline',
-    deadline: '',
-    deadlineLabel: '',
-    // Kolaborator (multi-user): daftar member yang ikut mengerjakan target.
-    collaboratorIds: [],
-    // Alur kanban: daftar tahap, tiap tahap punya daftar to-do.
-    stages: [{ id: 1, name: '', todos: [] }],
+    name: initial?.name || '',
+    description: initial?.description || '',
+    viewType: initial?.viewType || 'kanban',
+    theme: initial?.theme || '',
+    priority: initial?.priority || 'medium',
+    deadlineType: initial?.deadlineType || 'deadline',
+    deadline: initial?.deadline || '',
+    deadlineLabel: initial?.deadlineLabel || '',
+    collaboratorIds: initial?.collaboratorIds || [],
+    stages: stagesToEditor(initial?.stages),
   })
+  const [divisionFilter, setDivisionFilter] = useState('')
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
 
@@ -89,7 +82,7 @@ export default function TargetForm({ onClose, onCreated }) {
 
   const handleSubmit = () => {
     if (!canSubmit) return
-    const id = createTarget({
+    const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
       viewType: form.viewType,
@@ -102,52 +95,52 @@ export default function TargetForm({ onClose, onCreated }) {
       collaboratorIds: form.collaboratorIds,
       // Alur kanban dibawa ke store (kolom = tahap, task = to-do).
       ...(form.viewType === 'kanban' ? { stages: form.stages } : {}),
-      // Admin/super boleh pilih divisi & assignee; member diassign ke diri sendiri.
-      ...(isAdmin ? { assigneeId: form.assigneeId } : { assigneeId: currentUser?.id }),
-      ...(isAdmin && form.divisionId
-        ? { divisionId: form.divisionId, division: divisions.find((d) => d.id === form.divisionId)?.name || '' }
-        : { division: '' }),
-      ...(isSuper && form.type ? { type: form.type } : { type: 'project' }),
-    })
+    }
+    let id = initial?.id
+    if (isEditing && id != null) {
+      updateProject(id, payload)
+    } else {
+      id = createTarget(payload)
+    }
     onClose()
     if (onCreated) onCreated(id)
   }
+
+  // Member yang bisa dijadikan contributor (filter divisi opsional).
+  const contributorMembers = members.filter((m) =>
+    divisionFilter ? m.divisionId === divisionFilter : true
+  )
+  const divisionOf = (memberId) =>
+    divisions.find((d) => d.id === members.find((m) => m.id === memberId)?.divisionId)?.name || 'Tanpa divisi'
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal target-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Target Baru</h2>
+          <h2>{isEditing ? 'Edit Project' : 'Project Baru'}</h2>
           <button className="close-btn" onClick={onClose} aria-label="Tutup">
             <X size={18} />
           </button>
         </div>
 
         <div className="modal-body">
-          {/* Role notice */}
-          <div className="role-hint">
-            <Sparkles size={14} />
-            <span>{ROLE_HINTS[isIndividual ? 'individual' : role]}</span>
-          </div>
-
           <div className="input-group">
-            <label className="input-label">Nama Target / Visi</label>
+            <label className="input-label">Nama Project</label>
             <input
               type="text"
               className="input"
-              placeholder="cth: Menjadi agency kreatif terbaik 2026"
+              placeholder="cth: Peluncuran Website Perusahaan"
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
               autoFocus
             />
           </div>
 
           <div className="input-group">
-            <label className="input-label">Deskripsi visi</label>
+            <label className="input-label">Deskripsi Project</label>
             <textarea
               className="input target-textarea"
-              placeholder="Jelaskan visi atau target ini..."
+              placeholder="Jelaskan tujuan & lingkup project ini..."
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
               rows={3}
@@ -155,20 +148,63 @@ export default function TargetForm({ onClose, onCreated }) {
           </div>
 
           <div className="input-group">
-            <label className="input-label">Label</label>
+            <label className="input-label">Folder</label>
             <ThemeSelect
               value={form.theme}
               onChange={(v) => set('theme', v)}
-              placeholder="Pilih label atau buat baru..."
+              placeholder="Pilih folder atau buat baru..."
             />
-            <p className="field-hint">Kelompokkan target dalam satu label, mis. "Project Rumah".</p>
+            <p className="field-hint">Kelompokkan project dalam satu folder, mis. "Project Rumah". Satu folder bisa berisi beberapa project.</p>
+          </div>
+
+          {/* Contributor — anggota tim dari divisi manapun */}
+          <div className="input-group">
+            <label className="input-label">
+              <Users size={13} /> Contributor
+            </label>
+            <p className="field-hint">
+              Pilih anggota tim yang ikut mengerjakan project ini. Bisa dari divisi manapun.
+            </p>
+            <div className="contributor-filter">
+              <Filter size={14} />
+              <Select
+                placeholder="Semua divisi"
+                allowReset
+                value={divisionFilter}
+                onChange={(v) => setDivisionFilter(v || '')}
+                options={divisions.map((d) => ({ value: d.id, label: d.name }))}
+              />
+            </div>
+            {contributorMembers.length === 0 ? (
+              <p className="field-hint">Belum ada anggota untuk divisi ini.</p>
+            ) : (
+              <div className="collab-picker">
+                {contributorMembers.map((m) => {
+                  const checked = form.collaboratorIds.includes(m.id)
+                  return (
+                    <label key={m.id} className={`collab-chip ${checked ? 'active' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCollaborator(m.id)}
+                      />
+                      <span className="collab-chip-avatar">
+                        {m.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </span>
+                      <span className="collab-chip-name">{m.name}</span>
+                      <span className="collab-chip-div">{divisionOf(m.id)}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Cara kelola — kartu pilihan */}
           <div className="input-group">
             <label className="input-label">Cara Kelola</label>
             <div className="viewtype-grid">
-              {viewTypeKeys.map((key) => {
+              {Object.keys(VIEW_TYPES).map((key) => {
                 const vt = VIEW_TYPES[key]
                 const Icon = vt.icon
                 return (
@@ -187,67 +223,14 @@ export default function TargetForm({ onClose, onCreated }) {
             </div>
           </div>
 
-          {/* Kolom khusus admin/super_admin */}
-          {isAdmin && (
-            <div className="form-grid">
-              <div className="input-group">
-                <label className="input-label">Divisi</label>
-                <Select
-                  placeholder="Pilih divisi..."
-                  value={form.divisionId}
-                  onChange={(v) => set('divisionId', v)}
-                  options={divisions.map((d) => ({ value: d.id, label: d.name }))}
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Assign ke</label>
-                <Select
-                  placeholder="Pilih anggota..."
-                  allowReset
-                  value={form.assigneeId}
-                  onChange={(v) => set('assigneeId', v)}
-                  options={members.map((m) => ({ value: m.id, label: m.name }))}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Kolaborator multi-user — siapa saja yang ikut mengerjakan target ini */}
-          {isAdmin && members.length > 0 && (
-            <div className="input-group">
-              <label className="input-label">Kolaborator (multi-user)</label>
-              <p className="field-hint">
-                Pilih anggota yang ikut mengerjakan target ini. Bisa lebih dari satu.
-              </p>
-              <div className="collab-picker">
-                {members.map((m) => {
-                  const checked = form.collaboratorIds.includes(m.id)
-                  const isAssignee = m.id === form.assigneeId
-                  return (
-                    <label key={m.id} className={`collab-chip ${checked ? 'active' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked || isAssignee}
-                        onChange={() => toggleCollaborator(m.id)}
-                      />
-                      <span className="collab-chip-avatar">
-                        {m.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-                      </span>
-                      <span className="collab-chip-name">{m.name}</span>
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Editor alur kanban — kolom = tahap, task = to-do tiap tahap */}
           {form.viewType === 'kanban' && (
             <div className="input-group kanban-flow">
               <label className="input-label">Alur Kanban</label>
               <p className="field-hint">
-                Tulis tahap/kolom dan to-do tiap tahap. Tahap berikutnya terbuka setelah
-                tahap sebelumnya selesai.
+                Tahap pertama (To Do) punya tombol <strong>Start</strong> untuk memindahkan ke
+                tahap 2. Tiap tahap bisa punya lebih dari satu to-do yang harus dicentang untuk
+                menyelesaikan tahap.
               </p>
 
               <StageEditor
@@ -266,7 +249,11 @@ export default function TargetForm({ onClose, onCreated }) {
                 allowReset={false}
                 value={form.priority}
                 onChange={(v) => set('priority', v)}
-                options={PRIORITY_OPTIONS}
+                options={[
+                  { value: 'high', label: 'Tinggi' },
+                  { value: 'medium', label: 'Sedang' },
+                  { value: 'low', label: 'Rendah' },
+                ]}
               />
             </div>
             <div className="input-group">
@@ -277,19 +264,6 @@ export default function TargetForm({ onClose, onCreated }) {
               />
             </div>
           </div>
-
-          {/* Kolom khusus super_admin */}
-          {isSuper && (
-            <div className="input-group">
-              <label className="input-label">Tipe Target</label>
-              <Select
-                allowReset={false}
-                value={form.type}
-                onChange={(v) => set('type', v)}
-                options={TYPE_OPTIONS}
-              />
-            </div>
-          )}
         </div>
 
         <div className="modal-footer">
@@ -298,7 +272,7 @@ export default function TargetForm({ onClose, onCreated }) {
           </button>
           <button className="btn btn-primary" disabled={!canSubmit} onClick={handleSubmit}>
             <Target size={16} />
-            Buat Target
+            {isEditing ? 'Simpan Perubahan' : 'Buat Project'}
           </button>
         </div>
       </div>

@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
 import { ArrowLeft, LogIn, UserPlus, Mail, Lock, User, ShieldCheck, MailCheck, RefreshCw, KeyRound, KeySquare, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import Logo from '../components/Logo'
+import PinInput from '../components/PinInput'
 import './Auth.css'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
@@ -32,6 +33,13 @@ export default function Auth() {
   const [pin, setPin] = useState('')
   const [pinMode, setPinMode] = useState('verify') // 'verify' | 'setup'
 
+  // Auto-submit OTP saat 6 digit terisi semua
+  useEffect(() => {
+    if (stage === 'otp' && otp.length === OTP_LENGTH && !loading) {
+      handleOtpSubmit(new Event('submit', { cancelable: true }))
+    }
+  }, [otp, stage])
+
   // State lupa password
   const [forgotEmail, setForgotEmail] = useState('')
   const [resetToken, setResetToken] = useState('')
@@ -54,9 +62,8 @@ export default function Auth() {
       setStage('verifying')
       ;(async () => {
         const result = await verifyEmail(token)
-        if (result.success) {
-          const { hasCompletedSetup } = useStore.getState()
-          setAppState(hasCompletedSetup ? 'app' : 'setup')
+if (result.success) {
+          setAppState('app')
         } else {
           setError(result.message || 'Link konfirmasi tidak valid atau sudah kedaluwarsa.')
           setStage('form')
@@ -167,8 +174,7 @@ export default function Auth() {
           setPinMode(result.requiresPinSetup ? 'setup' : 'verify')
           setStage('pin')
         } else if (result.success) {
-          const { hasCompletedSetup } = useStore.getState()
-          setAppState(hasCompletedSetup ? 'app' : 'setup')
+          setAppState('app')
         } else {
           setError(result.message)
         }
@@ -190,8 +196,7 @@ export default function Auth() {
     setError('')
     const result = await verify2FA(otpEmail, otp.trim())
     if (result.success) {
-      const { hasCompletedSetup } = useStore.getState()
-      setAppState(hasCompletedSetup ? 'app' : 'setup')
+      setAppState('app')
     } else {
       setError(result.message || 'Kode salah. Coba lagi.')
       setOtp('')
@@ -357,7 +362,7 @@ export default function Auth() {
         {/* Form Card */}
         <motion.div
           className="auth-card"
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
@@ -478,7 +483,7 @@ export default function Auth() {
                       type="password"
                       id="reset-password"
                       className="input"
-                      placeholder="••••••••"
+                      placeholder="Masukkan password baru"
                       autoFocus
                       value={newPassword}
                       onChange={(e) => { setNewPassword(e.target.value); setError('') }}
@@ -495,7 +500,7 @@ export default function Auth() {
                       type="password"
                       id="reset-confirm"
                       className="input"
-                      placeholder="••••••••"
+                      placeholder="Ulangi password baru"
                       value={confirmPassword}
                       onChange={(e) => { setConfirmPassword(e.target.value); setError('') }}
                     />
@@ -586,21 +591,7 @@ export default function Auth() {
               <form onSubmit={handlePinSubmit} className="auth-form">
                 <div className="input-group">
                   <label className="input-label" htmlFor="auth-pin">PIN</label>
-                  <div className="input-icon">
-                    <KeyRound size={16} />
-                    <input
-                      type="password"
-                      name="pin"
-                      id="auth-pin"
-                      className="input"
-                      placeholder="••••"
-                      maxLength={6}
-                      autoFocus
-                      inputMode="numeric"
-                      value={pin}
-                      onChange={(e) => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
-                    />
-                  </div>
+                  <PinInput length={6} value={pin} onChange={(v) => { setPin(v); setError('') }} onComplete={() => { if (!loading) handlePinSubmit(new Event('submit', { cancelable: true })) }} />
                 </div>
                 <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading || pin.length < 4}>
                   {loading ? 'Memproses…' : pinMode === 'setup' ? 'Simpan & Masuk' : 'Verifikasi & Masuk'}
@@ -711,7 +702,7 @@ export default function Auth() {
                         name="password"
                         id="auth-password"
                         className="input"
-                        placeholder="••••••••"
+                        placeholder="Masukkan password"
                         value={form.password}
                         onChange={handleChange}
                       />
@@ -729,7 +720,7 @@ export default function Auth() {
                           name="confirmPassword"
                           id="auth-confirm"
                           className="input"
-                          placeholder="••••••••"
+                          placeholder="Ulangi password"
                           value={form.confirmPassword}
                           onChange={handleChange}
                         />
@@ -772,6 +763,14 @@ export default function Auth() {
                     </button>
                   </>
                 )}
+
+                <p className="auth-legal">
+                  Dengan melanjutkan, kamu menyetujui{' '}
+                  <a href="/syarat" target="_blank" rel="noopener">Syarat &amp; Ketentuan</a>{' '}
+                  dan{' '}
+                  <a href="/privasi" target="_blank" rel="noopener">Kebijakan Privasi</a>{' '}
+                  Luxio.
+                </p>
 
                 <div className="auth-footer">
                   {mode === 'login' ? (

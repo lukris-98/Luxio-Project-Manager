@@ -3,8 +3,10 @@ import { useStore, useEffectiveRole } from '../store/useStore'
 import { can as canAuthority, getAuthorityLabel as authLabel } from '../utils/permissions'
 import { api } from '../services/api'
 import Select from '../components/Select'
-import { motion } from 'framer-motion'
-import { Users, Building2, Mail, Plus, Trash2, Pencil, Crown, X, Shield, Check, Phone, Briefcase, Calendar, MapPin, BadgeCheck, Send, Lock, Eye, EyeOff, MoreVertical } from 'lucide-react'
+import AnimatedDropdown from '../components/AnimatedDropdown'
+import MemberDetailModal from '../components/MemberDetailModal'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Users, Building2, Mail, Plus, Trash2, Pencil, Crown, X, Shield, Check, Phone, Briefcase, Calendar, MapPin, BadgeCheck, Send, Lock, Eye, EyeOff, MoreVertical, ChevronUp, ChevronDown } from 'lucide-react'
 import './Team.css'
 
 const getInitials = (name) =>
@@ -14,8 +16,8 @@ const getInitials = (name) =>
 const AUTHORITY_LEVELS = [
   { value: 'owner', label: 'Owner', desc: 'Kontrol penuh: kelola semua, target, member, laporan' },
   { value: 'super_admin', label: 'Super Admin', desc: 'Kelola semua fitur: target, task, member, laporan' },
-  { value: 'admin', label: 'Admin', desc: 'Kelola target, task, dan anggota divisi' },
-  { value: 'manager', label: 'Manager', desc: 'Buat target & edit task, lihat laporan' },
+  { value: 'admin', label: 'Admin', desc: 'Kelola project, task, dan anggota divisi' },
+  { value: 'manager', label: 'Manager', desc: 'Buat project & edit task, lihat laporan' },
   { value: 'member', label: 'Member', desc: 'Kerjakan task yang diassign, lihat target' },
   { value: 'viewer', label: 'Viewer', desc: 'Hanya bisa melihat' },
 ]
@@ -47,6 +49,17 @@ export default function Team() {
   const [modal, setModal] = useState(null) // { type, ... }
   // Dropdown aksi tiga titik (Item 3): { type: 'division'|'team', id }
   const [openDropdown, setOpenDropdown] = useState(null)
+  // Tim yang kartu anggotanya diperkecil (collapse).
+  const [collapsedTeams, setCollapsedTeams] = useState(() => new Set())
+
+  const toggleTeamCollapse = (teamId) => {
+    setCollapsedTeams((prev) => {
+      const next = new Set(prev)
+      if (next.has(teamId)) next.delete(teamId)
+      else next.add(teamId)
+      return next
+    })
+  }
 
   // Auto-pilih divisi pertama.
   useEffect(() => {
@@ -163,129 +176,65 @@ export default function Team() {
       ? 'Kelola tim dan anggota perusahaan'
       : 'Daftar anggota tim (hanya lihat)'
 
+  // KPI stats
+  const divStats = useMemo(() => ({
+    totalDivisi: divisions.length,
+    totalTim: teams.length,
+    totalAnggota: members.length,
+    totalManager: teams.filter(t => t.adminId).length,
+  }), [divisions, teams, members])
+
   return (
     <>
-      <motion.div className="team-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <motion.div className="team-page" initial={{ opacity: 1 }} animate={{ opacity: 1 }}>
         {/* Header */}
-        <motion.div className="page-header" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div className="page-header" initial={{ opacity: 1, y: 15 }} animate={{ opacity: 1, y: 0 }}>
           <div className="page-header-left">
             <h1>{isDivisiMode ? 'Divisi' : 'Tim'}</h1>
             <p>{subtitle}</p>
           </div>
           <div className="team-header-actions">
+            {isDivisiMode && divisions.length > 0 && (
+              <div className="division-filter">
+                <Building2 size={14} />
+                <select
+                  className="input"
+                  value={selectedDivId || ''}
+                  onChange={(e) => setSelectedDivId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  {divisions.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {isDivisiMode && (
               <button className="btn btn-secondary" onClick={openAddDiv}>
                 <Plus size={16} /> Tambah Divisi
               </button>
             )}
-            {canManageTeams && selectedDivId && (
-              <button className="btn btn-secondary" onClick={() => openAddTeam(selectedDivId)}>
-                <Plus size={16} /> Tambah Tim
-              </button>
-            )}
-            {canManageTeams && selectedDivId && (
-              <button className="btn btn-primary" onClick={openAddMemberAnywhere}>
-                <Plus size={16} /> Tambah Anggota
-              </button>
-            )}
           </div>
         </motion.div>
 
-        {/* Role notice */}
-        {isDivisiMode && (
-          <div className="role-notice">
-            <Shield size={16} />
-            <span>Anda sebagai Super Admin — kelola divisi, tim, anggota, dan pindah peran admin</span>
-          </div>
-        )}
-        {role === 'admin' && (
-          <div className="role-notice admin-notice">
-            <Shield size={16} />
-            <span>Anda sebagai Admin — kelola tim dan anggota</span>
-          </div>
-        )}
-        {isUser && (
-          <div className="role-notice user-notice">
-            <Shield size={16} />
-            <span>Anda sebagai User — hanya bisa melihat daftar anggota tim</span>
-          </div>
-        )}
-
-        {/* Divisions */}
-        <motion.section className="section" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <div className="section-header">
-            <Building2 size={18} />
-            <h2>Divisi ({divisions.length})</h2>
-          </div>
-
-          {isDivisiMode ? (
-            <div className="divisions-grid">
-              {divisions.map((div) => (
-                <div
-                  key={div.id}
-                  className={`division-card ${selectedDivId === div.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedDivId(div.id)}
-                >
-                  <div className="division-icon">
-                    <Building2 size={18} />
-                  </div>
-                  <div className="division-info">
-                    <h3>{div.name}</h3>
-                    <p>{div.memberCount} anggota</p>
-                  </div>
-                  <div className="division-actions" onClick={(e) => e.stopPropagation()}>
-                    <button className="more-btn" onClick={() => setOpenDropdown(openDropdown?.type === 'division' && openDropdown?.id === div.id ? null : { type: 'division', id: div.id })}>
-                      <MoreVertical size={14} />
-                    </button>
-                    {openDropdown?.type === 'division' && openDropdown?.id === div.id && (
-                      <>
-                        <div className="dropdown-backdrop" onClick={() => setOpenDropdown(null)} />
-                        <div className="dropdown-menu">
-                          <button onClick={() => { setOpenDropdown(null); openRename('division', div.id, div.name) }}>
-                            <Pencil size={14} /> Ubah nama
-                          </button>
-                          <button className="danger" onClick={() => { setOpenDropdown(null); handleDeleteDivision(div) }}>
-                            <Trash2 size={14} /> Hapus
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {divisions.length === 0 && (
-                <div className="empty-card">
-                  <p>Belum ada divisi. Klik "Tambah Divisi" untuk mulai.</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="division-tabs">
-              {divisions.map((div) => (
-                <button
-                  key={div.id}
-                  className={`division-tab ${selectedDivId === div.id ? 'active' : ''}`}
-                  onClick={() => setSelectedDivId(div.id)}
-                >
-                  {div.name}
-                  <span className="division-tab-count">{div.memberCount}</span>
-                </button>
-              ))}
-              {divisions.length === 0 && (
-                <div className="empty-card">
-                  <p>Belum ada divisi</p>
-                </div>
-              )}
-            </div>
-          )}
-        </motion.section>
-
-        {/* Teams in selected division */}
         {selectedDivision && (
-          <motion.section className="section" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <div className="section-header">
-              <Users size={18} />
-              <h2>Tim — {selectedDivision.name}</h2>
+          <motion.section className="section div-teams-section" initial={{ opacity: 1, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <div className="section-header div-teams-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Users size={18} />
+                <h2>Tim — {selectedDivision.name}</h2>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {canManageTeams && (
+                  <button className="btn btn-secondary btn-sm" onClick={() => openAddTeam(selectedDivId)}>
+                    <Plus size={14} /> Tambah Tim
+                  </button>
+                )}
+                {canManageTeams && (
+                  <button className="btn btn-primary btn-sm" onClick={openAddMemberAnywhere}>
+                    <Plus size={14} /> Tambah Anggota
+                  </button>
+                )}
+              </div>
             </div>
             <div className="teams-list">
               {teamsOfSelected.map((team) => {
@@ -302,14 +251,24 @@ export default function Team() {
                           </span>
                         )}
                       </div>
-                      {canManageTeams && (
-                        <div className="team-card-actions" onClick={(e) => e.stopPropagation()}>
+                      <div className="team-card-actions" onClick={(e) => e.stopPropagation()}>
+                        {/* Perkecil / besarkan kotak tim (daftar anggota) */}
+                        <button
+                          className="more-btn"
+                          title={collapsedTeams.has(team.id) ? 'Tampilkan anggota' : 'Perkecil kotak tim'}
+                          onClick={() => toggleTeamCollapse(team.id)}
+                        >
+                          {collapsedTeams.has(team.id) ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                        </button>
+                        {canManageTeams && (
                           <button className="more-btn" onClick={() => setOpenDropdown(openDropdown?.type === 'team' && openDropdown?.id === team.id ? null : { type: 'team', id: team.id })}>
                             <MoreVertical size={14} />
                           </button>
-                          {openDropdown?.type === 'team' && openDropdown?.id === team.id && (
-                            <>
-                              <div className="dropdown-backdrop" onClick={() => setOpenDropdown(null)} />
+                        )}
+                        {openDropdown?.type === 'team' && openDropdown?.id === team.id && (
+                          <div className="dropdown-backdrop" onClick={() => setOpenDropdown(null)} />
+                        )}
+                        <AnimatedDropdown show={openDropdown?.type === 'team' && openDropdown?.id === team.id}>
                               <div className="dropdown-menu">
                                 {isDivisiMode && (
                                   <button onClick={() => { setOpenDropdown(null); openSetAdmin(team.id) }}>
@@ -323,13 +282,20 @@ export default function Team() {
                                   <Trash2 size={14} /> Hapus tim
                                 </button>
                               </div>
-                            </>
-                          )}
-                        </div>
-                      )}
+                        </AnimatedDropdown>
+                      </div>
                     </div>
 
-                    <div className="team-card-members">
+                    <AnimatePresence initial={false}>
+                    {!collapsedTeams.has(team.id) && (
+                    <motion.div
+                      className="team-card-members"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22, ease: 'easeInOut' }}
+                      style={{ overflow: 'hidden' }}
+                    >
                       {tMembers.length === 0 && <p className="team-empty">Belum ada anggota tim ini.</p>}
                       {tMembers.map((m) => (
                         <div key={m.id} className="team-member">
@@ -338,7 +304,6 @@ export default function Team() {
                             <span className="member-name">
                               {m.name}
                               {m.id === team.adminId && <span className="team-admin-tag">Admin</span>}
-                              {m.hasAccount && <span className="member-account-badge"><Lock size={9} /> Akun</span>}
                               {m.authority && m.authority !== 'member' && (
                                 <span className={`authority-badge auth-${m.authority}`}>{getAuthorityLabel(m.authority)}</span>
                               )}
@@ -355,41 +320,49 @@ export default function Team() {
                               </span>
                             )}
                           </div>
-                          {canManageTeams && (
-                            <div className="team-member-actions">
-                              {authCanManageMembers && (
-                                <button title="Edit anggota" onClick={() => setModal({ type: 'edit-member', memberId: m.id })}>
-                                  <Pencil size={14} />
-                                </button>
-                              )}
-                              {authCanManageMembers && (
-                                <button title="Kirim email ke anggota" onClick={() => openNotify(m.id)}>
-                                  <Send size={14} />
-                                </button>
-                              )}
-                              {authCanManageMembers && m.id !== team.adminId && (
-                                <button title="Jadikan admin tim" onClick={() => setTeamAdmin(team.id, m.id)}>
-                                  <Crown size={14} />
-                                </button>
-                              )}
-                              <button
-                                className="danger"
-                                title="Keluarkan dari tim"
-                                onClick={() => removeMemberFromTeam(team.id, m.id)}
-                              >
-                                <X size={14} />
+                          <div className="team-member-actions">
+                            {/* Icon mata — popup data lengkap akun */}
+                            {m.hasAccount && (
+                              <button title="Lihat data akun lengkap" onClick={() => setModal({ type: 'member-detail', memberId: m.id })}>
+                                <Eye size={14} />
                               </button>
-                              {authCanManageMembers && (
+                            )}
+                            {canManageTeams && (
+                              <>
+                                {authCanManageMembers && (
+                                  <button title="Edit anggota" onClick={() => setModal({ type: 'edit-member', memberId: m.id })}>
+                                    <Pencil size={14} />
+                                  </button>
+                                )}
+                                {authCanManageMembers && (
+                                  <button title="Kirim email ke anggota" onClick={() => openNotify(m.id)}>
+                                    <Send size={14} />
+                                  </button>
+                                )}
+                                {authCanManageMembers && m.id !== team.adminId && (
+                                  <button title="Jadikan admin tim" onClick={() => setTeamAdmin(team.id, m.id)}>
+                                    <Crown size={14} />
+                                  </button>
+                                )}
                                 <button
                                   className="danger"
-                                  title="Hapus anggota dari organisasi"
-                                  onClick={() => handleDeleteMember(m)}
+                                  title="Keluarkan dari tim"
+                                  onClick={() => removeMemberFromTeam(team.id, m.id)}
                                 >
-                                  <Trash2 size={14} />
+                                  <X size={14} />
                                 </button>
-                              )}
-                            </div>
-                          )}
+                                {authCanManageMembers && (
+                                  <button
+                                    className="danger"
+                                    title="Hapus anggota dari organisasi"
+                                    onClick={() => handleDeleteMember(m)}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
                       ))}
                       {authCanManageMembers && (
@@ -397,7 +370,9 @@ export default function Team() {
                           <Plus size={14} /> Tambah Anggota
                         </button>
                       )}
-                    </div>
+                    </motion.div>
+                    )}
+                    </AnimatePresence>
                   </div>
                 )
               })}
@@ -458,6 +433,50 @@ export default function Team() {
         </ModalShell>
       )}
 
+      {modal?.type === 'org-chart' && (
+        <ModalShell title="Struktur Organisasi" className="org-chart-modal" onClose={() => setModal(null)}>
+          <div className="org-chart-content">
+            {divisions.map((div, idx) => {
+              const colorClass = DIV_ICON_COLORS[idx % DIV_ICON_COLORS.length]
+              const divTeams = teams.filter((t) => t.divisionId === div.id)
+              return (
+                <div key={div.id} className="org-div-block">
+                  <div className={`org-div-header ${colorClass}`}>
+                    <Building2 size={16} />
+                    <span>{div.name}</span>
+                  </div>
+                  {divTeams.length > 0 && (
+                    <div className="org-teams">
+                      {divTeams.map((t) => (
+                        <div key={t.id} className="org-team-item">
+                          <Users size={13} />
+                          <span>{t.name}</span>
+                          <span className="org-team-count">{(t.memberIds || []).length} anggota</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {divisions.length === 0 && <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Belum ada divisi.</p>}
+          </div>
+          <div className="modal-footer">
+            <button className="btn btn-secondary" onClick={() => setModal(null)}>Tutup</button>
+          </div>
+        </ModalShell>
+      )}
+
+      {/* Popup data lengkap akun anggota (icon mata) */}
+      {modal?.type === 'member-detail' && (
+        <MemberDetailModal
+          member={memberById(modal.memberId)}
+          divisions={divisions}
+          teams={teams}
+          onClose={() => setModal(null)}
+        />
+      )}
+
       {modal?.type === 'add-member' && (
         <AddMemberModal
           team={teams.find((t) => t.id === modal.teamId)}
@@ -466,7 +485,6 @@ export default function Team() {
           memberById={memberById}
           onClose={() => setModal(null)}
           onCreateMember={(data) => {
-            // teamId diambil dari dropdown "Tim Tujuan" di dalam form.
             createMemberAndAdd(data)
             registerMemberBackend(data)
             setModal(null)

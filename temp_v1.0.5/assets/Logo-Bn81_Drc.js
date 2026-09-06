@@ -1,0 +1,1 @@
+import{j as s}from"./vendor-react-CuqWcDDs.js";function t({onClick:o}){return s.jsxs("div",{className:"logo",onClick:o,role:"button",tabIndex:0,onKeyDown:e=>{e.key==="Enter"&&o&&o()},children:[s.jsx("img",{src:"/luxio.png",alt:"Luxio",className:"logo-img",draggable:!1}),s.jsx("span",{className:"logo-text",children:"Luxio"})]})}export{t as L};

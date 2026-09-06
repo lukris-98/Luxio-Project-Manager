@@ -1,4 +1,4 @@
-import { useStore } from '../store/useStore'
+﻿import { useStore } from '../store/useStore'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
@@ -10,12 +10,12 @@ export default function MyTasks() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   
   const containerVariants = {
-    hidden: { opacity: 0 },
+    hidden: { opacity: 1 },
     visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
   }
   
   const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
+    hidden: { opacity: 1, y: 15 },
     visible: { opacity: 1, y: 0 }
   }
   

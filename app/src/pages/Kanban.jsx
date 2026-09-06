@@ -1,332 +1,351 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useStore, useEffectiveRole } from '../store/useStore'
 import InviteUsers from '../components/InviteUsers'
 import TargetBoard from '../components/TargetBoard'
 import ThemeSelect from '../components/ThemeSelect'
-import LabelFilterBar from '../components/LabelFilterBar'
-import StageEditor from '../components/StageEditor'
+import AnimatedDropdown from '../components/AnimatedDropdown'
 import DeadlinePicker from '../components/DeadlinePicker'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { motion } from 'framer-motion'
-import { Plus, X, FolderOpen, KanbanSquare } from 'lucide-react'
+import {
+  Plus, X, Filter, MoreHorizontal, Calendar, MessageSquare, ClipboardList,
+  ChevronDown, BarChart2, MessageCircle, MoveHorizontal, Lock
+} from 'lucide-react'
 import './Kanban.css'
 
-const DEFAULT_COLUMNS = ['To Do', 'In Progress', 'Done']
+const DEFAULT_COLUMNS = ['To Do', 'In Progress', 'Review', 'Done']
 
 export default function Kanban() {
-  const { currentUser, kanbanBoards, addKanbanBoard, deleteKanbanBoard, toggleBoardCollaborator, selectedBoardId, labelFilter } = useStore()
+  const {
+    currentUser,
+    kanbanBoards,
+    addKanbanBoard,
+    deleteKanbanBoard,
+    toggleBoardCollaborator,
+    selectedBoardId,
+    setSelectedBoardId,
+    labelFilter,
+  } = useStore()
   const role = useEffectiveRole()
   const [showNewBoard, setShowNewBoard] = useState(false)
   const [deleteBoard, setDeleteBoard] = useState(null)
-  const [sortBy, setSortBy] = useState('created-desc')
-  const [search, setSearch] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [activeViewTab, setActiveViewTab] = useState('board') // board, list, kalender
+  const [boardDropdownOpen, setBoardDropdownOpen] = useState(false)
+
+  const canCreateBoard = role === 'owner' || role === 'super_admin' || role === 'admin'
+
+  // Determine active board (respect label filter from sidebar dropdown)
+  const activeBoard = useMemo(() => {
+    let pool = kanbanBoards
+    if (labelFilter !== null) {
+      pool = kanbanBoards.filter(b => {
+        const l = (b.theme || '').trim()
+        return labelFilter === '' ? !l : l === labelFilter
+      })
+    }
+    if (selectedBoardId) {
+      return pool.find(b => b.id === selectedBoardId) || pool[0] || null
+    }
+    return pool[0] || null
+  }, [selectedBoardId, kanbanBoards, labelFilter])
+
+  useEffect(() => {
+    if (activeBoard && activeBoard.id !== selectedBoardId) {
+      setSelectedBoardId(activeBoard.id)
+    }
+  }, [activeBoard, selectedBoardId, setSelectedBoardId])
+
   const [newBoard, setNewBoard] = useState({
     name: '',
     description: '',
     theme: '',
+    boardType: 'dynamic', // 'dynamic' (drag & tombol geser) | 'static' (kolom terkunci)
     deadlineType: 'deadline',
     deadline: '',
     deadlineLabel: '',
     columns: DEFAULT_COLUMNS.map((name, i) => ({ id: i + 1, name, todos: [] })),
   })
-  const [selectedBoard, setSelectedBoard] = useState(null)
-
-  const canCreateBoard = role === 'owner' || role === 'super_admin' || role === 'admin'
-
-  // Saat board dipilih dari sidebar (openKanbanBoard), aktifkan board tsb.
-  useEffect(() => {
-    if (selectedBoardId && kanbanBoards.some((b) => b.id === selectedBoardId)) {
-      setSelectedBoard(kanbanBoards.find((b) => b.id === selectedBoardId))
-    }
-  }, [selectedBoardId, kanbanBoards])
 
   const setBoard = (key, value) => setNewBoard((b) => ({ ...b, [key]: value }))
 
-  const resetBoard = () =>
-    setNewBoard({
-      name: '',
-      description: '',
-      theme: '',
-      deadlineType: 'deadline',
-      deadline: '',
-      deadlineLabel: '',
-      columns: DEFAULT_COLUMNS.map((name, i) => ({ id: i + 1, name, todos: [] })),
-    })
-
   const handleCreateBoard = () => {
-    const cols = newBoard.columns
-      .filter((c) => c.name.trim())
-      .map((c) => ({ name: c.name.trim(), todos: c.todos }))
     if (newBoard.name.trim()) {
       addKanbanBoard({
         name: newBoard.name.trim(),
         description: newBoard.description.trim(),
         theme: newBoard.theme,
+        boardType: newBoard.boardType,
         deadlineType: newBoard.deadlineType,
         deadline: newBoard.deadline,
         deadlineLabel: newBoard.deadlineLabel,
-        columns: cols.length ? cols : undefined,
+        columns: newBoard.columns.map(c => ({ name: c.name, todos: [] })),
         createdBy: currentUser?.id,
       })
-      resetBoard()
+      setNewBoard({
+        name: '',
+        description: '',
+        theme: '',
+        deadlineType: 'deadline',
+        deadline: '',
+        deadlineLabel: '',
+        columns: DEFAULT_COLUMNS.map((name, i) => ({ id: i + 1, name, todos: [] })),
+      })
       setShowNewBoard(false)
     }
   }
 
-  const currentBoard = kanbanBoards.find((b) => b.id === selectedBoard?.id) || null
-
-  // Filter + urutkan board berdasarkan label, tanggal, nama, dan pencarian.
-  const labelOptions = kanbanBoards.map((b) => (b.theme || '').trim())
-  let filteredBoards = kanbanBoards.filter((b) => {
-    if (labelFilter === null) return true
-    const l = (b.theme || '').trim()
-    if (labelFilter === '') return !l
-    return l === labelFilter
-  })
-  const q = search.trim().toLowerCase()
-  if (q) {
-    filteredBoards = filteredBoards.filter((b) =>
-      (b.name || '').toLowerCase().includes(q) ||
-      (b.description || '').toLowerCase().includes(q)
-    )
-  }
-  const fromT = dateFrom ? new Date(dateFrom).getTime() : null
-  const toT = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : null
-  if (fromT || toT) {
-    filteredBoards = filteredBoards.filter((b) => {
-      const t = b.createdAt || 0
-      if (fromT && t < fromT) return false
-      if (toT && t > toT) return false
-      return true
+  // Summary counts for active board
+  const boardSummary = useMemo(() => {
+    if (!activeBoard) return { todo: 0, inProgress: 0, review: 0, done: 0, total: 0 }
+    let todo = 0, inProgress = 0, review = 0, done = 0, total = 0
+    activeBoard.columns.forEach(col => {
+      const count = col.tasks?.length || 0
+      total += count
+      const name = col.name.toLowerCase()
+      if (name.includes('todo') || name.includes('do') || name.includes('mulai')) todo += count
+      else if (name.includes('progress') || name.includes('jalan')) inProgress += count
+      else if (name.includes('review') || name.includes('periksa')) review += count
+      else if (name.includes('done') || name.includes('selesai')) done += count
     })
-  }
-  filteredBoards = [...filteredBoards].sort((a, b) => {
-    if (sortBy === 'created-asc') return (a.createdAt || 0) - (b.createdAt || 0)
-    if (sortBy === 'created-desc') return (b.createdAt || 0) - (a.createdAt || 0)
-    if (sortBy === 'name-asc') return (a.name || '').localeCompare(b.name || '')
-    return (b.name || '').localeCompare(a.name || '')
-  })
-
-  // Kelompokkan board per label.
-  const groups = {}
-  filteredBoards.forEach((b) => {
-    const key = (b.theme || '').trim()
-    if (!groups[key]) groups[key] = []
-    groups[key].push(b)
-  })
+    return { todo, inProgress, review, done, total }
+  }, [activeBoard])
 
   return (
-    <>
-      <motion.div
-        className="kanban-page"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <div className="page-header">
-          <div className="page-header-left">
-            <h1>Kanban</h1>
-            <p>Buat dan kelola board kanban dalam label</p>
+    <motion.div
+      className="kanban-page-new"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Header */}
+      <div className="kanban-header-new">
+        <div className="kanban-header-left">
+          <h1>Kanban</h1>
+          <p>Kelola tugas dengan mudah menggunakan board.</p>
+        </div>
+        <div className="kanban-header-right">
+          {/* Board Dropdown Selector */}
+          <div className="board-select-dropdown-container">
+            <button
+              className="board-dropdown-btn"
+              onClick={() => setBoardDropdownOpen(!boardDropdownOpen)}
+            >
+              <ClipboardList size={16} />
+              <span>{activeBoard ? activeBoard.name : 'Pilih Board'}</span>
+              <ChevronDown size={14} />
+            </button>
+            <AnimatedDropdown show={boardDropdownOpen}>
+              <div className="board-dropdown-menu">
+                {kanbanBoards.map(b => (
+                  <button
+                    key={b.id}
+                    className={`board-dropdown-item ${activeBoard?.id === b.id ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedBoardId(b.id)
+                      setBoardDropdownOpen(false)
+                    }}
+                  >
+                    {b.name}
+                  </button>
+                ))}
+                {canCreateBoard && (
+                  <button
+                    className="board-dropdown-item add-new-board-btn"
+                    onClick={() => {
+                      setShowNewBoard(true)
+                      setBoardDropdownOpen(false)
+                    }}
+                  >
+                    + Buat Board Baru
+                  </button>
+                )}
+              </div>
+              </AnimatedDropdown>
           </div>
-          <div className="page-header-right">
-            {currentBoard && canCreateBoard && (
-              <InviteUsers
-                collaborators={currentBoard.collaboratorIds || []}
-                onToggle={(id) => toggleBoardCollaborator(currentBoard.id, id)}
-              />
-            )}
+
+          <button className="btn btn-secondary">
+            <Filter size={16} /> Filter
+          </button>
+          <button className="btn btn-secondary btn-icon-only">
+            <MoreHorizontal size={16} />
+          </button>
+          {canCreateBoard && (
+            <button className="btn btn-primary" onClick={() => setShowNewBoard(true)}>
+              <Plus size={16} /> Buat Tugas
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Sub Header Views */}
+      <div className="kanban-views-bar">
+        {['board', 'list', 'kalender'].map((tab) => (
+          <button
+            key={tab}
+            className={`view-tab-btn ${activeViewTab === tab ? 'active' : ''}`}
+            onClick={() => setActiveViewTab(tab)}
+          >
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Kanban Workspace */}
+      <div className="kanban-workspace-container">
+        {activeBoard ? (
+          <TargetBoard board={activeBoard} />
+        ) : (
+          <div className="empty-kanban-state">
+            <ClipboardList size={48} />
+            <h3>Belum ada Board</h3>
+            <p>Silakan buat board kanban baru untuk memulai pengelolaan tugas.</p>
             {canCreateBoard && (
               <button className="btn btn-primary" onClick={() => setShowNewBoard(true)}>
-                <Plus size={16} />
-                Board Baru
+                + Buat Board Baru
               </button>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Bottom Dashboard Panel */}
+      {activeBoard && (
+        <div className="kanban-bottom-panel">
+          {/* Ringkasan Board */}
+          <div className="summary-board-panel">
+            <h3>Ringkasan Board</h3>
+            <div className="summary-tiles-grid">
+              <div className="summary-tile">
+                <span className="tile-title">To Do</span>
+                <strong>{boardSummary.todo}</strong>
+                <span className="tile-desc">tugas</span>
+              </div>
+              <div className="summary-tile">
+                <span className="tile-title">In Progress</span>
+                <strong>{boardSummary.inProgress}</strong>
+                <span className="tile-desc">tugas</span>
+              </div>
+              <div className="summary-tile">
+                <span className="tile-title">Review</span>
+                <strong>{boardSummary.review}</strong>
+                <span className="tile-desc">tugas</span>
+              </div>
+              <div className="summary-tile">
+                <span className="tile-title">Done</span>
+                <strong>{boardSummary.done}</strong>
+                <span className="tile-desc">tugas</span>
+              </div>
+              <div className="summary-tile total-tile">
+                <span className="tile-title">Total</span>
+                <strong>{boardSummary.total}</strong>
+                <span className="tile-desc">tugas</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Aktivitas Terbaru */}
+          <div className="recent-activity-panel">
+            <div className="panel-header-simple">
+              <h3>Aktivitas Terbaru</h3>
+              <button className="view-all-link">Lihat Semua</button>
+            </div>
+            <div className="activity-list-simple">
+              <p className="activity-empty-simple">Belum ada aktivitas.</p>
+            </div>
+          </div>
         </div>
+      )}
 
-        {kanbanBoards.length > 0 && (
-          <LabelFilterBar
-            labels={labelOptions}
-            search={search}
-            setSearch={setSearch}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            dateFrom={dateFrom}
-            setDateFrom={setDateFrom}
-            dateTo={dateTo}
-            setDateTo={setDateTo}
-            placeholder="Cari board..."
-          />
-        )}
-
-        {kanbanBoards.length === 0 ? (
-          <div className="empty-state">
-            <KanbanSquare size={40} />
-            <h3>Belum ada board</h3>
-            <p>Buat board kanban untuk mengelola task tim kamu</p>
-          </div>
-        ) : filteredBoards.length === 0 ? (
-          <div className="empty-state">
-            <KanbanSquare size={40} />
-            <h3>Tidak ada board yang cocok</h3>
-            <p>Coba ubah filter label, tanggal, atau kata kunci pencarian</p>
-          </div>
-        ) : (
-          Object.entries(groups)
-            .sort(([a], [b]) => {
-              if (a === '') return 1
-              if (b === '') return -1
-              return a.localeCompare(b)
-            })
-            .map(([theme, boards]) => (
-              <div key={theme || '__none__'} className="kanban-theme-section">
-                <div className="kanban-theme-head">
-                  <FolderOpen size={16} />
-                  <h2>{theme || 'Tanpa Label'}</h2>
-                  <span className="kanban-theme-count">{boards.length} board</span>
-                </div>
-                <div className="kanban-board-cards">
-                  {boards.map((board) => {
-                    const total = board.columns.reduce((n, c) => n + c.tasks.length, 0)
-                    const doneCol = board.columns.find((c) => /done|selesai|complete/i.test(c.name))
-                    const doneCount = doneCol ? doneCol.tasks.length : 0
-                    const progress = total > 0 ? Math.round((doneCount / total) * 100) : 0
-                    const color = progress >= 100 ? '#16A34A' : progress >= 70 ? '#EAB308' : progress >= 30 ? '#F97316' : '#DC2626'
-                    const r = 14
-                    const circ = 2 * Math.PI * r
-                    const offset = circ - (progress / 100) * circ
-                    return (
-                      <button
-                        key={board.id}
-                        className={`kanban-board-card ${currentBoard?.id === board.id ? 'active' : ''}`}
-                        onClick={() => setSelectedBoard(board)}
-                      >
-                        <span className="kanban-board-card-name">{board.name}</span>
-                        <span className="kanban-board-card-meta">{total} task</span>
-                        {total > 0 && (
-                          <div className="kanban-progress-row">
-                            <svg width="36" height="36" viewBox="0 0 36 36" className="kanban-progress-pie">
-                              <circle cx="18" cy="18" r={r} fill="none" stroke="var(--bg-tertiary)" strokeWidth="4" />
-                              <circle cx="18" cy="18" r={r} fill="none" stroke={color} strokeWidth="4"
-                                strokeDasharray={circ} strokeDashoffset={offset}
-                                transform="rotate(-90 18 18)" strokeLinecap="round" />
-                            </svg>
-                            <span className="kanban-progress-text" style={{ color }}>{progress}%</span>
-                          </div>
-                        )}
-                        {canCreateBoard && (
-                          <span className="kanban-board-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteBoard(board) }} aria-label="Hapus board">
-                            <X size={12} />
-                          </span>
-                        )}
-                      </button>
-                    )})}
-                </div>
-              </div>
-            ))
-        )}
-
-        {/* Board aktif ditampilkan di bawah */}
-        {currentBoard && (
-          <div className="kanban-active-board">
-            <div className="kanban-active-head">
-              <h2>{currentBoard.name}</h2>
+      {/* Create Board Modal */}
+      {showNewBoard && (
+        <div className="modal-overlay" onClick={() => setShowNewBoard(false)}>
+          <div className="modal board-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Board Baru</h2>
+              <button className="close-btn" onClick={() => setShowNewBoard(false)}>
+                <X size={18} />
+              </button>
             </div>
-            <TargetBoard board={currentBoard} />
-          </div>
-        )}
-
-        {showNewBoard && (
-          <div className="modal-overlay" onClick={() => setShowNewBoard(false)}>
-            <div className="modal board-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Board Baru</h2>
-                <button className="close-btn" onClick={() => setShowNewBoard(false)}>
-                  <X size={18} />
-                </button>
+            <div className="modal-body">
+              <div className="input-group">
+                <label className="input-label">Nama Board</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Misal: Website Revamp"
+                  value={newBoard.name}
+                  onChange={(e) => setBoard('name', e.target.value)}
+                  autoFocus
+                />
               </div>
-              <div className="modal-body">
-                <div className="input-group">
-                  <label className="input-label">Nama Board</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Misal: Marketing Campaign"
-                    value={newBoard.name}
-                    onChange={(e) => setBoard('name', e.target.value)}
-                    autoFocus
-                  />
-                </div>
 
-                <div className="input-group">
-                  <label className="input-label">Label</label>
-                  <ThemeSelect
-                    value={newBoard.theme}
-                    onChange={(v) => setBoard('theme', v)}
-                  />
-                </div>
+              <div className="input-group">
+                <label className="input-label">Kategori / Folder</label>
+                <ThemeSelect
+                  value={newBoard.theme}
+                  onChange={(v) => setBoard('theme', v)}
+                />
+              </div>
 
-                <div className="input-group">
-                  <label className="input-label">Deskripsi</label>
-                  <textarea
-                    className="input"
-                    rows={2}
-                    placeholder="Jelaskan tujuan board ini (opsional)..."
-                    value={newBoard.description}
-                    onChange={(e) => setBoard('description', e.target.value)}
-                  />
-                </div>
-
-                <div className="input-group">
-                  <label className="input-label">Deadline</label>
-                  <DeadlinePicker
-                    value={newBoard}
-                    onChange={(v) => setNewBoard((b) => ({ ...b, ...v }))}
-                  />
-                </div>
-
-                <div className="input-group kanban-flow">
-                  <label className="input-label">Kolom & To-do</label>
-                  <p className="field-hint">
-                    Tulis kolom/tahap dan to-do tiap kolom. To-do langsung menjadi task
-                    di kolom board.
-                  </p>
-
-                  <StageEditor
-                    stages={newBoard.columns}
-                    onChange={(columns) => setBoard('columns', columns)}
-                    stageLabel="Kolom"
-                    addLabel="Tambah Kolom"
-                  />
+              <div className="input-group">
+                <label className="input-label">Jenis Kanban</label>
+                <div className="viewtype-grid">
+                  <button
+                    type="button"
+                    className={`viewtype-card ${newBoard.boardType === 'dynamic' ? 'selected' : ''}`}
+                    onClick={() => setBoard('boardType', 'dynamic')}
+                  >
+                    <MoveHorizontal size={20} />
+                    <span className="viewtype-title">Dinamis</span>
+                    <span className="viewtype-desc">Item bisa dipindah antar kolom (drag & drop / tombol geser)</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`viewtype-card ${newBoard.boardType === 'static' ? 'selected' : ''}`}
+                    onClick={() => setBoard('boardType', 'static')}
+                  >
+                    <Lock size={20} />
+                    <span className="viewtype-title">Statis</span>
+                    <span className="viewtype-desc">Item dicentang satu per satu; kolom berikutnya terbuka setelah kolom aktif selesai</span>
+                  </button>
                 </div>
               </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setShowNewBoard(false)}>
-                  Batal
-                </button>
-                <button className="btn btn-primary" onClick={handleCreateBoard}>
-                  Buat Board
-                </button>
+
+              <div className="input-group">
+                <label className="input-label">Deskripsi</label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  placeholder="Jelaskan tujuan board ini..."
+                  value={newBoard.description}
+                  onChange={(e) => setBoard('description', e.target.value)}
+                />
               </div>
             </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowNewBoard(false)}>
+                Batal
+              </button>
+              <button className="btn btn-primary" onClick={handleCreateBoard}>
+                Buat Board
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Konfirmasi hapus board */}
-        {deleteBoard && (
-          <DeleteConfirmModal
-            title="Hapus Board"
-            itemName={deleteBoard.name}
-            message="Semua kolom & task di dalam board akan ikut terhapus. Tindakan ini tidak bisa dibatalkan."
-            onConfirm={() => {
-              deleteKanbanBoard(deleteBoard.id)
-              setDeleteBoard(null)
-            }}
-            onClose={() => setDeleteBoard(null)}
-          />
-        )}
-      </motion.div>
-    </>
+      {deleteBoard && (
+        <DeleteConfirmModal
+          title="Hapus Board"
+          itemName={deleteBoard.name}
+          message="Semua kolom & task di dalam board akan ikut terhapus."
+          onConfirm={() => {
+            deleteKanbanBoard(deleteBoard.id)
+            setDeleteBoard(null)
+          }}
+          onClose={() => setDeleteBoard(null)}
+        />
+      )}
+    </motion.div>
   )
 }

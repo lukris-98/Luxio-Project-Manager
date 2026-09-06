@@ -1,8 +1,7 @@
 /* Project Detail */
 
 .project-detail {
-  max-width: 900px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .project-detail-empty {
@@ -29,6 +28,10 @@
 /* Header */
 .detail-header {
   margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.08), rgba(234, 88, 12, 0.02) 60%, transparent);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
 }
 
 .detail-header-bar {
@@ -149,8 +152,9 @@
 
 .collab-picker-panel {
   margin-top: var(--space-3);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 50%);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
 }
 
 .collab-picker-head {
@@ -239,9 +243,9 @@
 }
 
 /* Progress */
-.detail-progress {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+.detail-progress{
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.06), var(--bg-secondary) 50%);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   margin-bottom: var(--space-5);
@@ -265,9 +269,56 @@
   margin: 0;
 }
 
+/* Multi-tab kanban / to-do (scroll horizontal bila banyak tab) */
+.detail-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.detail-tabs-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.detail-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.detail-tab:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-hover);
+}
+
+.detail-tab.active {
+  background: rgba(234, 88, 12, 0.12);
+  border-color: rgba(234, 88, 12, 0.35);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* Seksi board kanban & to-do di dashboard target */
 .detail-board-section {
   margin-bottom: var(--space-6);
+  background: linear-gradient(170deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 40%);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
 }
 
 .detail-sub-head {
@@ -296,11 +347,12 @@
   padding: 2px 8px;
 }
 
-.detail-board {
+.detail-board{
   margin-bottom: var(--space-4);
   padding: var(--space-4);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 50%);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
 }
 
 .detail-board-title {
@@ -323,7 +375,7 @@
 .detail-view-empty {
   text-align: center;
   padding: var(--space-12);
-  background: var(--bg-secondary);
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 50%);
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
 }
@@ -344,7 +396,25 @@
 }
 
 .detail-todo {
-  max-width: 560px;
+  width: 100%;
+}
+
+/* Daftar to-do: ukuran tetap ±5 item, scroll bila lebih, tidak mengecil
+   saat kosong — sama seperti daftar project */
+.detail-todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 372px;
+  max-height: 372px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.detail-todo-list .todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .progress-info {
@@ -420,10 +490,10 @@
 }
 
 /* Stage Content */
-.stage-content {
+.stage-content{
   flex: 1;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 50%);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   margin-bottom: var(--space-4);

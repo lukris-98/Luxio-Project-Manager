@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
 import { Rocket, Building2, GraduationCap, HeartHandshake, Users, Briefcase, ArrowRight, Check, X } from 'lucide-react'
@@ -73,11 +73,11 @@ export default function UpgradeAkun() {
   }
 
   const containerVariants = {
-    hidden: { opacity: 0 },
+    hidden: { opacity: 1 },
     visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
   }
   const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
+    hidden: { opacity: 1, y: 15 },
     visible: { opacity: 1, y: 0 },
   }
 

@@ -155,6 +155,24 @@
   padding-left: calc(var(--space-3) + 24px);
 }
 
+/* Persetujuan legal (tautan publik ke /syarat & /privasi) */
+.auth-legal {
+  margin-top: var(--space-4);
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.auth-legal a {
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.auth-legal a:hover {
+  color: var(--accent);
+}
+
 /* Footer */
 .auth-footer {
   text-align: center;
@@ -251,7 +269,7 @@
   letter-spacing: 0.1em;
   color: var(--text-primary);
   background: var(--bg-primary);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius, 10px);
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
   caret-color: var(--accent);
@@ -260,7 +278,6 @@
 .otp-box:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
 .otp-box.filled {

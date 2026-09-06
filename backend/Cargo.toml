@@ -20,7 +20,11 @@ tower-http = { version = "0.5", features = ["cors", "set-header", "limit", "trac
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenv = "0.15"
-web-push = "0.11"
+web-push = { version = "0.11", optional = true }
+
+[features]
+default = []
+push = ["dep:web-push"]
 
 [lib]
 name = "luxio_backend"

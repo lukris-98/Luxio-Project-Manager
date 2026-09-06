@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { Check, ArrowLeft, Sparkles } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import './Pricing.css'
@@ -21,7 +21,7 @@ const plans = [
     desc: 'Untuk mengatur target pribadi tanpa biaya.',
     features: [
       '1 user',
-      '3 target aktif',
+      '3 project aktif',
       '25 task aktif',
       'Kanban & Todo dasar',
       'Catatan Pribadi ber-PIN',
@@ -37,7 +37,7 @@ const plans = [
     desc: 'Ruang kerja pribadi tanpa limit untuk profesional.',
     features: [
       '1 user',
-      'Target & task unlimited',
+      'Project & task unlimited',
       'Kalender + reminder',
       'Catatan Pribadi ber-PIN',
       'Chat pribadi (DM)',
@@ -72,7 +72,7 @@ const plans = [
     features: [
       'Hingga 100 anggota',
       'Divisi unlimited',
-      'Level kewenangan lengkap (owner → viewer)',
+      'Level kewenangan lengkap (owner â†’ viewer)',
       'Chat grup + DM + monitoring admin',
       'AI Agent berbasis tool',
       'Analytics organisasi',
@@ -93,13 +93,13 @@ export default function Pricing() {
           <ArrowLeft size={18} /> Kembali
         </a>
         <motion.h1
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
           Harga
         </motion.h1>
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
@@ -107,7 +107,7 @@ export default function Pricing() {
         </motion.p>
         <motion.div
           className="trial-banner"
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
         >
@@ -121,7 +121,7 @@ export default function Pricing() {
           <motion.div
             key={idx}
             className={`pricing-card ${plan.popular ? 'popular' : ''}`}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
           >

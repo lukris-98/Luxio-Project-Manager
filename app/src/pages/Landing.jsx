@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { getAppThemeMode, toggleAppThemeMode, useStore } from '../store/useStore'
 import { motion, useSpring, useTransform, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion'
 import { ArrowRight, ArrowUp, Check, Users, Target, BarChart3, Shield, Globe, Clock, Moon, Sun, Menu, X, Kanban, CheckSquare, Lock, Calendar, MessageSquare, Bot, Camera, Database, HardDrive, LogIn } from 'lucide-react'
-import HeadlineMarquee from '../components/HeadlineMarquee'
 import InstallAppButton from '../components/InstallAppButton'
 import Logo from '../components/Logo'
 import { useAutoHideNav } from '../utils/useAutoHideNav'
@@ -85,7 +84,7 @@ export default function Landing() {
   }
   
   const features = [
-    { icon: Target, title: 'Target Berkala', desc: 'Buat target mingguan, bulanan, atau quarterly yang terstruktur dan terukur' },
+    { icon: Target, title: 'Project Berkala', desc: 'Buat project mingguan, bulanan, atau quarterly yang terstruktur dan terukur' },
     { icon: Users, title: 'Kolaborasi Tim', desc: 'Assign task ke divisi atau anggota tertentu. Semua orang tau tanggung jawabnya' },
     { icon: BarChart3, title: 'Monitoring Realtime', desc: 'Lihat progress seluruh tim dalam satu dashboard. Tidak perlu tanya-tanya lagi' },
     { icon: Clock, title: 'Deadline Tracking', desc: 'Tidak ada yang terlewat. Reminder otomatis sebelum deadline' },
@@ -94,9 +93,9 @@ export default function Landing() {
   ]
 
   const featureGroups = [
-    { icon: Target, title: 'Manajemen Target & Proyek', desc: 'Target mingguan, bulanan, quarterly dengan progress terukur' },
+    { icon: Target, title: 'Manajemen Project & Proyek', desc: 'Project mingguan, bulanan, quarterly dengan progress terukur' },
     { icon: Kanban, title: 'Kanban & To-Do', desc: 'Kelola task dengan board kanban atau daftar to-do sederhana' },
-    { icon: Lock, title: 'Catatan Pribadi + PIN', desc: 'Catatan rahasia dikunci PIN — aman dari orang lain' },
+    { icon: Lock, title: 'Catatan Pribadi + PIN', desc: 'Catatan rahasia dikunci PIN â€” aman dari orang lain' },
     { icon: Calendar, title: 'Kalender & Pengingat', desc: 'Jadwal & reminder otomatis sebelum deadline tiba' },
     { icon: Users, title: 'Tim, Divisi & Kewenangan', desc: 'Atur divisi, tim, dan hak akses tiap anggota' },
     { icon: MessageSquare, title: 'Chat antar anggota + grup otomatis', desc: 'Diskusi antar anggota, grup chat otomatis per tim' },
@@ -192,9 +191,6 @@ const pricingPlans = [
         </AnimatePresence>
       </header>
 
-      {/* Headline berita berjalan */}
-      <HeadlineMarquee />
-      
       {/* Hero */}
       <motion.section
         className="hero"
@@ -207,11 +203,11 @@ const pricingPlans = [
             className="hero-content"
             variants={revealItem}
           >
-            <span className="hero-tag">Project & Target Manager</span>
-            <h1>Kelola Target Tim<br/>Jadi Lebih <em>Jelas</em></h1>
+            <span className="hero-tag">Project Manager</span>
+            <h1>Kelola Project Tim<br/>Jadi Lebih <em>Jelas</em></h1>
             <p>
-              Luxio bantu kamu dan tim konsisten mencapai target. 
-              Mingguan, bulanan, atau quarterly — semua dalam satu tempat.
+              Luxio bantu kamu dan tim konsisten mencapai project. 
+              Mingguan, bulanan, atau quarterly â€” semua dalam satu tempat.
             </p>
             <div className="hero-cta">
               <button className="btn btn-primary btn-lg" onClick={() => setAppState('auth')}>
@@ -221,7 +217,7 @@ const pricingPlans = [
             
             <div className="hero-note">
               <Check size={14} />
-              <span>Tanpa kartu kredit · Gratis untuk tim kecil</span>
+              <span>Tanpa kartu kredit Â· Gratis untuk tim kecil</span>
             </div>
             
             {/* Animated Counters */}
@@ -232,7 +228,7 @@ const pricingPlans = [
               </div>
               <div className="counter-item">
                 <span className="counter-num"><AnimatedCounter end={10000} suffix="+" /></span>
-                <span className="counter-label">Target dibuat</span>
+                <span className="counter-label">Project dibuat</span>
               </div>
               <div className="counter-item">
                 <span className="counter-num"><AnimatedCounter end={99} suffix="%" /></span>
@@ -248,14 +244,14 @@ const pricingPlans = [
             <div className={`visual-card main ${cardZoomed ? 'zoomed' : ''} ${cardShaking ? 'shake' : ''}`}>
               <div className="card-header">
                 <button className="card-btn card-btn-red" onClick={handleCardClose} aria-label="Tutup">
-                  <span>×</span>
+                  <span>Ã—</span>
                 </button>
                 <button
                   className={`card-btn card-btn-yellow ${cardMinimized ? 'is-active' : ''}`}
                   onClick={() => setCardMinimized(!cardMinimized)}
                   aria-label="Minimalkan"
                 >
-                  <span>−</span>
+                  <span>âˆ’</span>
                 </button>
                 <button
                   className={`card-btn card-btn-green ${cardZoomed ? 'is-active' : ''}`}
@@ -269,7 +265,7 @@ const pricingPlans = [
                 <div className="stat-row">
                   <div className="stat">
                     <span className="stat-num"><AnimatedCounter end={12} /></span>
-                    <span className="stat-label">Target Aktif</span>
+                    <span className="stat-label">Project Aktif</span>
                   </div>
                   <div className="stat">
                     <span className="stat-num"><AnimatedCounter end={8} /></span>
@@ -283,7 +279,7 @@ const pricingPlans = [
                 <div className="list-preview">
                   <div className="list-item">
                     <span className="list-marker"></span>
-                    <span className="list-text">Target Marketing Januari</span>
+                    <span className="list-text">Project Marketing Januari</span>
                     <span className="list-progress">75%</span>
                   </div>
                   <div className="list-item">
@@ -310,7 +306,7 @@ const pricingPlans = [
         <motion.div className="section-inner" variants={revealContainer}>
           <motion.div className="section-header" variants={revealItem}>
             <h2>Apa yang bisa kamu lakukan?</h2>
-            <p>Semua yang kamu butuhin untuk mengelola target tim</p>
+            <p>Semua yang kamu butuhin untuk mengelola project tim</p>
           </motion.div>
           <motion.div className="features-grid" variants={revealContainer}>
             {features.map((feature, idx) => (
@@ -357,7 +353,7 @@ const pricingPlans = [
                   <ul className="pricing-not-included">
                     {plan.notIncluded.map((f, i) => (
                       <li key={i}>
-                        <span className="not-included-icon">✕</span>
+                        <span className="not-included-icon">âœ•</span>
                         {f}
                       </li>
                     ))}
@@ -398,7 +394,7 @@ const pricingPlans = [
         <motion.div className="section-inner" variants={revealContainer}>
           <motion.div className="section-header" variants={revealItem}>
             <h2>Fitur Lengkap</h2>
-            <p>Semua yang kamu butuhkan untuk mengelola target, tim, dan operasional harian</p>
+            <p>Semua yang kamu butuhkan untuk mengelola project, tim, dan operasional harian</p>
           </motion.div>
           <motion.div className="features-grid" variants={revealContainer}>
             {featureGroups.map((f, idx) => (
@@ -439,9 +435,9 @@ const pricingPlans = [
           <motion.div className="footer-grid" variants={revealContainer}>
             <motion.div className="footer-brand-section" variants={revealItem}>
               <Logo onClick={() => setAppState('landing')} />
-              <p className="footer-tagline">Project & Target Manager untuk Tim yang lebih produktif dan terorganisir.</p>
+              <p className="footer-tagline">Project Manager untuk Tim yang lebih produktif dan terorganisir.</p>
               <div className="footer-social">
-                <a href="mailto:hello@luxio.id" className="social-link">hello@luxio.id</a>
+                <a href="mailto:master@luxio.web.id" className="social-link">master@luxio.web.id</a>
               </div>
             </motion.div>
             
@@ -462,8 +458,8 @@ const pricingPlans = [
               
               <motion.div className="footer-col" variants={revealItem}>
                 <h4>Legal</h4>
-                <a href="#">Privacy Policy</a>
-                <a href="#">Terms of Service</a>
+                <a href="/privasi" target="_blank" rel="noopener">Kebijakan Privasi</a>
+                <a href="/syarat" target="_blank" rel="noopener">Syarat &amp; Ketentuan</a>
               </motion.div>
             </motion.div>
           </motion.div>
@@ -471,9 +467,9 @@ const pricingPlans = [
           <motion.div className="footer-bottom" variants={revealItem}>
             <p>&copy; 2026 Luxio. All rights reserved.</p>
             <div className="footer-bottom-links">
-              <a href="#">Privacy</a>
-              <a href="#">Terms</a>
-              <a href="#">Cookies</a>
+              <a href="/privasi" target="_blank" rel="noopener">Privasi</a>
+              <a href="/syarat" target="_blank" rel="noopener">Ketentuan</a>
+              <a href="/privasi#cookie" target="_blank" rel="noopener">Cookie</a>
             </div>
           </motion.div>
         </motion.div>

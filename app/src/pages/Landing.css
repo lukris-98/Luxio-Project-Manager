@@ -926,8 +926,7 @@
 }
 
 .back-to-top:focus-visible {
-  outline: 2px solid var(--accent2);
-  outline-offset: 3px;
+  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -938,13 +937,15 @@
 
 /* Button overrides */
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  background: var(--accent);
   color: #fff;
   border: none;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.18), inset 0 -2px 0 rgba(0,0,0,0.08);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--accent-hover), var(--accent3));
+  background: var(--accent-hover);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.22), inset 0 -2px 0 rgba(0,0,0,0.08);
 }
 
 [data-theme="light"] .btn-primary {

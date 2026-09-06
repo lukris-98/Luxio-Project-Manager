@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
 import { MapPin, Camera, Upload, X, AlertTriangle, CheckCircle2, Clock, Loader2, LogIn, LogOut, Video } from 'lucide-react'
@@ -221,10 +221,10 @@ export default function AttendancePage() {
     <>
       <motion.div
         className="attendance-page"
-        initial={{ opacity: 0 }}
+        initial={{ opacity: 1 }}
         animate={{ opacity: 1 }}
       >
-        <motion.div className="page-header" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div className="page-header" initial={{ opacity: 1, y: 15 }} animate={{ opacity: 1, y: 0 }}>
           <div className="page-header-left">
             <h1>Absen Kerja</h1>
             <p>Kamera live + GPS untuk absen masuk & pulang kerja harian</p>

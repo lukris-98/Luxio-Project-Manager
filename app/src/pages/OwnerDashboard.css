@@ -1,169 +1,73 @@
-/* Owner Dashboard Page (khusus Owner) */
+/* Pemantauan Page Redesign matching 13. pemantauan.png */
+
+.owner-container-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-4) var(--space-8);
+}
 
 .owner-dashboard-page {
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.owner-dashboard-page .page-header {
-  margin-bottom: var(--space-5);
-}
-
-.owner-dashboard-page .page-header-left h1 {
-  font-size: 1.25rem;
-  margin-bottom: var(--space-1);
-}
-
-.owner-dashboard-page .page-header-left p {
-  color: var(--text-muted);
-}
-
-.owner-notice {
-  margin-bottom: var(--space-5);
-}
-
-/* Tabs */
-.owner-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-}
-
-.owner-tab {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.owner-tab:hover {
-  border-color: var(--border-hover);
-  color: var(--text-primary);
-}
-
-.owner-tab.active {
-  background: var(--accent-muted);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-/* Panel & card */
-.owner-tab-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
 }
 
-.owner-card {
+.owner-header-custom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+/* Filter tabs */
+.owner-filter-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-3);
+  overflow-x: auto;
+}
+
+.owner-filter-tab-btn {
+  padding: 6px 14px;
+  background: none;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.owner-filter-tab-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.owner-filter-tab-btn.active {
+  background: #6C2EF2;
+  color: #fff;
+}
+
+/* Monitoring Cards List */
+.monitoring-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.monitoring-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.owner-card-head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.owner-card-head > svg {
-  color: var(--accent);
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.owner-card-head h2 {
-  font-size: 1rem;
-  margin-bottom: var(--space-1);
-}
-
-.owner-card-head p {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.owner-card-head .btn {
-  margin-left: auto;
-}
-
-/* Forms */
-.owner-form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
-
-.owner-actions {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.field-hint {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.owner-error {
-  font-size: 0.8125rem;
-  color: var(--error);
-  background: rgba(248, 113, 113, 0.1);
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  padding: var(--space-2) var(--space-3);
-}
-
-.owner-warning {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 0.875rem;
-  color: var(--yellow);
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid var(--yellow);
-  padding: var(--space-3) var(--space-4);
-}
-
-/* Umami iframe */
-.owner-iframe-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.owner-info-row {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.owner-iframe-wrap iframe {
-  background: #fff;
-}
-
-/* Neon projects */
-.owner-projects-box {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border: 1px solid var(--border);
-  background: var(--bg-tertiary);
-}
-
-.owner-project-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 
 .owner-project-chip {

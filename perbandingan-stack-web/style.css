@@ -1,0 +1,496 @@
+/* ============================================================
+   STYLE.CSS — Dark theme untuk halaman perbandingan stack
+   Dibagi menjadi 4 bagian:
+   1. Reset & variabel warna (CSS custom properties)
+   2. Layout umum (header, nav, footer)
+   3. Komponen (tab, kartu pemenang, tabel, bar chart, glosarium)
+   4. Responsif (media query untuk layar kecil)
+   ============================================================ */
+
+/* ---------- 1. RESET & VARIABEL WARNA ---------- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Variabel warna — ubah di sini untuk mengganti tema keseluruhan */
+:root {
+  --bg: #0f172a;            /* latar belakang utama (biru gelap) */
+  --bg-soft: #1e293b;       /* latar kartu / wadah */
+  --bg-hover: #334155;      /* hover baris tabel */
+  --text: #e2e8f0;          /* warna teks utama */
+  --text-dim: #94a3b8;      /* teks sekunder (keterangan) */
+  --accent: #38bdf8;        /* warna aksen (biru cerah) */
+  --gold: #fbbf24;          /* warna emas untuk juara */
+  --green: #34d399;         /* hijau */
+  --red: #f87171;           /* merah */
+  --border: #334155;        /* warna garis */
+  --radius: 12px;           /* ukuran sudut membulat */
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ---------- 2. HEADER ---------- */
+.site-header {
+  padding: 40px 0 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #0b1220 0%, var(--bg) 100%);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 44px;
+  height: 44px;
+  color: var(--accent);
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.accent {
+  color: var(--accent);
+}
+
+.tagline {
+  margin-top: 8px;
+  color: var(--text-dim);
+}
+
+/* ---------- NAVIGASI TAB ---------- */
+.tab-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 10px;
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  background: var(--bg-hover);
+  transform: translateY(-2px);
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: #0f172a;
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);
+}
+
+/* ---------- 3. KOMPONEN ---------- */
+
+/* Setiap bagian (section) perbandingan */
+.comparison-section {
+  padding: 32px 0;
+  display: none;              /* default disembunyikan */
+  animation: fadeIn 0.4s ease;
+}
+
+/* Class .active membuat section tampil */
+.comparison-section.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Judul bagian */
+.section-title {
+  font-size: 1.6rem;
+  margin-bottom: 6px;
+}
+
+.section-subtitle {
+  color: var(--text-dim);
+  margin-bottom: 24px;
+}
+
+/* Kartu pemenang (muncul di atas tabel) */
+.winner-card {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 8px 24px rgba(251, 191, 36, 0.12);
+}
+
+.winner-trophy {
+  font-size: 2.2rem;
+}
+
+.winner-card strong {
+  color: var(--gold);
+  font-size: 1.2rem;
+}
+
+.winner-card p {
+  color: var(--text-dim);
+  font-size: 0.92rem;
+}
+
+/* Tombol ubah urutan (sortir) */
+.sort-toggle {
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.sort-toggle:hover {
+  background: var(--bg-hover);
+}
+
+/* Tabel perbandingan */
+.table-wrap {
+  overflow-x: auto;         /* biar tabel bisa digeser di layar kecil */
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 640px;
+}
+
+thead th {
+  background: var(--bg-soft);
+  padding: 12px 10px;
+  text-align: left;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+/* Baris kolom pertama (nama kriteria / nama tech) tetap menempel saat geser */
+thead th:first-child,
+tbody td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--bg-soft);
+  z-index: 2;
+}
+
+tbody td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+/* Kolom pertama rata kiri (nama) */
+tbody td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+}
+
+tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+/* Baris total poin berwarna berbeda */
+tfoot td {
+  background: var(--bg-soft);
+  padding: 12px 10px;
+  font-weight: 800;
+  text-align: center;
+  border-top: 2px solid var(--border);
+}
+
+tfoot td:first-child {
+  text-align: left;
+}
+
+/* Skor angka */
+.score {
+  font-weight: 700;
+}
+
+.score.best {
+  color: var(--gold);
+}
+
+/* -------- BAR CHART (visual poin per tech) -------- */
+.chart-wrap {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 28px;
+}
+
+.chart-wrap h3 {
+  margin-bottom: 16px;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chart-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.chart-label {
+  width: 110px;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Batang (bar) dibuat dengan lebar berdasarkan persentase skor */
+.chart-bar-track {
+  flex: 1;
+  background: var(--bg);
+  border-radius: 6px;
+  height: 20px;
+  overflow: hidden;
+}
+
+.chart-bar {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--accent), #818cf8);
+  transition: width 0.8s ease;
+  width: 0;                 /* awal 0, di-set oleh JS */
+}
+
+/* Bar juara berwarna emas */
+.chart-bar.winner {
+  background: linear-gradient(90deg, var(--gold), #f59e0b);
+}
+
+.chart-score {
+  width: 40px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* -------- GLOSARIUM -------- */
+.glossary-search {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+
+.glossary-search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+/* Kartu per istilah */
+.term-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.term-card:hover {
+  border-color: var(--accent);
+}
+
+/* Judul istilah = tombol untuk buka/tutup */
+.term-header {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 14px 18px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+}
+
+.term-header .arrow {
+  transition: transform 0.3s;
+  color: var(--text-dim);
+}
+
+/* Ketika kartu terbuka (.open), panah berputar 180 derajat */
+.term-card.open .arrow {
+  transform: rotate(180deg);
+}
+
+/* Isi detail istilah — default disembunyikan */
+.term-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+}
+
+.term-card.open .term-body {
+  max-height: 400px;
+}
+
+.term-body table {
+  min-width: 0;
+  font-size: 0.88rem;
+}
+
+.term-body td {
+  padding: 8px 18px;
+  text-align: left;
+}
+
+.term-body td:first-child {
+  width: 120px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.term-body tr:last-child td {
+  border-bottom: none;
+}
+
+/* Pesan "tidak ditemukan" saat pencarian kosong */
+.empty-state {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 40px 0;
+}
+
+/* -------- ICON INFO (i) & TOOLTIP -------- */
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #0f172a;
+  font-size: 0.62rem;
+  font-weight: 800;
+  cursor: help;
+  vertical-align: middle;
+  transition: transform 0.15s ease;
+}
+
+.info-icon:hover {
+  transform: scale(1.3);
+}
+
+/* Tooltip global — posisinya diatur JavaScript mengikuti kursor */
+.tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 320px;
+  padding: 10px 14px;
+  background: #0b1220;
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  pointer-events: none;   /* biar tidak ikut hover */
+  display: none;
+}
+
+.tooltip b {
+  color: var(--accent);
+}
+
+/* -------- FOOTER -------- */
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.noscript {
+  background: var(--red);
+  color: #fff;
+  padding: 14px;
+  border-radius: var(--radius);
+  margin: 20px 0;
+  text-align: center;
+}
+
+/* ---------- 4. RESPONSIF (layar kecil) ---------- */
+@media (max-width: 640px) {
+  h1 { font-size: 1.4rem; }
+  .chart-label { width: 80px; font-size: 0.7rem; }
+  .term-body td:first-child { width: 100px; }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 import Select from '../components/Select'
 import { motion } from 'framer-motion'
@@ -156,10 +156,10 @@ export default function AttendanceAdmin() {
     <>
       <motion.div
         className="att-admin-page"
-        initial={{ opacity: 0 }}
+        initial={{ opacity: 1 }}
         animate={{ opacity: 1 }}
       >
-        <motion.div className="page-header" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div className="page-header" initial={{ opacity: 1, y: 15 }} animate={{ opacity: 1, y: 0 }}>
           <div className="page-header-left">
             <h1>Dashboard Absensi</h1>
             <p>Rekap absen masuk & pulang serta kalkulasi gaji (khusus admin)</p>

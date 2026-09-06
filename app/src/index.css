@@ -51,6 +51,8 @@
   /* Borders */
   --border: #27272A;
   --border-hover: #3F3F46;
+  /* Border kuat untuk card/input/dropdown — abu2 mendekati putih di dark mode */
+  --border-strong: #D4D4DA;
   
   /* Spacing */
   --space-1: 4px;
@@ -68,9 +70,9 @@
   --font-mono: 'JetBrains Mono', monospace;
   
   /* No border radius */
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 3px;
 
   /* Card shadow */
   --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -80,18 +82,18 @@
 [data-theme="light"] {
   color-scheme: light;
 
-  --bg-primary: #F1F1F3;
+  --bg-primary: #FFFFFF;
   --bg-secondary: #FFFFFF;
   --bg-tertiary: #E9E9EC;
-  --bg-elevated: #E2E2E6;
+  --bg-elevated: #FFFFFF;
   
   --text-primary: #18181B;
-  --text-secondary: #52525B;
+  --text-secondary: #3F3F46;
   --text-muted: #71717A;
   
   --accent: #EA580C;
   --accent-hover: #F97316;
-  --accent-muted: rgba(234, 88, 12, 0.1);
+  --accent-muted: rgba(234, 88, 12, 0.12);
   --accent2: #0891B2;
   --accent3: #7C3AED;
   --focus-ring: #0891B2;
@@ -105,8 +107,9 @@
   --warning: #CA8A04;
   --error: #DC2626;
   
-  --border: #D6D6DB;
-  --border-hover: #BEBEC4;
+  --border: #D9D9DE;
+  --border-hover: #C7C7CD;
+  --border-strong: #9CA3AF;
 
   --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
@@ -116,13 +119,13 @@
   color-scheme: light;
 
   --bg-primary: #FFFFFF;
-  --bg-secondary: #F7F7F7;
-  --bg-tertiary: #EEEEEE;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #E9E9EC;
   --bg-elevated: #FFFFFF;
 
   --text-primary: #1F2937;
-  --text-secondary: #4B5563;
-  --text-muted: #8B8D94;
+  --text-secondary: #374151;
+  --text-muted: #6B7280;
 
   --accent: #36D2D3;
   --accent-hover: #27BFC0;
@@ -142,15 +145,16 @@
 
   --border: #36D2D3;
   --border-hover: #27BFC0;
+  --border-strong: #9CA3AF;
 
   --font-body: 'Roboto', Helvetica, Arial, Verdana, sans-serif;
   --font-display: 'Roboto', Helvetica, Arial, Verdana, sans-serif;
   --line-height-base: 1.6;
 
-  --radius-sm: 2px;
-  --radius-md: 50px;
-  --radius-lg: 100px;
-  --radius-xl: 500px;
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
 
   --card-shadow: rgba(0, 0, 0, 0) 0 0 10px 0;
 }
@@ -185,15 +189,16 @@
 
   --border: #36D2D3;
   --border-hover: #61E5E6;
+  --border-strong: #D4D4DA;
 
   --font-body: 'Roboto', Helvetica, Arial, Verdana, sans-serif;
   --font-display: 'Roboto', Helvetica, Arial, Verdana, sans-serif;
   --line-height-base: 1.6;
 
-  --radius-sm: 2px;
-  --radius-md: 50px;
-  --radius-lg: 100px;
-  --radius-xl: 500px;
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
 
   --card-shadow: rgba(0, 0, 0, 0.2) 0 0 1px 1px;
 }
@@ -203,14 +208,14 @@
 [data-theme="luxio-new-light"] {
   color-scheme: light;
 
-  --bg-primary: #F6F6FD;
+  --bg-primary: #FFFFFF;
   --bg-secondary: #FFFFFF;
-  --bg-tertiary: #EDECFB;
-  --bg-elevated: #F1F0FB;
+  --bg-tertiary: #E9E9EC;
+  --bg-elevated: #FFFFFF;
 
   --text-primary: #1A1825;
-  --text-secondary: #5C5B6E;
-  --text-muted: #8C8B9E;
+  --text-secondary: #3F3F4B;
+  --text-muted: #6B6A7A;
 
   --accent: #6C2EF2;
   --accent-hover: #7D48F6;
@@ -228,12 +233,13 @@
   --warning: #F59E0B;
   --error: #F0524A;
 
-  --border: #E4E3F2;
-  --border-hover: #CFCEE8;
+  --border: #E2E1EE;
+  --border-hover: #D3D1E6;
+  --border-strong: #9CA3AF;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 3px;
 
   --card-shadow: 0 4px 16px rgba(108, 46, 242, 0.07);
 }
@@ -268,10 +274,11 @@
 
   --border: #2C2B3C;
   --border-hover: #3D3C52;
+  --border-strong: #D4D4DA;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 3px;
 
   --card-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
 }
@@ -346,9 +353,10 @@ a:hover {
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   white-space: nowrap;
   border-radius: var(--radius-sm, 0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.12), inset 0 -1px 0 rgba(0,0,0,0.06);
 }
 
 .btn-primary {
@@ -415,7 +423,7 @@ a:hover {
   color: var(--text-secondary);
 }
 
-.input {
+.input{
   width: 100%;
   height: auto;
   min-height: 44px;
@@ -424,10 +432,10 @@ a:hover {
   font-size: 1rem;
   color: var(--text-primary);
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   outline: none;
   transition: all 0.15s;
-  border-radius: var(--radius-sm, 0);
+  border-radius: 3px;
 }
 
 /* Native <select> modern — same appearance as custom Select */
@@ -444,7 +452,6 @@ select.input {
 
 select.input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
 textarea.input {
@@ -455,28 +462,68 @@ textarea.input {
 
 .input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-muted);
-}
-
-:where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--focus-ring, var(--accent2));
-  outline-offset: 2px;
 }
 
 .input::placeholder {
   color: var(--text-muted);
 }
 
-/* Cards */
-.card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+/* Global gradient accents — orange tint pada element umum */
+.page-header {
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.08), rgba(234, 88, 12, 0.02) 60%, transparent);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+}
+
+.section-header {
+  background: linear-gradient(90deg, rgba(234, 88, 12, 0.06), transparent 60%);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-2);
+}
+
+.settings-card{
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 45%);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+}
+.card{
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 45%);
+  border: 1px solid var(--border-strong);
   padding: var(--space-6);
-  box-shadow: var(--card-shadow);
-  border-radius: var(--radius-md, 0);
+  box-shadow: none;
+  border-radius: 3px;
+  transition: transform 0.18s, border-color 0.18s;
 }
 
 .card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hover);
+}
+
+/* Global: border 3px abu2 utk semua card, tanpa shadow, hover terangkat */
+.kpi-card,
+.chart-panel,
+.target-list-panel,
+.target-list-row,
+.stats-card,
+.flow-column,
+.kanban-column,
+.detail-board,
+.detail-progress,
+.stage-content{
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  box-shadow: none !important;
+  transition: transform 0.18s, border-color 0.18s;
+}
+.kpi-card:hover,
+.chart-panel:hover,
+.target-list-row:hover,
+.stats-card:hover,
+.flow-column:not(.locked):hover,
+.kanban-column:hover,
+.detail-board:hover {
+  transform: translateY(-2px);
   border-color: var(--border-hover);
 }
 
@@ -621,27 +668,26 @@ textarea.input {
 
 /* Input rounded penuh & background terang */
 [data-theme="luxio-new-light"] .input,
-[data-theme="luxio-new-dark"] .input {
-  border-radius: 999px;
+[data-theme="luxio-new-dark"] .input{
+  border-radius: 3px;
   background: var(--bg-tertiary);
-  border-color: transparent;
+  border: 1px solid var(--border-strong);
 }
 
 [data-theme="luxio-new-light"] .input:focus,
 [data-theme="luxio-new-dark"] .input:focus {
   background: var(--bg-secondary);
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-muted);
 }
 
 [data-theme="luxio-new-light"] textarea.input,
 [data-theme="luxio-new-dark"] textarea.input,
 [data-theme="luxio-new-light"] select.input,
 [data-theme="luxio-new-dark"] select.input {
-  border-radius: var(--radius-md);
+  border-radius: 3px;
 }
 
-/* Kartu: border sangat tipis + shadow lembut + rounded besar */
+/* Kartu: border konsisten 1px sesuai aturan global */
 [data-theme="luxio-new-light"] .card,
 [data-theme="luxio-new-dark"] .card {
   border-radius: var(--radius-lg);
@@ -696,4 +742,95 @@ textarea.input {
   h1 { font-size: 1.125rem; }   /* 18px */
   h2 { font-size: 1rem; }       /* 16px */
   h3 { font-size: 0.9375rem; }  /* 15px */
+}
+
+/* Hapus semua shadow, hapus border-radius bawaan yg gak perlu.
+   Transition di `*` memberi perpindahan dark<->light yang smooth —
+   rule ini specificity-nya paling rendah sehingga tidak menimpa
+   transition komponen yang sudah punya aturan sendiri. */
+* {
+  box-shadow: none !important;
+  border-radius: 3px !important;
+  outline: none !important;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Foto profil WAJIB terpotong di dalam lingkarannya, di mana pun berada */
+img {
+  object-fit: cover !important;
+}
+
+.avatar-circle img,
+.user-avatar img,
+.profile-avatar img,
+.member-avatar img,
+.contrib-avatar img,
+.task-assignee-avatar img,
+.chat-bubble-avatar img,
+.stats-pie-legend-item img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  display: block;
+}
+
+/* Hapus border pada block yang mengandung H1 (page header, detail header, dll) */
+.page-header:has(h1),
+.detail-header:has(h1),
+.target-header:has(h1),
+.kanban-header-new:has(h1),
+.todo-header-new:has(h1),
+.att-admin-page .page-header:has(h1),
+.admin-users-page .page-header:has(h1),
+.settings-page .page-header:has(h1),
+.team-page .page-header:has(h1) {
+  border: none !important;
+}
+
+/* Elemen circular tetap bulat (avatar, status dot, badge) */
+.user-avatar,
+.user-avatar-sm,
+.profile-menu-avatar,
+.nav-drop-avatar,
+.notification-dot,
+.sync-badge .sync-dot,
+.dash-dot,
+.dash-day-num,
+.dash-day-status {
+  border-radius: 50% !important;
+}
+
+/* Semua dropdown/menu/panel: putih di tema terang, kontras di tema gelap */
+[data-theme="light"] .notifications-panel,
+[data-theme="light"] .select-menu,
+[data-theme="light"] .nav-dropdown,
+[data-theme="light"] .dropdown-menu,
+[data-theme="light"] .mobile-menu,
+[data-theme="light"] .notif-toast,
+[data-theme="light"] .notifications-panel-header,
+[data-theme="light"] .notification-item {
+  background: #FFFFFF !important;
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .select-option,
+[data-theme="light"] .dropdown-menu button,
+[data-theme="light"] .notification-item-title,
+[data-theme="light"] .notification-item-body {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .select-option:hover,
+[data-theme="light"] .dropdown-menu button:hover {
+  background: #FFFFFF;
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .notification-item.unread {
+  background: #FFFFFF;
+}
+
+[data-theme="light"] .notifications-list {
+  background: #FFFFFF;
 }
