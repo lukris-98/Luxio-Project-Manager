@@ -7,7 +7,7 @@
 // draft, bintang, arsip, tandai spam, hapus, dan tandai sudah dibaca.
 // =====================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   isGoogleConfigured, requestGoogleToken, clearGoogleTokens,
   GOOGLE_SCOPES, fetchGoogleUserInfo,
@@ -48,6 +48,74 @@ const fmtFullDate = (internalDate) =>
   internalDate
     ? new Date(internalDate).toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : ''
+
+/**
+ * EmailFrame — render isi email HTML di dalam iframe sandbox.
+ * Kenapa iframe: email marketing sering membawa CSS global
+ * (position:fixed, height:100vh, body{overflow:hidden}) yang, bila
+ * di-inject langsung ke DOM, menutup area dan MEMATIKAN scroll halaman.
+ * Dengan iframe:
+ *  - CSS email terisolasi total dari aplikasi (tidak menabrak UI)
+ *  - scroll internal iframe selalu berfungsi
+ *  - script email TIDAK dieksekusi (sandbox TANPA allow-scripts;
+ *    allow-same-origin hanya agar tinggi konten bisa diukur parent)
+ */
+function EmailFrame({ html }) {
+  const frameRef = useRef(null)
+  const [height, setHeight] = useState(200)
+
+  const framed = useMemo(() => `<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html,body { margin:0; padding:12px; background:transparent;
+    font-family: Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.6; color: #1f1f28;
+    word-break: break-word; overflow-wrap: anywhere; }
+  img { max-width: 100% !important; height: auto; }
+  a { color: #8B5CF6; }
+  table { max-width: 100% !important; }
+  /* Netralkan fixed/sticky dari template email */
+  * { position: static !important; }
+</style></head><body>${html}</body></html>`, [html])
+
+  const measure = useCallback(() => {
+    try {
+      const doc = frameRef.current?.contentDocument
+      if (!doc) return
+      const h = Math.max(
+        doc.body?.scrollHeight || 0,
+        doc.documentElement?.scrollHeight || 0
+      )
+      if (h > 0) setHeight(Math.min(Math.max(h + 16, 180), 4000))
+    } catch { /* cross-origin bila sandbox berubah — abaikan */ }
+  }, [])
+
+  useEffect(() => {
+    // Ukur ulang beberapa kali: font web/gambar email bisa load belakangan.
+    const t1 = setTimeout(measure, 150)
+    const t2 = setTimeout(measure, 600)
+    const t3 = setTimeout(measure, 1500)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+  }, [framed, measure])
+
+  return (
+    <iframe
+      ref={frameRef}
+      title="Isi email"
+      sandbox="allow-same-origin"
+      srcDoc={framed}
+      onLoad={measure}
+      style={{
+        width: '100%',
+        height: `${height}px`,
+        border: 'none',
+        display: 'block',
+        background: '#ffffff',
+        borderRadius: 6,
+      }}
+    />
+  )
+}
 
 export default function GmailPage() {
   const [toastMsg, setToastMsg] = useState('')
@@ -423,7 +491,9 @@ function ThreadView({
                 <>
                   <h3 className="gmail-msg-subject">{m.subject}</h3>
                   {m.body.html ? (
-                    <div className="gmail-msg-body" dangerouslySetInnerHTML={{ __html: m.body.html }} />
+                    <div className="gmail-msg-body">
+                      <EmailFrame html={m.body.html} />
+                    </div>
                   ) : (
                     <pre className="gmail-msg-body gmail-msg-plain">{m.body.text || m.snippet}</pre>
                   )}

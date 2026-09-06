@@ -237,10 +237,14 @@
 .gmail-thread-list {
   overflow-y: auto;
   max-height: calc(100vh - 340px);
+  min-height: 280px;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Cegah scroll "lompat" ke parent saat mencapai ujung daftar. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .gmail-msg {
@@ -274,6 +278,14 @@
   line-height: 1.6;
   overflow-x: auto;
   word-break: break-word;
+}
+
+/* Iframe isi email — tumbuh mengikuti tinggi konten, scroll mengikuti
+   thread-list (tidak ada double-scrollbar). */
+.gmail-msg-body iframe {
+  width: 100%;
+  border: none;
+  display: block;
 }
 
 .gmail-msg-body img { max-width: 100%; height: auto; }
