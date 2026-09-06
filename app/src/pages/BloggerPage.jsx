@@ -65,7 +65,7 @@ export default function BloggerPage() {
       showToast(info?.email ? `Blogger terhubung: ${info.email}` : 'Blogger terhubung.')
     } catch (e) {
       setAuthError(e.code === 'NOT_CONFIGURED'
-        ? 'Client ID Google belum diatur. Isi VITE_GOOGLE_CLIENT_ID di file .env aplikasi.'
+        ? 'Integrasi Google belum aktif di sesi browser ini. Lakukan hard refresh (Ctrl+Shift+R) untuk memuat konfigurasi terbaru.'
         : (e.message || 'Login gagal.'))
       setAuth({ state: 'error', email: '' })
     }
@@ -205,7 +205,7 @@ export default function BloggerPage() {
       <div className="blogger-page">
         <LoginGate
           error={!isGoogleConfigured()
-            ? 'VITE_GOOGLE_CLIENT_ID belum diatur di file .env. Tambahkan Client ID dari Google Cloud Console (tipe Web application).'
+            ? 'Integrasi Google belum aktif di sesi browser ini. Lakukan hard refresh (Ctrl+Shift+R) untuk memuat konfigurasi terbaru, lalu klik tombol di bawah untuk menghubungkan Blogger.'
             : authError}
           onLogin={login}
           busy={auth.state === 'busy'}

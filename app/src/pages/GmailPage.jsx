@@ -79,7 +79,7 @@ export default function GmailPage() {
       if (info?.name && showToast) showToast(`Gmail terhubung: ${info.email}`)
     } catch (e) {
       if (e.code === 'NOT_CONFIGURED') {
-        setAuthError('Client ID Google belum diatur. Isi VITE_GOOGLE_CLIENT_ID di file .env aplikasi.')
+        setAuthError('Integrasi Google belum aktif di sesi browser ini. Lakukan hard refresh (Ctrl+Shift+R) untuk memuat konfigurasi terbaru.')
       } else {
         setAuthError(e.message || 'Login gagal.')
       }
@@ -170,7 +170,7 @@ export default function GmailPage() {
     return (
       <div className="gmail-page">
         <LoginGate
-          error="VITE_GOOGLE_CLIENT_ID belum diatur di file .env. Tambahkan Client ID dari Google Cloud Console (tipe Web application, origin http://localhost:5173 dan domain produksi)."
+          error="Integrasi Google belum aktif di sesi browser ini. Lakukan hard refresh (Ctrl+Shift+R) untuk memuat konfigurasi terbaru, lalu klik tombol di bawah untuk menghubungkan Gmail."
           onLogin={login}
           busy={auth.state === 'busy'}
         />

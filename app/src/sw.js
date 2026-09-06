@@ -1,5 +1,10 @@
 import { precacheAndRoute } from 'workbox-precaching'
 
+// Aktifkan SW baru SEGERA (tanpa menunggu reload kedua) dan klaim semua
+// client — tanpa ini, update PWA baru terpakai setelah 2x refresh.
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
+
 precacheAndRoute(self.__WB_MANIFEST)
 
 // =====================================================================
