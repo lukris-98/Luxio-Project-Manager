@@ -19,7 +19,7 @@
     </header>
 
     <h1>Kebijakan Privasi</h1>
-    <p class="updated">Terakhir diperbarui: 6 September 2026</p>
+    <p class="updated">Terakhir diperbarui: 6 September 2026 (v2 â€" diperluas)</p>
 
     <p>Luxio ("kami") adalah aplikasi manajemen project &amp; target yang dapat diakses di <a href="https://luxio.web.id/">https://luxio.web.id</a>. Kebijakan ini menjelaskan data apa yang kami kumpulkan, cara penggunaannya, dan hak kamu sebagai pengguna.</p>
 
@@ -40,7 +40,66 @@
     </ul>
     <p>Penggunaan dan pengalihan data yang diterima dari Google API mematuhi <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Kebijakan Data Pengguna API Layanan Google</a>, termasuk persyaratan <strong>Limited Use</strong>. Data Google tidak kami jual, tidak kami gunakan untuk iklan, dan tidak kami pakai untuk melatih model AI umum.</p>
 
-    <h2 id="penggunaan">3. Cara Kami Menggunakan Data</h2>
+    <h2 id="tidak-kumpul">3. Data yang TIDAK Kami Kumpulkan</h2>
+    <ul>
+      <li>Password dalam bentuk teks biasa (hanya hash Argon2id yang tidak bisa dibalik).</li>
+      <li>Isi email kamu â€" integrasi Gmail membaca/mengirim email langsung dari browser; isi email tidak disimpan di server kami.</li>
+      <li>Data kartu kredit / pembayaran (fitur berbayar mengikuti proses payment gateway; detail kartu tidak pernah menyentuh server kami).</li>
+      <li>Data pelacakan iklan lintas situs, fingerprint perangkat, atau profil perilaku untuk penjualan data.</li>
+    </ul>
+
+    <h2 id="dasar-hukum">4. Dasar &amp; Tujuan Pemrosesan</h2>
+    <p>Kami memproses data pribadi hanya untuk tujuan spesifik berikut, dengan dasar pemrosesan yang sesuai:</p>
+    <table style="width:100%; border-collapse:collapse; margin:8px 0;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:8px; border-bottom:2px solid #ddd;">Data</th>
+          <th style="text-align:left; padding:8px; border-bottom:2px solid #ddd;">Tujuan</th>
+          <th style="text-align:left; padding:8px; border-bottom:2px solid #ddd;">Dasar</th>
+          <th style="text-align:left; padding:8px; border-bottom:2px solid #ddd;">Retensi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Nama, email, foto profil</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Membuat &amp; mengenali akun, komunikasi layanan</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Pelaksanaan kontrak layanan</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Selama akun aktif</td>
+        </tr>
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Password (hash)</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Autentikasi keamanan akun</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Pelaksanaan kontrak layanan</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Selama akun aktif</td>
+        </tr>
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Foto &amp; lokasi absensi</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Fitur pencatatan kehadiran atas permintaan perusahaan/organisasi</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Persetujuan pengguna</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Sesuai kebijakan internal organisasi</td>
+        </tr>
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Token OAuth Google</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Fitur Gmail &amp; Blogger pilihan pengguna</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Persetujuan pengguna (dapat dicabut)</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Hanya di browser pengguna (sessionStorage)</td>
+        </tr>
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Log teknis (IP, browser)</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Keamanan, pencegahan penyalahgunaan, debugging</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Kepentingan sah pengelola layanan</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Maksimal 90 hari</td>
+        </tr>
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Analitik situs (GA4, anonim)</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Statistik agregat pemakaian situs</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Persetujuan cookie browser</td>
+          <td style="padding:8px; border-bottom:1px solid #eee;">Sesuai kebijakan Google Analytics</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id="penggunaan">5. Cara Kami Menggunakan Data</h2>
     <ul>
       <li>Menyediakan fungsi inti aplikasi (project, task, absensi, gaji, chat).</li>
       <li>Mengirim email transaksional: verifikasi akun, kode 2FA, notifikasi tugas.</li>
@@ -49,7 +108,7 @@
       <li>Meningkatkan kualitas layanan melalui analitik agregat &amp; anonim.</li>
     </ul>
 
-    <h2 id="cookie">4. Cookie &amp; Penyimpanan Lokal</h2>
+    <h2 id="cookie">6. Cookie &amp; Penyimpanan Lokal</h2>
     <p>Luxio tidak memakai cookie iklan atau cookie pelacak pihak ketiga. Yang kami gunakan adalah penyimpanan pada browser kamu sendiri:</p>
     <ul>
       <li><strong>localStorage:</strong> menyimpan sesi login, preferensi tema, dan data aplikasi agar tetap bisa dibuka saat offline (PWA).</li>
@@ -58,14 +117,16 @@
     </ul>
     <p>Menghapus data situs (site data) dari browser akan menghapus seluruh penyimpanan lokal tersebut dan mengeluarkan kamu dari sesi.</p>
 
-    <h2 id="keamanan">5. Penyimpanan &amp; Keamanan</h2>
-    <p>Data disimpan di basis data terkelola (PostgreSQL) dengan koneksi terenkripsi SSL, dan seluruh lalu lintas aplikasi berjalan lewat HTTPS. Password di-hash dengan Argon2id. Token akses Google hanya berada di perangkat kamu dan bisa dicabut kapan saja melalui tombol "Keluar" di halaman Gmail/Blogger, atau melalui halaman <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Aplikasi pihak ketiga di Akun Google</a>.</p>
+    <h2 id="keamanan">7. Penyimpanan &amp; Keamanan</h2>
+    <p>Data disimpan di basis data terkelola (PostgreSQL) dengan koneksi terenkripsi SSL, dan seluruh lalu lintas aplikasi berjalan lewat HTTPS (TLS). Password di-hash dengan Argon2id â€" standar industri untuk penyimpanan password. Token sesi disimpan sebagai hash SHA-256 di server, sehingga kebocoran basis data tidak langsung membocorkan token login. Akses administratif dibatasi, setiap request API melewati autentikasi token, dan endpoint sensitif dilindungi rate limiting.</p>
+    <p>Token akses Google hanya berada di perangkat kamu (sessionStorage) dan bisa dicabut kapan saja melalui tombol "Keluar" di halaman Gmail/Blogger, atau melalui halaman <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Aplikasi pihak ketiga di Akun Google</a>.</p>
+    <p>Transfer data internasional: penyedia infrastruktur kami (database, hosting, email) beroperasi di pusat data di luar Indonesia. Penyedia tersebut menerapkan standar keamanan dan enkripsi setara yang dijelaskan pada kebijakan masing-masing (lihat bagian 8).</p>
     <p>Tidak ada sistem yang sepenuhnya bebas risiko. Bila terjadi insiden keamanan yang berdampak pada data pribadi kamu, kami akan memberitahukannya melalui email atau pemberitahuan di dalam aplikasi.</p>
 
-    <h2 id="pembagian">6. Pembagian Data</h2>
+    <h2 id="pembagian">8. Pembagian Data</h2>
     <p>Kami <strong>tidak menjual</strong> data pribadi. Data hanya dibagikan kepada penyedia infrastruktur (hosting, database, pengiriman email, push notification) sebatas yang diperlukan untuk menjalankan layanan, kepada Google sesuai izin yang kamu berikan, dan kepada pihak berwenang apabila diwajibkan oleh hukum yang berlaku.</p>
     <p>Perlu diketahui: data yang kamu masukkan ke dalam ruang kerja tim (project, task, absensi, gaji, chat) dapat dilihat oleh anggota dan admin tim tersebut sesuai peran masing-masing.</p>
-    <h3>6.1 Pihak ketiga yang terlibat (subprocessor)</h3>
+    <h3>8.1 Pihak ketiga yang terlibat (subprocessor)</h3>
     <ul>
       <li><strong>Neon</strong> â€" penyedia basis data PostgreSQL (data akun &amp; data aplikasi).</li>
       <li><strong>Hugging Face Spaces</strong> â€" hosting server API aplikasi.</li>
@@ -75,10 +136,10 @@
     </ul>
     <p>Masing-masing pihak ketiga hanya menerima data sebatas yang diperlukan untuk fungsi layanannya, dan kami mengevaluasi kebijakan keamanan mereka secara berkala.</p>
 
-    <h2 id="retensi">7. Retensi &amp; Penghapusan</h2>
+    <h2 id="retensi">9. Retensi &amp; Penghapusan</h2>
     <p>Data akun disimpan selama akun masih aktif. Kamu dapat meminta penghapusan akun beserta seluruh datanya kapan saja melalui pemilik aplikasi atau email kontak di bawah; permintaan diproses dalam waktu wajar setelah identitas terverifikasi. Data absensi/foto yang diunggah tetap milik perusahaan/organisasi tempat kamu bergabung sesuai kesepakatan internal.</p>
 
-    <h2 id="hak">8. Hak Kamu</h2>
+    <h2 id="hak">10. Hak Kamu</h2>
     <ul>
       <li>Mengakses dan memperbaiki data akun kapan saja di halaman Pengaturan.</li>
       <li>Mencabut akses integrasi Google kapan saja.</li>
@@ -86,13 +147,13 @@
       <li>Meminta salinan atau penghapusan data pribadi.</li>
     </ul>
 
-    <h2 id="anak">9. Anak di Bawah Umur</h2>
+    <h2 id="anak">11. Anak di Bawah Umur</h2>
     <p>Luxio ditujukan untuk penggunaan kerja/organisasi dan tidak diperuntukkan bagi anak di bawah 13 tahun. Kami tidak dengan sengaja mengumpulkan data anak di bawah usia tersebut. Bila hal itu terjadi, hubungi kami agar datanya dihapus.</p>
 
-    <h2 id="perubahan">10. Perubahan Kebijakan</h2>
+    <h2 id="perubahan">12. Perubahan Kebijakan</h2>
     <p>Perubahan material kebijakan ini akan diumumkan melalui aplikasi atau email, dan tanggal "Terakhir diperbarui" di atas akan disesuaikan. Penggunaan berkelanjutan setelah perubahan dianggap persetujuan.</p>
 
-    <h2 id="kontak">11. Kontak</h2>
+    <h2 id="kontak">13. Kontak</h2>
     <p>Pertanyaan, permintaan akses, atau permintaan penghapusan data dapat dikirim ke <a href="mailto:master@luxio.web.id">master@luxio.web.id</a>. Ketentuan penggunaan layanan diatur terpisah di halaman <a href="/syarat">Syarat &amp; Ketentuan</a>.</p>
 
     <footer>

@@ -69,7 +69,40 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Roboto:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- =================================================================
+           STATIC FALLBACK (tanpa JavaScript).
+           React mengganti konten ini saat aplikasi dimuat, tapi konten ini
+           tetap terbaca oleh crawler/reviewer yang tidak menjalankan JS:
+           menjelaskan tujuan aplikasi + akses informasi tanpa login.
+           ================================================================= -->
+      <main style="max-width: 760px; margin: 0 auto; padding: 48px 24px; font-family: system-ui, sans-serif; color: #1a1a24; line-height: 1.7;">
+        <p style="font-size: 13px; letter-spacing: 2px; font-weight: 700; color: #6C2EF2; margin: 0 0 8px;">LUXIO â€" PROJECT &amp; TARGET MANAGER</p>
+        <h1 style="font-size: 34px; margin: 0 0 16px;">Kelola project dan target tim kamu dalam satu tempat</h1>
+        <p style="font-size: 17px;">Luxio adalah aplikasi web untuk mengelola project, target, dan tugas harian tim. Buat project, pantau progres lewat papan kanban, catat absensi anggota, kelola tim &amp; kompensasi, dan kolaborasi lewat chat internal â€" semuanya tanpa spreadsheet yang berantakan.</p>
+
+        <h2 style="font-size: 20px; margin: 28px 0 8px;">Apa yang bisa dilakukan di Luxio?</h2>
+        <ul style="padding-left: 22px;">
+          <li>Manajemen project: progres, status, dan tenggat per divisi</li>
+          <li>Target &amp; kanban: pantau tahapan pekerjaan tim secara visual</li>
+          <li>Absensi: catat kehadiran dengan foto &amp; lokasi</li>
+          <li>Manajemen tim &amp; gaji, catatan pribadi ber-PIN, dan vault kredensial</li>
+          <li>Integrasi opsional Google: Gmail &amp; Blogger</li>
+        </ul>
+
+        <h2 style="font-size: 20px; margin: 28px 0 8px;">Halaman informasi (tanpa perlu login)</h2>
+        <ul style="padding-left: 22px;">
+          <li><a href="/tentang">Tentang Luxio</a> â€" apa itu Luxio dan untuk siapa</li>
+          <li><a href="/pricing">Harga</a> â€" paket gratis untuk personal</li>
+          <li><a href="/faq">FAQ</a> â€" pertanyaan umum</li>
+          <li><a href="/privasi">Kebijakan Privasi</a> â€" data apa yang dikumpulkan &amp; bagaimana digunakan</li>
+          <li><a href="/syarat">Syarat &amp; Ketentuan Layanan</a></li>
+        </ul>
+
+        <h2 style="font-size: 20px; margin: 28px 0 8px;">Cara mulai</h2>
+        <p>Buka <a href="https://luxio.web.id/">https://luxio.web.id</a>, buat akun gratis, dan ajak tim kamu. Tidak diperlukan kartu kredit. Pertanyaan? Email <a href="mailto:master@luxio.web.id">master@luxio.web.id</a>.</p>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
