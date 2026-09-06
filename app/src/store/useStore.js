@@ -1799,6 +1799,27 @@ export const useStore = create(
       // Versi state tersimpan. Naikkan versi (dan update `migrate`) jika
       // struktur state berubah di masa depan.
       version: 5,
+      // State NAVIGASI tidak ikut di-persist: sejak BrowserRouter, URL adalah
+      // sumber kebenaran lokasi (deep-link). Persist IndexedDB bersifat async
+      // (selesai setelah mount) — bila appState/currentPage ikut ter-rehydrate
+      // telat, ia menimpa lokasi yang sudah disimpulkan dari URL dan merusak
+      // deep-link (mis. buka /pricing tapi dibawa ke halaman lama).
+      partialize: (state) => {
+        const {
+          appState, currentPage, selectedProjectId, selectedBoardId,
+          ...persisted
+        } = state
+        return persisted
+      },
+      // Snapshot lama (sebelum partialize) masih membawa field navigasi —
+      // buang saat merge agar rehydrate tidak menimpa lokasi dari URL.
+      merge: (persistedState, currentState) => {
+        const {
+          appState, currentPage, selectedProjectId, selectedBoardId,
+          ...rest
+        } = persistedState || {}
+        return { ...currentState, ...rest }
+      },
       // Bersihkan state lama dari build sebelumnya yang sempat rusak:
       // data v0 bisa punya appState 'landing' walau isAuthenticated true,
       // membuat user "logout" sendiri setelah refresh.

@@ -1,19 +1,20 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 
 // =====================================================================
 // UrlSync — jembatan react-router <-> state global (Zustand).
 // =====================================================================
-// Menjadikan URL sebagai sumber navigasi yang bisa dibagikan / deep-link:
-//   - '/#/'              → landing
-//   - '/#/pricing'       → pricing
-//   - '/#/faq'           → faq
-//   - '/#/checkout'      → checkout
-//   - '/#/auth'          → auth
-//   - '/#/setup'         → setup
-//   - '/#/app/<page>'    → halaman aplikasi (dashboard, kanban, dll)
-//   - '/#/app/<page>/<id>' → deep-link project-detail / kanban
+// Menjadikan URL sebagai sumber navigasi yang bisa dibagikan / deep-link
+// (BrowserRouter + Firebase Hosting rewrites, tanpa hash):
+//   - '/'                → landing
+//   - '/pricing'         → pricing
+//   - '/faq'             → faq
+//   - '/checkout'        → checkout
+//   - '/auth'            → auth
+//   - '/setup'           → setup
+//   - '/app/<page>'      → halaman aplikasi (dashboard, kanban, dll)
+//   - '/app/<page>/<id>' → deep-link project-detail / kanban
 // Store tetap jadi sumber kebenaran; komponen ini hanya menyinkronkan
 // URL <-> store tanpa mengubah logika navigasi yang sudah ada.
 //
@@ -36,10 +37,29 @@ export default function UrlSync() {
   const syncingFromUrl = useRef(false)
   const syncingFromStore = useRef(false)
   const initialized = useRef(false)
-
-  // URL → Store (initial mount, deep-link, back/forward). Menentukan state
-  // awal sehingga stale persisted state tidak membajak URL.
+  // Flag: URL→Store baru saja mengubah state. Efek Store→URL pada flush
+  // yang sama membaca closure state yang BASI (belum ter-render), jadi
+  // harus dilewati satu kali agar tidak menimpa URL dengan state lama.
+  const urlDriven = useRef(false)
+  // Persist IndexedDB async: tunggu rehydrate selesai sebelum sync pertama,
+  // supaya auth state lama ikut diperhitungkan dalam URL→Store.
+  const [hydrated, setHydrated] = useState(false)
   useEffect(() => {
+    const api = useStore.persist
+    if (api && typeof api.hasHydrated === 'function') {
+      if (api.hasHydrated()) { setHydrated(true); return }
+      const off = api.onFinishHydration
+        ? api.onFinishHydration(() => setHydrated(true))
+        : undefined
+      return typeof off === 'function' ? off : undefined
+    }
+    setHydrated(true)
+  }, [])
+
+  // URL → Store (setelah persist rehydrate; deep-link, back/forward).
+  // Menentukan state awal sehingga stale persisted state tidak membajak URL.
+  useEffect(() => {
+    if (!hydrated) return
     const parts = location.pathname.split('/').filter(Boolean)
     syncingFromUrl.current = true
     try {
@@ -56,13 +76,20 @@ export default function UrlSync() {
       } else {
         const s = parts[0] || ''
         if (PUBLIC_ROUTES.includes(s)) {
-          if (appState !== s) setAppState(s)
+          if (appState !== s) {
+            urlDriven.current = true
+            setAppState(s)
+          }
         } else if (isAuthenticated) {
           // Path akar '/' atau tidak dikenal + sudah login → area app.
-          if (appState !== 'app') setAppState('app')
+          if (appState !== 'app') {
+            urlDriven.current = true
+            setAppState('app')
+          }
         } else if (appState !== 'landing') {
           // Path akar '/' + belum login → landing. Ini mencegah loop
           // yang membuat URL 'pricing' menempel setelah ketik '/' manual.
+          urlDriven.current = true
           setAppState('landing')
         }
       }
@@ -70,13 +97,18 @@ export default function UrlSync() {
       syncingFromUrl.current = false
       initialized.current = true
     }
-  }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location.pathname, hydrated, isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Store → URL (setelah load awal). Skip pada render pertama agar URL
-  // menjadi sumber kebenaran, bukan state persisted yang basi.
+  // menjadi sumber kebenaran, bukan state persisted yang basi. Juga skip
+  // bila perubahan state ini berasal dari URL→Store pada flush yang sama.
   useEffect(() => {
     if (!initialized.current) return
     if (syncingFromUrl.current) return
+    if (urlDriven.current) {
+      urlDriven.current = false
+      return
+    }
     let path = '/'
     if (appState === 'app') {
       if (!isAuthenticated) {

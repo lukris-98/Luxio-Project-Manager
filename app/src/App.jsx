@@ -6,7 +6,7 @@ import Layout from './components/Layout'
 // =====================================================================
 // App.jsx — Router utama aplikasi.
 // =====================================================================
-// - URL dikelola react-router (HashRouter di main.jsx) dan disinkronkan
+// - URL dikelola react-router (BrowserRouter di main.jsx) dan disinkronkan
 //   ke state global lewat komponen <UrlSync /> (shareable URL, deep-link,
 //   back/forward). 
 // - Halaman di-load secara lazy (React.lazy) agar bundle terpecah per
@@ -123,16 +123,9 @@ function App() {
     }
   }, [setAppState])
 
-  // Saat refresh: jangan tertahan di halaman publik (pricing/faq/checkout)
-  // yang tersimpan dari sesi sebelumnya. Pengguna yang BELUM login kembali ke
-  // Landing; yang sudah login diarahkan ke halaman app oleh logika render.
-  // Halaman pricing/checkout tetap bisa dibuka oleh siapa pun (termasuk yang
-  // sudah login) lewat navigasi.
-  useEffect(() => {
-    if (!isAuthenticated && ['pricing', 'faq', 'checkout'].includes(appState)) {
-      setAppState('landing')
-    }
-  }, [appState, isAuthenticated, setAppState])
+  // CATATAN: efek "paksa landing saat tamu berada di halaman publik" telah
+  // dihapus — halaman publik (pricing/faq/checkout) BOLEH dibuka tamu via
+  // deep-link. UrlSync menjadikan URL sumber kebenaran saat load.
 
   // Fokus otomatis ke modal/pop-up saat muncul (scroll & keyboard focus).
   useEffect(() => {
