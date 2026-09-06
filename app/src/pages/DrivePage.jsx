@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   HardDrive, RefreshCw, Upload, FolderPlus, Folder, FileText, Download,
   Trash2, Star, Share2, ExternalLink, Pencil, Search, AlertTriangle,
@@ -12,9 +12,10 @@ import {
   removePermission, formatBytes,
 } from '../services/driveApi'
 import './GooglePages.css'
+import './google-native.css'
 
 // =====================================================================
-// DrivePage — Google Drive API v3.
+// DrivePage â€” Google Drive API v3.
 // =====================================================================
 // Scope yang dipakai: drive.file. Artinya halaman ini HANYA melihat file
 // yang dibuat atau diunggah lewat Luxio, bukan seluruh isi Drive user.
@@ -32,10 +33,10 @@ const PERM_LIST = [
 ]
 
 const fmtDate = (iso) => {
-  if (!iso) return '—'
+  if (!iso) return 'â€”'
   try {
     return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-  } catch { return '—' }
+  } catch { return 'â€”' }
 }
 
 export default function DrivePage() {
@@ -47,7 +48,7 @@ export default function DrivePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
-  // Tumpukan folder: [{ id, name }] — elemen terakhir = folder aktif.
+  // Tumpukan folder: [{ id, name }] â€” elemen terakhir = folder aktif.
   const [crumbs, setCrumbs] = useState([])
   const [uploadPct, setUploadPct] = useState(-1)
   const [shareTarget, setShareTarget] = useState(null)
@@ -223,25 +224,31 @@ export default function DrivePage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>
-            <HardDrive size={20} style={{ color: '#1A73E8', verticalAlign: '-3px' }} /> Google Drive
+            <HardDrive size={22} style={{ color: '#1A73E8' }} /> Google Drive
           </h1>
           <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola file Drive dari Luxio'}</p>
         </div>
         <div className="page-header-right">
-          <button className="btn btn-secondary" onClick={() => load()} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'gp-spin' : ''} /> Muat ulang
+          <button className="btn btn-secondary" onClick={() => load()} title="Muat ulang" disabled={loading}>
+            <RefreshCw size={16} className={loading ? 'gp-spin' : ''} />
           </button>
-          <button className="btn btn-secondary" onClick={onNewFolder}>
-            <FolderPlus size={14} /> Folder
-          </button>
-          <button className="btn btn-primary" onClick={onUploadPick} disabled={uploadPct >= 0}>
-            <Upload size={14} /> Unggah
+          <button className="btn btn-secondary" onClick={onNewFolder} title="Folder baru">
+            <FolderPlus size={16} />
           </button>
           <button className="btn btn-ghost" onClick={auth.logout} title="Cabut akses Drive">
-            <LogOut size={14} />
+            <LogOut size={16} />
           </button>
         </div>
       </div>
+
+      <button
+        className="g-fab"
+        onClick={onUploadPick}
+        disabled={uploadPct >= 0}
+        title="Unggah file ke Drive"
+      >
+        <Upload size={20} /> Unggah
+      </button>
 
       <input ref={fileInputRef} type="file" onChange={onUploadChange} style={{ display: 'none' }} />
 

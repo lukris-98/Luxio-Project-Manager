@@ -20,9 +20,10 @@ import {
 import {
   Mail, RefreshCw, Search, Star, Archive, Trash2, Reply, Forward,
   Paperclip, Send, X, LogIn, LogOut, Inbox, AlertTriangle,
-  CheckCheck, Printer, Eye, EyeOff, Loader2,
+  CheckCheck, Printer, Eye, EyeOff, Loader2, PencilLine,
 } from 'lucide-react'
 import './GmailPage.css'
+import './google-native.css'
 
 const FOLDER_TABS = [
   { id: 'inbox', name: 'Kotak Masuk' },
@@ -258,17 +259,14 @@ export default function GmailPage() {
     <div className="gmail-page">
       <div className="page-header">
         <div className="page-header-left">
-          <h1><Mail size={20} style={{ color: '#EA4335', verticalAlign: '-3px' }} /> Gmail</h1>
-          <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola email Google kamu'} â€" client pribadi di Luxio, bukan halaman resmi Google.</p>
+          <h1><Mail size={22} style={{ color: '#EA4335' }} /> Gmail</h1>
+          <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola email Google kamu'} — client pribadi di Luxio, bukan halaman resmi Google.</p>
         </div>
         <div className="page-header-right">
-          <button className="btn btn-secondary" onClick={() => loadMessages()} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'spin' : ''} /> Muat ulang
+          <button className="btn btn-secondary" onClick={() => loadMessages()} title="Muat ulang" disabled={loading}>
+            <RefreshCw size={16} className={loading ? 'spin' : ''} />
           </button>
-          <button className="btn btn-primary" onClick={() => setComposer({ mode: 'compose' })}>
-            <Send size={14} /> Tulis Email
-          </button>
-          <button className="btn btn-ghost" onClick={logout} title="Keluar dari Gmail"><LogOut size={14} /></button>
+          <button className="btn btn-ghost" onClick={logout} title="Keluar dari Gmail"><LogOut size={16} /></button>
         </div>
       </div>
 
@@ -400,6 +398,14 @@ export default function GmailPage() {
           )}
         </div>
       </div>
+
+      <button
+        className="g-fab"
+        onClick={() => setComposer({ mode: 'compose' })}
+        title="Tulis email baru"
+      >
+        <PencilLine size={20} /> Tulis
+      </button>
 
       {composer && (
         <Composer

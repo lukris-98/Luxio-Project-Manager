@@ -1,0 +1,438 @@
+/* =====================================================================
+   google-native.css — Design system "native Google" (Material 3).
+   =====================================================================
+   Membuat halaman layanan Google (Gmail, Drive, Calendar, Blogger,
+   YouTube) terasa seperti aplikasi resmi Google:
+   - Palet warna & tipografi Material 3 (Roboto, #0B57D0, #C2E7FF, dsb)
+   - Override CSS variables per-root-class, sehingga seluruh komponen
+     (btn, panel, row, stat) otomatis ikut tanpa menyentuh halaman lain
+   - Tombol pill, chip filter, search pill, kartu putih radius besar
+   - FAB (floating action button) ala Google
+   File ini di-import SETELAH CSS masing-masing halaman agar menang.
+   ===================================================================== */
+
+/* ---------- Gmail / Drive / Calendar / Blogger: tema terang Google ---------- */
+
+.gmail-page,
+.drive-page,
+.gcal-page,
+.blogger-page {
+  --bg-primary: #f8fafd;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f4f9;
+  --border: #e1e3e1;
+  --border-strong: #c4c7c5;
+  --text-primary: #1f1f1f;
+  --text-muted: #444746;
+  --accent: #0b57d0;
+  --accent-muted: rgba(11, 87, 208, 0.14);
+  color: var(--text-primary);
+}
+
+/* ---------- YouTube: tema gelap native ---------- */
+
+.youtube-page {
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1f1f1f;
+  --bg-tertiary: #272727;
+  --border: #3f3f3f;
+  --text-primary: #f1f1f1;
+  --text-muted: #aaaaaa;
+  --accent: #3ea6ff;
+  --accent-muted: rgba(62, 166, 255, 0.16);
+}
+
+/* ---------- App bar (header halaman) ---------- */
+
+.gmail-page .page-header,
+.drive-page .page-header,
+.gcal-page .page-header,
+.blogger-page .page-header,
+.youtube-page .page-header {
+  background: transparent;
+  border: none;
+  padding: 4px 0 0;
+  margin-bottom: 4px;
+  min-height: 56px;
+}
+
+.gmail-page .page-header h1,
+.drive-page .page-header h1,
+.gcal-page .page-header h1,
+.blogger-page .page-header h1,
+.youtube-page .page-header h1 {
+  font-family: 'Roboto', var(--font-body, sans-serif);
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gmail-page .page-header p,
+.drive-page .page-header p,
+.gcal-page .page-header p,
+.blogger-page .page-header p,
+.youtube-page .page-header p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Tombol ikon bulat ala Google */
+.gmail-page .page-header-right .btn,
+.drive-page .page-header-right .btn,
+.gcal-page .page-header-right .btn,
+.blogger-page .page-header-right .btn,
+.youtube-page .page-header-right .btn {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+  font-size: 0;
+}
+
+/* ---------- Tombol Material ---------- */
+
+.gmail-page .btn,
+.drive-page .btn,
+.gcal-page .btn,
+.blogger-page .btn,
+.youtube-page .btn {
+  border-radius: 100px;
+  min-height: 40px;
+  padding: 0 18px;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: 0.1px;
+  border: none;
+}
+
+.gmail-page .btn.btn-primary,
+.drive-page .btn.btn-primary,
+.gcal-page .btn.btn-primary,
+.blogger-page .btn.btn-primary,
+.youtube-page .btn.btn-primary {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.gmail-page .btn.btn-primary:hover,
+.drive-page .btn.btn-primary:hover,
+.gcal-page .btn.btn-primary:hover,
+.blogger-page .btn.btn-primary:hover,
+.youtube-page .btn.btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, #000000);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.gmail-page .btn.btn-secondary,
+.drive-page .btn.btn-secondary,
+.gcal-page .btn.btn-secondary,
+.blogger-page .btn.btn-secondary,
+.youtube-page .btn.btn-secondary {
+  background: transparent;
+  border: 1px solid #747775;
+  color: var(--accent);
+}
+
+.gmail-page .btn.btn-secondary:hover,
+.drive-page .btn.btn-secondary:hover,
+.gcal-page .btn.btn-secondary:hover,
+.blogger-page .btn.btn-secondary:hover,
+.youtube-page .btn.btn-secondary:hover {
+  background: var(--accent-muted);
+}
+
+.gmail-page .btn.btn-ghost,
+.drive-page .btn.btn-ghost,
+.gcal-page .btn.btn-ghost,
+.blogger-page .btn.btn-ghost,
+.youtube-page .btn.btn-ghost {
+  color: var(--text-muted);
+}
+
+.gmail-page .btn.btn-ghost:hover,
+.drive-page .btn.btn-ghost:hover,
+.gcal-page .btn.btn-ghost:hover,
+.blogger-page .btn.btn-ghost:hover,
+.youtube-page .btn.btn-ghost:hover {
+  color: var(--accent);
+  background: var(--bg-tertiary);
+}
+
+/* ---------- FAB ---------- */
+
+.g-fab {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 16px;
+  background: #c2e7ff;
+  color: #001d35;
+  font-family: 'Roboto', var(--font-body, sans-serif);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.12);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.g-fab:hover {
+  box-shadow: 0 2px 6px 2px rgba(0, 0, 0, 0.16), 0 1px 2px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.g-fab:active { transform: translateY(0); }
+
+@media (max-width: 900px) {
+  .g-fab { bottom: 88px; right: 18px; }
+}
+
+/* ---------- Search pill ---------- */
+
+.gmail-page .gmail-search,
+.blogger-page .blogger-search,
+.drive-page .gp-search,
+.gcal-page .gp-search,
+.youtube-page .gp-search {
+  max-width: 680px;
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 24px;
+  padding: 0 8px 0 18px;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gmail-page .gmail-search:focus-within,
+.blogger-page .blogger-search:focus-within,
+.drive-page .gp-search:focus-within,
+.gcal-page .gp-search:focus-within,
+.youtube-page .gp-search:focus-within {
+  background: var(--bg-secondary);
+  box-shadow: 0 1px 6px rgba(32, 33, 36, 0.28);
+}
+
+.gmail-page .gmail-search input,
+.blogger-page .blogger-search input,
+.drive-page .gp-search input,
+.gcal-page .gp-search input,
+.youtube-page .gp-search input {
+  background: transparent;
+  border: none;
+  height: 46px;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+}
+
+.gmail-page .gmail-search input:focus,
+.blogger-page .blogger-search input:focus,
+.drive-page .gp-search input:focus,
+.gcal-page .gp-search input:focus,
+.youtube-page .gp-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ---------- Tabs / chips ---------- */
+
+.gmail-page .gmail-tabs,
+.blogger-page .blogger-tabs,
+.drive-page .gp-tabs,
+.gcal-page .gp-tabs,
+.youtube-page .gp-tabs {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gmail-page .gmail-tab,
+.blogger-page .blogger-tabs button,
+.drive-page .gp-tab,
+.gcal-page .gp-tab,
+.youtube-page .gp-tab {
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  padding: 7px 14px;
+  min-height: 32px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.gmail-page .gmail-tab:hover,
+.blogger-page .blogger-tabs button:hover,
+.drive-page .gp-tab:hover,
+.gcal-page .gp-tab:hover,
+.youtube-page .gp-tab:hover {
+  background: var(--bg-tertiary);
+}
+
+.gmail-page .gmail-tab.active,
+.blogger-page .blogger-tabs button.active,
+.drive-page .gp-tab.active,
+.gcal-page .gp-tab.active,
+.youtube-page .gp-tab.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+/* ---------- Kartu & panel ---------- */
+
+.gmail-page .gmail-detail,
+.gmail-page .gmail-toolbar,
+.drive-page .gp-panel,
+.gcal-page .gp-panel,
+.blogger-page .blogger-status,
+.blogger-page .blogger-post-card,
+.drive-page .gp-stat,
+.gcal-page .gp-stat,
+.youtube-page .gp-stat {
+  border: none;
+  border-radius: 16px;
+  background: var(--bg-secondary);
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15), 0 1px 3px 1px rgba(60, 64, 67, 0.08);
+}
+
+/* ---------- Gmail: daftar email ---------- */
+
+.gmail-page .gmail-list {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.gmail-page .gmail-item {
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  padding: 12px 16px;
+}
+
+.gmail-page .gmail-item:hover { background: var(--bg-tertiary); }
+
+.gmail-page .gmail-item.unread {
+  background: #ebf1fb;
+  border-left: none;
+}
+
+.gmail-page .gmail-item.unread::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.gmail-page .gmail-item.unread .gmail-item-from,
+.gmail-page .gmail-item.unread .gmail-item-subject {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.gmail-page .gmail-star:hover { color: #f9ab00; }
+
+.gmail-page .gmail-thread-list {
+  overscroll-behavior: contain;
+}
+
+.gmail-page .gmail-msg-subject {
+  font-size: 1.125rem;
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+.gmail-page .gmail-msg-header { cursor: pointer; }
+
+.gmail-page .gmail-thread-actions button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.gmail-page .gmail-thread-actions button:hover {
+  background: var(--bg-tertiary);
+}
+
+/* ---------- Google Drive / Calendar / YouTube: baris & panel ---------- */
+
+.drive-page .gp-row,
+.gcal-page .gp-row,
+.youtube-page .gp-row {
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.drive-page .gp-row:hover,
+.gcal-page .gp-row:hover,
+.youtube-page .gp-row:hover {
+  background: var(--bg-tertiary);
+}
+
+/* ---------- Blogger: kartu post ---------- */
+
+.blogger-page .blogger-post-card {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.blogger-page .blogger-post-card:hover {
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.08);
+  transform: translateY(-1px);
+}
+
+/* ---------- YouTube: sentuhan ekstra ---------- */
+
+.youtube-page .gp-stat { background: #272727; }
+
+.youtube-page .gp-tab.active {
+  background: #f1f1f1;
+  color: #0f0f0f;
+}
+
+.youtube-page .gp-gate-card {
+  background: #272727;
+  border-color: #3f3f3f;
+}
+
+/* ---------- Scrollbar tipis ala Google ---------- */
+
+.gmail-page ::-webkit-scrollbar,
+.drive-page ::-webkit-scrollbar,
+.gcal-page ::-webkit-scrollbar,
+.blogger-page ::-webkit-scrollbar,
+.youtube-page ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gmail-page ::-webkit-scrollbar-thumb,
+.drive-page ::-webkit-scrollbar-thumb,
+.gcal-page ::-webkit-scrollbar-thumb,
+.blogger-page ::-webkit-scrollbar-thumb,
+.youtube-page ::-webkit-scrollbar-thumb {
+  background: #c4c7c5;
+  border-radius: 8px;
+}
+
+.youtube-page ::-webkit-scrollbar-thumb { background: #575757; }

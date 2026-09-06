@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays, RefreshCw, Plus, Trash2, ExternalLink, Users, Video,
   AlertTriangle, Loader2, LogOut, Repeat, Clock, X, Zap, CheckCircle2,
@@ -10,9 +10,10 @@ import {
   quickAddEvent, queryFreeBusy, buildWeeklyRule,
 } from '../services/gcalendarApi'
 import './GooglePages.css'
+import './google-native.css'
 
 // =====================================================================
-// GCalendarPage — Google Calendar API v3.
+// GCalendarPage â€” Google Calendar API v3.
 // =====================================================================
 // Halaman ini SENGAJA terpisah dari pages/Calendar.jsx (kalender internal
 // Luxio yang datanya lokal). Di sini semua data datang dari akun Google
@@ -41,7 +42,7 @@ const WEEKDAYS = [
 ]
 
 const fmtDateTime = (iso, allDay) => {
-  if (!iso) return '—'
+  if (!iso) return 'â€”'
   try {
     const d = new Date(iso)
     return allDay
@@ -52,7 +53,7 @@ const fmtDateTime = (iso, allDay) => {
 
 const dayKey = (iso) => {
   try { return new Date(iso).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }) }
-  catch { return '—' }
+  catch { return 'â€”' }
 }
 
 // Nilai untuk <input type="datetime-local"> (tanpa zona, waktu lokal).
@@ -252,27 +253,27 @@ export default function GCalendarPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>
-            <CalendarDays size={20} style={{ color: '#4285F4', verticalAlign: '-3px' }} /> Google Calendar
+            <CalendarDays size={22} style={{ color: '#4285F4' }} /> Google Calendar
           </h1>
           <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola acara Google Calendar'}</p>
         </div>
         <div className="page-header-right">
-          <button className="btn btn-secondary" onClick={loadEvents} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'gp-spin' : ''} /> Muat ulang
+          <button className="btn btn-secondary" onClick={loadEvents} title="Muat ulang" disabled={loading}>
+            <RefreshCw size={16} className={loading ? 'gp-spin' : ''} />
           </button>
-          <button className="btn btn-secondary" onClick={onCheckBusy}>
-            <Clock size={14} /> Cek sibuk
+          <button className="btn btn-secondary" onClick={onCheckBusy} title="Cek slot sibuk">
+            <Clock size={16} />
           </button>
           <button
-            className="btn btn-primary"
+            className="btn btn-secondary"
             onClick={() => setShowForm(true)}
             disabled={activeCalObj ? !activeCalObj.canWrite : false}
-            title={activeCalObj && !activeCalObj.canWrite ? 'Kalender ini hanya bisa dibaca' : undefined}
+            title={activeCalObj && !activeCalObj.canWrite ? 'Kalender ini hanya bisa dibaca' : 'Buat acara baru'}
           >
-            <Plus size={14} /> Acara
+            <Plus size={16} />
           </button>
           <button className="btn btn-ghost" onClick={auth.logout} title="Cabut akses Calendar">
-            <LogOut size={14} />
+            <LogOut size={16} />
           </button>
         </div>
       </div>
@@ -314,7 +315,7 @@ export default function GCalendarPage() {
           {calendars.length === 0 && <option value="primary">Kalender utama</option>}
           {calendars.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.summary}{c.primary ? ' (utama)' : ''}{c.canWrite ? '' : ' — baca saja'}
+              {c.summary}{c.primary ? ' (utama)' : ''}{c.canWrite ? '' : ' â€” baca saja'}
             </option>
           ))}
         </select>
@@ -402,8 +403,8 @@ export default function GCalendarPage() {
                     </div>
                     <div className="gp-row-sub">
                       {ev.allDay ? 'Sepanjang hari' : fmtDateTime(ev.start)}
-                      {ev.location ? ` · ${ev.location}` : ''}
-                      {ev.attendees.length ? ` · ${ev.attendees.length} peserta` : ''}
+                      {ev.location ? ` Â· ${ev.location}` : ''}
+                      {ev.attendees.length ? ` Â· ${ev.attendees.length} peserta` : ''}
                     </div>
                   </div>
                   <div className="gp-row-actions">
