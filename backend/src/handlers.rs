@@ -63,6 +63,49 @@ fn rate_limited(key: &str, max: u32, window_secs: i64) -> bool {
     }
 }
 
+// ---------- PIN CHALLENGE (alur login owner 2 langkah) ----------
+
+/// Challenge sekali-pakai yang dikeluarkan login stage-1 (password benar)
+/// dan wajib disertakan di /api/auth/verify-pin. Mencegah seseorang login
+/// sebagai owner hanya dengan menebak PIN 6 digit tanpa password.
+/// Key: challenge (UUID); Value: (email, kedaluwarsa).
+static PIN_CHALLENGES: Mutex<Option<HashMap<String, (String, chrono::DateTime<Utc>)>>> =
+    Mutex::new(None);
+
+const PIN_CHALLENGE_TTL_SECS: i64 = 600;
+
+/// Buat challenge baru untuk `email` (TTL 10 menit, sekali pakai).
+fn issue_pin_challenge(email: &str) -> String {
+    let challenge = Uuid::new_v4().to_string();
+    let now = Utc::now();
+    let mut guard = PIN_CHALLENGES.lock().unwrap_or_else(|e| e.into_inner());
+    if guard.is_none() {
+        *guard = Some(HashMap::new());
+    }
+    let map = guard.as_mut().unwrap();
+    map.retain(|_, (_, exp)| *exp > now);
+    map.insert(challenge.clone(), (email.trim().to_lowercase(), now + Duration::seconds(PIN_CHALLENGE_TTL_SECS)));
+    challenge
+}
+
+/// Validasi & konsumsi challenge untuk `email`. `false` bila tidak ada,
+/// kedaluwarsa, email tidak cocok, atau sudah pernah dipakai.
+fn consume_pin_challenge(challenge: &str, email: &str) -> bool {
+    let now = Utc::now();
+    let mut guard = PIN_CHALLENGES.lock().unwrap_or_else(|e| e.into_inner());
+    if guard.is_none() {
+        return false;
+    }
+    let map = guard.as_mut().unwrap();
+    match map.get(challenge) {
+        Some((em, exp)) if *exp > now && em == &email.trim().to_lowercase() => {
+            map.remove(challenge);
+            true
+        }
+        _ => false,
+    }
+}
+
 // ---------- VALIDASI INPUT ----------
 
 /// Validasi dasar email (format sederhana) + panjang.
@@ -321,7 +364,7 @@ pub async fn register(
             requires_confirmation: None,
             requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
         }));
     }
 
@@ -388,7 +431,7 @@ pub async fn register(
         requires_confirmation: Some(true),
         requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
     }))
 }
 
@@ -476,7 +519,7 @@ pub async fn verify_email(
         requires_confirmation: None,
         requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
     }))
 }
 
@@ -651,7 +694,7 @@ pub async fn login(
                 requires_confirmation: None,
                 requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
             }));
         }
     };
@@ -667,7 +710,7 @@ pub async fn login(
             requires_confirmation: None,
             requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
         }));
     }
 
@@ -684,7 +727,7 @@ pub async fn login(
             requires_confirmation: Some(true),
             requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
         }));
     }
 
@@ -705,6 +748,8 @@ pub async fn login(
         let pin_hash: String = row.get("pin_hash");
         let has_pin = !pin_hash.is_empty();
         let company_id: Option<String> = row.get("company_id");
+        // Challenge sekali-pakai untuk langkah verify-pin (bukti password sudah benar).
+        let pin_challenge = issue_pin_challenge(row.get::<_, String>("email"));
         return Ok(Json(AuthResponse {
             success: true,
             message: if has_pin { "Masukkan PIN akun".to_string() } else { "Atur PIN akun terlebih dahulu".to_string() },
@@ -726,6 +771,7 @@ pub async fn login(
             requires_2fa: None,
             requires_pin: Some(has_pin),
             requires_pin_setup: Some(!has_pin),
+            pin_challenge: Some(pin_challenge),
         }));
     }
 
@@ -806,7 +852,7 @@ pub async fn login(
         requires_confirmation: None,
         requires_2fa: Some(true),
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
     }))
 }
 
@@ -820,6 +866,26 @@ pub async fn verify_pin(
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }
 
+    // Challenge wajib: bukti password sudah diverifikasi di stage-1 login.
+    let challenge_ok = payload
+        .challenge
+        .as_deref()
+        .map(|c| consume_pin_challenge(c, &payload.email))
+        .unwrap_or(false);
+    if !challenge_ok {
+        return Ok(Json(AuthResponse {
+            success: false,
+            message: "Sesi verifikasi tidak valid. Silakan login ulang.".to_string(),
+            user: None,
+            token: None,
+            requires_confirmation: None,
+            requires_2fa: None,
+            requires_pin: None,
+            requires_pin_setup: None,
+            pin_challenge: None,
+        }));
+    }
+
     let pin = payload.pin.trim();
     // PIN 4-6 digit
     if pin.len() < 4 || pin.len() > 6 || !pin.chars().all(|c| c.is_ascii_digit()) {
@@ -831,7 +897,7 @@ pub async fn verify_pin(
             requires_confirmation: None,
             requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
         }));
     }
 
@@ -857,7 +923,7 @@ pub async fn verify_pin(
                 requires_confirmation: None,
                 requires_2fa: None,
                 requires_pin: None,
-                requires_pin_setup: None,
+                requires_pin_setup: None, pin_challenge: None,
             }))
         }
     };
@@ -892,7 +958,7 @@ pub async fn verify_pin(
             requires_confirmation: None,
             requires_2fa: None,
             requires_pin: Some(true),
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
         }));
     }
 
@@ -919,7 +985,7 @@ pub async fn verify_pin(
         requires_confirmation: None,
         requires_2fa: None,
         requires_pin: None,
-        requires_pin_setup: None,
+        requires_pin_setup: None, pin_challenge: None,
     }))
 }
 
@@ -996,7 +1062,7 @@ pub async fn verify_2fa(
                 requires_confirmation: None,
                 requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
             }))
         }
     };
@@ -1061,7 +1127,7 @@ pub async fn verify_2fa(
                 requires_confirmation: None,
                 requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
             }))
         }
         None => Ok(Json(AuthResponse {
@@ -1072,7 +1138,7 @@ pub async fn verify_2fa(
             requires_confirmation: None,
             requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
         })),
     }
 }
@@ -1112,7 +1178,7 @@ pub async fn google_auth(
             requires_confirmation: None,
             requires_2fa: None,
             requires_pin: None,
-            requires_pin_setup: None,
+            requires_pin_setup: None, pin_challenge: None,
         }));
     }
 
@@ -1220,7 +1286,7 @@ pub async fn google_auth(
         requires_confirmation: None,
         requires_2fa: None,
         requires_pin: None,
-        requires_pin_setup: None,
+        requires_pin_setup: None, pin_challenge: None,
     }))
 }
 

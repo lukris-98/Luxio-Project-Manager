@@ -158,10 +158,13 @@ pub struct Verify2FARequest {
 
 /// Body request untuk endpoint POST /api/auth/verify-pin — verifikasi PIN
 /// owner setelah login. Bila PIN belum ada, PIN akan disimpan & login langsung.
+/// `challenge` wajib: nilai rahasia dari respons login stage-1 (bukti bahwa
+/// password sudah diverifikasi), mencegah login owner hanya dengan PIN.
 #[derive(Debug, Deserialize)]
 pub struct VerifyPinRequest {
     pub email: String,
     pub pin: String,
+    pub challenge: Option<String>,
 }
 
 /// Body request untuk PUT /api/profile/pin — ganti PIN (butuh auth token).
@@ -219,6 +222,9 @@ pub struct AuthResponse {
     pub requires_pin: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requires_pin_setup: Option<bool>,
+    /// Challenge sekali-pakai (TTL 10 menit) untuk langkah verify-pin owner.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pin_challenge: Option<String>,
 }
 
 /// Bentuk user yang aman dikirim ke client (tanpa password_hash).

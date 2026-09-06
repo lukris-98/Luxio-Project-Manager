@@ -196,9 +196,9 @@ export const api = {
   // Verifikasi kode 2FA setelah login tahap 1.
   verify2FA: (email, code) =>
     post('/api/auth/2fa/verify', { email, code }),
-  // Verifikasi / set PIN (khusus owner, gantikan 2FA).
-  verifyPin: (email, pin) =>
-    post('/api/auth/verify-pin', { email, pin }),
+  // Verifikasi / set PIN (khusus owner, gantikan 2FA). Challenge dari login tahap 1.
+  verifyPin: (email, pin, challenge) =>
+    post('/api/auth/verify-pin', { email, pin, challenge }),
   // Ganti PIN (butuh token, khusus owner).
   setPin: (pin) =>
     put('/api/profile/pin', { pin }),

@@ -32,6 +32,7 @@ export default function Auth() {
   const [otpEmail, setOtpEmail] = useState('')
   const [pin, setPin] = useState('')
   const [pinMode, setPinMode] = useState('verify') // 'verify' | 'setup'
+  const [pinChallenge, setPinChallenge] = useState(null)
 
   // Auto-submit OTP saat 6 digit terisi semua
   useEffect(() => {
@@ -171,6 +172,7 @@ if (result.success) {
         } else if (result.success && result.requiresPin !== undefined) {
           // Owner: login pakai PIN, bukan 2FA email.
           setOtpEmail(form.email)
+          setPinChallenge(result.pinChallenge || null)
           setPinMode(result.requiresPinSetup ? 'setup' : 'verify')
           setStage('pin')
         } else if (result.success) {
@@ -277,7 +279,7 @@ if (result.success) {
     }
     setLoading(true)
     setError('')
-    const result = await verifyPin(otpEmail, pin)
+    const result = await verifyPin(otpEmail, pin, pinChallenge)
     if (result.success) {
       setAppState('app')
     } else {

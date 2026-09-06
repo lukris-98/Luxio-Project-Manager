@@ -1018,11 +1018,12 @@ export const useStore = create(
         return { success: true, requires2FA: true, message: res.message }
       }
       if (res.requires_pin !== undefined || res.requires_pin_setup !== undefined) {
-        // Owner: lanjut verifikasi PIN.
+        // Owner: lanjut verifikasi PIN. Simpan challenge untuk verifyPin.
         return {
           success: true,
           requiresPin: Boolean(res.requires_pin),
           requiresPinSetup: Boolean(res.requires_pin_setup),
+          pinChallenge: res.pin_challenge || null,
           message: res.message,
         }
       }
@@ -1067,9 +1068,9 @@ export const useStore = create(
    * Verifikasi PIN owner (gantikan 2FA email untuk owner).
    * Bila PIN belum ada, PIN disimpan & langsung login.
    */
-  verifyPin: async (email, pin) => {
+  verifyPin: async (email, pin, challenge) => {
     try {
-      const res = await api.verifyPin(email, pin)
+      const res = await api.verifyPin(email, pin, challenge)
       if (!res.success) throw new Error(res.message)
       setToken(res.token)
       set({
