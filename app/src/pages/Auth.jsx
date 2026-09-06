@@ -583,7 +583,7 @@ if (result.success) {
               <p className="auth-subtitle">
                 {pinMode === 'setup'
                   ? 'Buat PIN 4-6 digit untuk melindungi akun owner. PIN ini menggantikan kode email saat login.'
-                  : `Masukkan PIN akun kamu untuk melanjutkan ke <strong>${otpEmail}</strong>.`}
+                  : <>Masukkan PIN akun kamu untuk melanjutkan ke <strong>{otpEmail}</strong>.</>}
               </p>
 
               {error && <div className="auth-error">{error}</div>}
