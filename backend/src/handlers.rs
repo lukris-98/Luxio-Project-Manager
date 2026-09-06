@@ -749,13 +749,14 @@ pub async fn login(
         let has_pin = !pin_hash.is_empty();
         let company_id: Option<String> = row.get("company_id");
         // Challenge sekali-pakai untuk langkah verify-pin (bukti password sudah benar).
-        let pin_challenge = issue_pin_challenge(&row.get::<_, String>("email"));
+        let owner_email_db: String = row.get("email");
+        let pin_challenge = issue_pin_challenge(&owner_email_db);
         return Ok(Json(AuthResponse {
             success: true,
             message: if has_pin { "Masukkan PIN akun".to_string() } else { "Atur PIN akun terlebih dahulu".to_string() },
             user: Some(UserResponse {
                 id: user_id,
-                email: row.get("email"),
+                email: owner_email_db,
                 name: row.get("name"),
                 company_id,
                 role: owner_role,
