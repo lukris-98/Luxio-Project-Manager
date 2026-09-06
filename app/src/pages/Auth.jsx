@@ -111,8 +111,7 @@ if (result.success) {
       })
     }
 
-    const handleCredential = async (response) => {
-      const result = await googleLogin(response.credential)
+    const finish = async (result) => {
       if (result.success) {
         setAppState('app')
       } else if (result.requiresPin !== undefined) {
@@ -128,12 +127,57 @@ if (result.success) {
       }
     }
 
+    // Jalur 1: One Tap / FedCM prompt (id_token).
+    // Jalur 2 (fallback): popup OAuth token client → access token "ya29.",
+    // dipakai bila One Tap tidak muncul (common di Chrome dengan FedCM).
     window.google?.accounts?.id?.initialize({
       client_id: GOOGLE_CLIENT_ID,
-      callback: handleCredential,
+      callback: async (response) => {
+        const result = await googleLogin(response.credential)
+        await finish(result)
+      },
       cancel_on_tap_outside: false,
     })
-    window.google?.accounts?.id?.prompt()
+    try {
+      window.google?.accounts?.id?.prompt((n) => {
+        // skipped/not_displayed → coba jalur popup token client.
+        if (n && ['skipped', 'opt_out', 'suppressed_by_user'].includes(n.getNotDisplayedReason?.() || '')) {
+          fallbackTokenClient()
+        }
+      })
+      // Kalau setelah 2.5 detik tidak ada prompt juga → fallback.
+      setTimeout(() => fallbackTokenClient(), 2500)
+    } catch {
+      fallbackTokenClient()
+    }
+
+    function fallbackTokenClient() {
+      if (fallbackTokenClient._done) return
+      fallbackTokenClient._done = true
+      try {
+        const tc = window.google?.accounts?.oauth2?.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'openid email profile',
+          callback: async (resp) => {
+            if (resp?.error) {
+              setError('Login Google dibatalkan.')
+              setLoading(false)
+              return
+            }
+            const result = await googleLogin(resp.access_token)
+            await finish(result)
+          },
+          error_callback: () => {
+            setError('Login Google dibatalkan.')
+            setLoading(false)
+          },
+        })
+        tc?.requestAccessToken()
+      } catch {
+        setError('Gagal memulai login Google. Coba lagi.')
+        setLoading(false)
+      }
+    }
   }, [googleLogin, setAppState])
 
   const handleSubmit = async (e) => {

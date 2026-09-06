@@ -10,6 +10,9 @@ backend/target/
 .env
 .env.*
 !.env.example
+client_secret_*.json
+*.pem
+*.key
 
 # Editor / OS
 .vscode/

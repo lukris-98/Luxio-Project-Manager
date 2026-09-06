@@ -1167,11 +1167,17 @@ pub async fn google_auth(
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }
 
-    // Validasi token: coba Google tokeninfo dulu; bila gagal (mis. token
-    // dari Firebase Auth signInWithPopup), coba lookup Firebase.
-    let validated = match validate_google_token(token).await? {
-        info if info.error.is_empty() && !info.email.trim().is_empty() => Some(info),
-        _ => validate_firebase_token(token).await?,
+    // Validasi token, tiga jalur:
+    //   1. ID token Google (JWT, GIS One-Tap / firebase popup)  → tokeninfo
+    //   2. Access token Google (berawalan "ya29.")              → userinfo
+    //   3. ID token Firebase Auth                                → lookup
+    let validated = if token.starts_with("ya29.") {
+        validate_google_access_token(token).await?
+    } else {
+        match validate_google_token(token).await? {
+            info if info.error.is_empty() && !info.email.trim().is_empty() => Some(info),
+            _ => validate_firebase_token(token).await?,
+        }
     };
     let info = match validated {
         Some(i) => i,
@@ -1407,6 +1413,66 @@ async fn validate_google_token(token: &str) -> Result<GoogleTokenInfo, StatusCod
     }
 
     Ok(info)
+}
+
+/// Validasi access token Google (berawalan "ya29.", hasil GIS token client)
+/// via endpoint userinfo. Mengembalikan None bila token tidak valid.
+async fn validate_google_access_token(token: &str) -> Result<Option<GoogleTokenInfo>, StatusCode> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("https://www.googleapis.com/oauth2/v3/userinfo")
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[GOOGLE] userinfo request gagal: {}", e);
+            StatusCode::BAD_GATEWAY
+        })?;
+
+    if !resp.status().is_success() {
+        return Ok(None);
+    }
+    let body: Value = match resp.json().await {
+        Ok(v) => v,
+        Err(_) => return Ok(None),
+    };
+    let email = body
+        .get("email")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if email.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(GoogleTokenInfo {
+        aud: body
+            .get("aud")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        sub: body
+            .get("sub")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        email,
+        email_verified: body
+            .get("email_verified")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        name: body
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        picture: body
+            .get("picture")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        error: String::new(),
+        error_description: String::new(),
+    }))
 }
 
 /// Validasi ID token Firebase Auth (hasil signInWithPopup Google di
