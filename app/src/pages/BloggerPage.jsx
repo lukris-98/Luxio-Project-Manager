@@ -219,7 +219,7 @@ export default function BloggerPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1><Rss size={20} style={{ color: '#FF8000', verticalAlign: '-3px' }} /> Blogger</h1>
-          <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola blog kamu'}{activeBlog ? ` — ${activeBlog.name}` : ''}</p>
+          <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola blog kamu'}{activeBlog ? ` — ${activeBlog.name}` : ''} — client pribadi di Luxio, bukan halaman resmi Google.</p>
         </div>
         <div className="page-header-right">
           {activeBlog && (

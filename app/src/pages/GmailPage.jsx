@@ -191,7 +191,7 @@ export default function GmailPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1><Mail size={20} style={{ color: '#EA4335', verticalAlign: '-3px' }} /> Gmail</h1>
-          <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola email Google kamu'}</p>
+          <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola email Google kamu'} â€" client pribadi di Luxio, bukan halaman resmi Google.</p>
         </div>
         <div className="page-header-right">
           <button className="btn btn-secondary" onClick={() => loadMessages()} disabled={loading}>
@@ -371,6 +371,7 @@ function LoginGate({ error, onLogin, busy }) {
         </button>
         <small className="gmail-login-note">
           Autentikasi resmi via Google (OAuth 2.0). Token disimpan hanya di browser kamu.
+          Ini client email pribadi di dalam aplikasi Luxio — bukan halaman resmi Google.
         </small>
       </div>
     </div>
