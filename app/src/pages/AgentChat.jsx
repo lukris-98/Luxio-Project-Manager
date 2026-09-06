@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../services/api'
 import { useStore } from '../store/useStore'
+import { sendMessage as gmailSendMessage } from '../services/gmailApi'
+import { createPost as bloggerCreatePost, listBlogs as bloggerListBlogs } from '../services/bloggerApi'
+import { GOOGLE_SCOPES, requestGoogleToken } from '../services/googleAuth'
 import {
   loadAiConfig, saveAiConfig, DEFAULT_AI_CONFIG, normalizeBaseUrl, fetchModelsDirect, modelKeyFor, callAIChat,
 } from '../utils/aiConfig'
@@ -108,8 +111,8 @@ FORMAT: Balas HANYA satu JSON valid (tanpa teks lain, tanpa markdown):
 {"mode":"plan","summary":"ringkasan satu kalimat","plan":[{"id":1,"title":"judul tugas singkat","detail":"apa yang dikerjakan"}]}
 - Maksimal 8 item, urut logis, spesifik.
 
-=== 3) MODE ACTION — HANYA bila user meminta membuat/mengubah/menghapus data di APLIKASI ===
-Pemicu: user menyebut buat/ubah/hapus/buka "project", "kanban", "todolist/task", "catatan", "brankas", atau minta navigasi halaman.
+=== 3) MODE ACTION — HANYA bila user meminta membuat/mengubah/menghapus data di APLIKASI, mengirim email, atau membuat post Blogger ===
+Pemicu: user menyebut buat/ubah/hapus/buka "project", "kanban", "todolist/task", "catatan", "brankas", navigasi halaman, "kirim email ke ...", atau "buat post/blog ...".
 FORMAT: Balas HANYA satu JSON valid:
 {"mode":"action","summary":"ringkasan yang akan dikerjakan","actions":[
   {"type":"create_project","name":"...","description":"...","viewType":"kanban"|"todo","priority":"low|medium|high"},
@@ -118,11 +121,16 @@ FORMAT: Balas HANYA satu JSON valid:
   {"type":"add_kanban_task","boardRef":"...","column":"To Do","title":"..."},
   {"type":"delete_project","projectRef":"..."},
   {"type":"delete_kanban","boardRef":"..."},
+  {"type":"send_email","to":"penerima@domain.com","subject":"...","body":"isi email lengkap"},
+  {"type":"create_blogger_post","title":"...","content":"<p>isi HTML</p>","labels":["tag"],"isDraft":true},
   {"type":"navigate","page":"project-detail|kanban|todo-list|private-note|vault","projectRef":"..."},
   {"type":"notify","title":"...","body":"..."}
 ]}
 - "projectRef": "__NEW__" = project baru dalam daftar action yang sama.
 - Untuk "buat project + kanban + todolist": susun berurutan create_project → create_kanban → add_todo/add_kanban_task.
+- send_email: minta konfirmasi alamat penerima bila tidak disebut eksplisit; isi body mengalir dan profesional.
+- create_blogger_post: content berupa HTML lengkap (h2, p, ul); isDraft true kecuali user minta langsung publish.
+- Jika user meminta kirim email/post BLOK email/post panjang, tulis kontennya SENDIRI berdasarkan konteks (jangan minta user menulis ulang).
 - Isi kolom/task dengan langkah nyata menuju tujuan user (riset singkat dalam pikiranmu).
 - Jangan menciptakan data palsu.
 
@@ -653,6 +661,28 @@ export default function AgentChat() {
           navigate = { page: a.page || '', projectId: idRefs[a.projectRef] || lastProjectId, boardId: idRefs[a.boardRef] || lastBoardId }
         } else if (a.type === 'notify') {
           addNotification({ title: a.title || 'Notifikasi AI', body: a.body || '', type: 'ai', page: '', params: {} })
+        } else if (a.type === 'send_email') {
+          // Kirim email lewat integrasi Gmail user (token dari consent Gmail).
+          await requestGoogleToken({ scopes: [...GOOGLE_SCOPES.GMAIL, ...GOOGLE_SCOPES.PROFILE] })
+          await gmailSendMessage({
+            to: String(a.to || ''),
+            subject: String(a.subject || '(tanpa subjek)'),
+            body: String(a.body || ''),
+          })
+          done.push(`Email "${a.subject || '(tanpa subjek)'}" dikirim ke ${a.to}`)
+        } else if (a.type === 'create_blogger_post') {
+          // Buat post Blogger di blog pertama milik user (atau blogId eksplisit).
+          await requestGoogleToken({ scopes: [...GOOGLE_SCOPES.BLOGGER, ...GOOGLE_SCOPES.PROFILE] })
+          const blogs = await bloggerListBlogs()
+          const blog = blogs.find((b) => a.blogId && String(b.id) === String(a.blogId)) || blogs[0]
+          if (!blog) throw new Error('Tidak ada blog Blogger yang terhubung')
+          const post = await bloggerCreatePost(blog.id, {
+            title: String(a.title || 'Post Baru'),
+            content: String(a.content || ''),
+            labels: Array.isArray(a.labels) ? a.labels.map(String).filter(Boolean) : [],
+            isDraft: a.isDraft !== false,
+          })
+          done.push(`Post Blogger "${post.title || a.title}" dibuat (${a.isDraft === false ? 'publish' : 'draft'}) di blog "${blog.name}"`)
         } else {
           done.push(`Aksi "${a.type}" tidak dikenal (diabaikan)`)
         }

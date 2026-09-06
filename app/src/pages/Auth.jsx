@@ -112,9 +112,17 @@ if (result.success) {
     }
 
     const handleCredential = async (response) => {
-      setLoading(true)
       const result = await googleLogin(response.credential)
-      if (!result.success) {
+      if (result.success) {
+        setAppState('app')
+      } else if (result.requiresPin !== undefined) {
+        // OWNER: alur Google tetap wajib PIN (2FA email dilewati).
+        setOtpEmail(result.email || '')
+        setPinChallenge(result.pinChallenge || null)
+        setPinMode(result.requiresPinSetup ? 'setup' : 'verify')
+        setStage('pin')
+        setLoading(false)
+      } else {
         setError(result.message || 'Gagal login dengan Google.')
         setLoading(false)
       }
@@ -126,7 +134,7 @@ if (result.success) {
       cancel_on_tap_outside: false,
     })
     window.google?.accounts?.id?.prompt()
-  }, [googleLogin])
+  }, [googleLogin, setAppState])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

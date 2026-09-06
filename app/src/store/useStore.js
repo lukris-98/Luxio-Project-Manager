@@ -1173,12 +1173,23 @@ export const useStore = create(
 
   /**
    * Login/daftar via Google (token id_token dari Google Identity Services).
-   * Berhasil => sesi langsung dibuat seperti verify2FA (tanpa 2FA/PIN).
+   * Sukses langsung (user biasa) ATAU owner => requiresPin + pinChallenge
+   * (owner tetap wajib PIN; 2FA email dilewati).
    */
   googleLogin: async (token) => {
     try {
       const res = await api.googleLogin(token)
-      if (!res.success) throw new Error(res.message)
+      if (!res.success && res.requires_pin === undefined) throw new Error(res.message)
+      if (res.requires_pin || res.requires_pin_setup) {
+        return {
+          success: false,
+          requiresPin: Boolean(res.requires_pin),
+          requiresPinSetup: Boolean(res.requires_pin_setup),
+          pinChallenge: res.pin_challenge || null,
+          email: res.user?.email || '',
+          message: res.message,
+        }
+      }
       setToken(res.token)
       const isOwner = res.user.role === 'owner'
       set({

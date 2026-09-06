@@ -1167,8 +1167,27 @@ pub async fn google_auth(
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }
 
-    // Validasi token ke Google tokeninfo.
-    let info = validate_google_token(token).await?;
+    // Validasi token: coba Google tokeninfo dulu; bila gagal (mis. token
+    // dari Firebase Auth signInWithPopup), coba lookup Firebase.
+    let validated = match validate_google_token(token).await? {
+        info if info.error.is_empty() && !info.email.trim().is_empty() => Some(info),
+        _ => validate_firebase_token(token).await?,
+    };
+    let info = match validated {
+        Some(i) => i,
+        None => {
+            return Ok(Json(AuthResponse {
+                success: false,
+                message: "Token Google tidak valid atau email belum diverifikasi.".to_string(),
+                user: None,
+                token: None,
+                requires_confirmation: None,
+                requires_2fa: None,
+                requires_pin: None,
+                requires_pin_setup: None, pin_challenge: None,
+            }))
+        }
+    };
     let email = info.email.trim().to_lowercase();
     if email.is_empty() || !info.email_verified || !info.error.is_empty() {
         return Ok(Json(AuthResponse {
@@ -1208,6 +1227,46 @@ pub async fn google_auth(
             company_id = row.get("company_id");
             role = row.get("role");
             plan = row.get("plan");
+
+            // OWNER melalui Google tetap WAJIB PIN (konsisten dengan alur
+            // login password: 2FA email dilewati, PIN menggantikannya).
+            if role == "owner" {
+                let pin_hash: String = sqlx::query("SELECT pin_hash FROM users WHERE id = $1")
+                    .bind(&user_id)
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("[DB ERROR] {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .get("pin_hash");
+                let has_pin = !pin_hash.is_empty();
+                let pin_challenge = issue_pin_challenge(&email);
+                return Ok(Json(AuthResponse {
+                    success: true,
+                    message: if has_pin { "Masukkan PIN akun".to_string() } else { "Atur PIN akun terlebih dahulu".to_string() },
+                    user: Some(UserResponse {
+                        id: user_id,
+                        email,
+                        name,
+                        company_id,
+                        role,
+                        plan,
+                        email_verified: Some(true),
+                        ai_provider: None,
+                        ai_base_url: None,
+                        ai_model: None,
+                        ai_enabled: None,
+                    }),
+                    token: None,
+                    requires_confirmation: None,
+                    requires_2fa: None,
+                    requires_pin: Some(has_pin),
+                    requires_pin_setup: Some(!has_pin),
+                    pin_challenge: Some(pin_challenge),
+                }));
+            }
+
             // Tautkan google_id bila belum ada.
             let google_id: Option<String> = sqlx::query("SELECT google_id FROM users WHERE id = $1")
                 .bind(&user_id)
@@ -1305,13 +1364,18 @@ async fn validate_google_token(token: &str) -> Result<GoogleTokenInfo, StatusCod
         })?;
 
     let status = resp.status();
-    let info: GoogleTokenInfo = resp
-        .json()
-        .await
-        .map_err(|e| {
-            eprintln!("[GOOGLE] tokeninfo parse gagal: {}", e);
-            StatusCode::BAD_GATEWAY
-        })?;
+    // Token invalid bisa berupa JSON error ATAU body non-JSON — parse
+    // longgar; kegagalan parse dianggap token tidak valid (bukan server error).
+    let info: GoogleTokenInfo = resp.json().await.unwrap_or(GoogleTokenInfo {
+        aud: String::new(),
+        sub: String::new(),
+        email: String::new(),
+        email_verified: false,
+        name: String::new(),
+        picture: String::new(),
+        error: if status.is_success() { String::new() } else { "invalid_token".to_string() },
+        error_description: format!("tokeninfo status {}", status.as_u16()),
+    });
 
     if !status.is_success() || !info.error.is_empty() {
         return Ok(GoogleTokenInfo {
@@ -1321,7 +1385,7 @@ async fn validate_google_token(token: &str) -> Result<GoogleTokenInfo, StatusCod
             email_verified: false,
             name: String::new(),
             picture: String::new(),
-            error: info.error,
+            error: if info.error.is_empty() { "invalid_token".to_string() } else { info.error },
             error_description: info.error_description,
         });
     }
@@ -1343,6 +1407,79 @@ async fn validate_google_token(token: &str) -> Result<GoogleTokenInfo, StatusCod
     }
 
     Ok(info)
+}
+
+/// Validasi ID token Firebase Auth (hasil signInWithPopup Google di
+/// frontend) via Identity Toolkit REST — membutuhkan env
+/// `FIREBASE_WEB_API_KEY` (Web API key project Firebase luxio-id).
+/// Mengembalikan None bila env tidak diset atau token tidak valid.
+async fn validate_firebase_token(token: &str) -> Result<Option<GoogleTokenInfo>, StatusCode> {
+    let api_key = match std::env::var("FIREBASE_WEB_API_KEY") {
+        Ok(k) if !k.is_empty() => k,
+        _ => return Ok(None),
+    };
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(&format!(
+            "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={}",
+            api_key
+        ))
+        .json(&serde_json::json!({ "idToken": token }))
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[FIREBASE] accounts:lookup gagal: {}", e);
+            StatusCode::BAD_GATEWAY
+        })?;
+
+    if !resp.status().is_success() {
+        // Token Firebase invalid/expired — bukan error server; kembalikan
+        // None agar caller menolak token dengan pesan yang rapi.
+        return Ok(None);
+    }
+    let body: Value = match resp.json().await {
+        Ok(v) => v,
+        Err(_) => return Ok(None),
+    };
+    let user = body
+        .get("users")
+        .and_then(|u| u.get(0))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let email = user
+        .get("email")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if email.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(GoogleTokenInfo {
+        aud: "firebase".to_string(),
+        sub: user
+            .get("localId")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        email,
+        email_verified: user
+            .get("emailVerified")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        name: user
+            .get("displayName")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        picture: user
+            .get("photoUrl")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        error: String::new(),
+        error_description: String::new(),
+    }))
 }
 
 /// POST /api/auth/logout — hapus sesi aktif (token di header).

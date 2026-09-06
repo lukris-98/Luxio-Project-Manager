@@ -1,6 +1,15 @@
 // =====================================================================
 // firebase.js — Firebase Analytics (project luxio-id).
 // =====================================================================
+// Config resmi dari Firebase Console (Project settings > Your apps):
+//   apiKey:            AIzaSyAtVPfadMgHbm0_CKTGwINUiYJJLl4RjBw
+//   authDomain:        luxio-id.firebaseapp.com
+//   projectId:         luxio-id
+//   storageBucket:     luxio-id.firebasestorage.app
+//   messagingSenderId: 293061249215
+//   appId:             1:293061249215:web:f1cbeb04ec5cb54ea61e0a
+//   measurementId:     G-X2V95T96YR
+// =====================================================================
 // Config web Firebase BUKAN rahasia (apiKey hanya identifier klien;
 // keamanan diatur lewat rules/kebijakan Firebase), jadi nilai default
 // di-hardcode di sini dan tetap bisa ditimpa lewat env VITE_FIREBASE_*.
