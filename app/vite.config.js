@@ -40,20 +40,5 @@ export default defineConfig({
   ],
   build: {
     chunkSizeWarningLimit: 700,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react-router') || id.includes('history') || id.includes('react')) return 'vendor-react'
-            if (id.includes('framer-motion') || id.includes('motion-dom')) return 'vendor-motion'
-            if (id.includes('lucide-react')) return 'vendor-icons'
-            if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf'
-            if (id.includes('zustand') || id.includes('use-sync-external-store')) return 'vendor-state'
-            if (id.includes('dompurify')) return 'vendor-util'
-            return 'vendor'
-          }
-        },
-      },
-    },
   },
 })
