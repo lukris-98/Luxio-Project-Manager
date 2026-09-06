@@ -451,15 +451,16 @@ const pricingPlans = [
               
               <motion.div className="footer-col" variants={revealItem}>
                 <h4>Perusahaan</h4>
-                <a href="#">Tentang Kami</a>
-                <a href="#">Karir</a>
-                <a href="#">Blog</a>
+                <a href="/tentang">Tentang Kami</a>
+                <a href="/syarat">Syarat &amp; Ketentuan</a>
+                <a href="#features">Fitur</a>
               </motion.div>
               
               <motion.div className="footer-col" variants={revealItem}>
                 <h4>Legal</h4>
-                <a href="/privasi" target="_blank" rel="noopener">Kebijakan Privasi</a>
-                <a href="/syarat" target="_blank" rel="noopener">Syarat &amp; Ketentuan</a>
+                <a href="/privasi">Kebijakan Privasi</a>
+                <a href="/syarat">Ketentuan Layanan</a>
+                <a href="/privasi#cookie">Cookie</a>
               </motion.div>
             </motion.div>
           </motion.div>
@@ -467,9 +468,10 @@ const pricingPlans = [
           <motion.div className="footer-bottom" variants={revealItem}>
             <p>&copy; 2026 Luxio. All rights reserved.</p>
             <div className="footer-bottom-links">
-              <a href="/privasi" target="_blank" rel="noopener">Privasi</a>
-              <a href="/syarat" target="_blank" rel="noopener">Ketentuan</a>
-              <a href="/privasi#cookie" target="_blank" rel="noopener">Cookie</a>
+              <a href="/privasi">Privasi</a>
+              <a href="/syarat">Ketentuan</a>
+              <a href="/privasi#cookie">Cookie</a>
+              <a href="/tentang">Tentang</a>
             </div>
           </motion.div>
         </motion.div>

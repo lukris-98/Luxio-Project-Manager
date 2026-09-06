@@ -1,12 +1,25 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- Hanya URL nyata (bukan hash-route) yang dicantumkan. Halaman
-       pricing/faq berada di belakang HashRouter (/#/pricing) sehingga
-       tidak bisa di-crawl sebagai URL terpisah. -->
+  <!-- BrowserRouter: semua route publik kini URL bersih & crawlable. -->
   <url>
     <loc>https://luxio.web.id/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://luxio.web.id/pricing</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://luxio.web.id/faq</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://luxio.web.id/tentang</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://luxio.web.id/privasi</loc>
