@@ -35,19 +35,21 @@ const GSI_SRC = 'https://accounts.google.com/gsi/client'
 // Scope OAuth per layanan. Prinsip: minta scope SEKECIL mungkin karena
 // verifikasi OAuth Google makin ketat untuk scope sensitif/restricted.
 export const GOOGLE_SCOPES = {
-  GMAIL: [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/gmail.compose',
-    'https://www.googleapis.com/auth/gmail.modify',
-    'https://www.googleapis.com/auth/gmail.labels',
-  ],
+  // Gmail: SATU scope saja — gmail.modify sudah mencakup read + send +
+  // compose + labels + trash (semua operasi yang dipakai GmailPage).
+  // Meminta 5 scope terpisah hanya memperberat review verifikasi Google.
+  // CATATAN: semua gmail.* adalah RESTRICTED scope (butuh verifikasi
+  // penuh + security assessment bila app publik >100 user).
+  GMAIL: ['https://www.googleapis.com/auth/gmail.modify'],
   BLOGGER: ['https://www.googleapis.com/auth/blogger'],
   // Drive: drive.file = hanya file yang dibuat/dipilih lewat aplikasi ini.
   // Sengaja BUKAN 'drive' atau 'drive.readonly' — keduanya restricted scope
   // yang mewajibkan security assessment (CASA) tahunan berbiaya.
   DRIVE: ['https://www.googleapis.com/auth/drive.file'],
-  // Calendar: cukup baca daftar kalender + kelola acara.
+  // Calendar: calendar.readonly HANYA untuk membaca daftar kalender.
+  // calendar.events (sensitive) sudah mencakup read + create + edit + delete
+  // acara — semua operasi GCalendarPage. Readonly bisa dihapus bila ingin
+  // memperkecil daftar scope di consent screen.
   CALENDAR: [
     'https://www.googleapis.com/auth/calendar.readonly',
     'https://www.googleapis.com/auth/calendar.events',
@@ -55,13 +57,16 @@ export const GOOGLE_SCOPES = {
   // YouTube Data API v3 — baca channel/video/playlist milik sendiri.
   YOUTUBE: ['https://www.googleapis.com/auth/youtube.readonly'],
   // Tambahan bila nanti perlu tulis (upload video, ubah playlist).
+  // JANGAN daftarkan di consent screen bila belum dipakai — youtube (tulis)
+  // adalah scope sensitive yang menambah beban verifikasi.
   YOUTUBE_MANAGE: [
     'https://www.googleapis.com/auth/youtube',
     'https://www.googleapis.com/auth/youtube.upload',
   ],
   // YouTube Analytics API v2 + YouTube Reporting API v1 memakai scope sama.
   YOUTUBE_ANALYTICS: ['https://www.googleapis.com/auth/yt-analytics.readonly'],
-  // Laporan pendapatan (butuh akun YouTube Partner).
+  // Laporan pendapatan (butuh akun YouTube Partner) — TIDAK dipakai halaman
+  // mana pun. Jangan diminta/didaftarkan sampai fiturnya benar-benar ada.
   YOUTUBE_ANALYTICS_MONETARY: [
     'https://www.googleapis.com/auth/yt-analytics-monetary.readonly',
   ],
