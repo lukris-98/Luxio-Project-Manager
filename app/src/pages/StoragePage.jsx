@@ -16,7 +16,7 @@ import {
   Database, KeyRound, LogOut, RefreshCw, Plus, Trash2, ExternalLink,
   HardDrive, Layers, Server, Boxes, Activity, Loader2, FolderOpen,
   UploadCloud, Download, ChevronDown, Play, PauseCircle, UserRound,
-  AlertTriangle,
+  AlertTriangle, ShieldCheck, ScrollText, Lock, Send,
 } from 'lucide-react'
 import {
   getNeonKey, setNeonKey, isNeonLoggedIn, neonFetch, ensureNeonAppSession,
