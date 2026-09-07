@@ -12,6 +12,8 @@ import App from './App'
 import './index.css'
 import './sanity.css'
 
+console.info('[Luxio] versi 1.1.0 · build ' + new Date().toISOString())
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>

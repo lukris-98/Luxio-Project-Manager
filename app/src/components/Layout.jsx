@@ -557,7 +557,7 @@ export default function Layout({ children }) {
         
         <div className="sidebar-footer">
           <div className="sidebar-bottom">
-            <span className="sidebar-version" title="Versi aplikasi">v1.0.5</span>
+            <span className="sidebar-version" title="Versi aplikasi">v1.1.0</span>
             <button
               className="sidebar-collapse-btn"
               onClick={() => setSidebarCollapsed((v) => !v)}
