@@ -26,12 +26,9 @@ import {
   BANG_MOTION_SYSTEM_PROMPT, buildMotionUserPrompt, extractHtml,
   saveMotionToB2, loadGallery, saveToGallery, removeFromGallery, fetchMotionHtml,
 } from '../services/bangMotionApi'
-import { b2EnsureAppSession, downloadFileViaProxy, B2_APP_CREDENTIALS } from '../services/b2Api'
+import { b2EnsureAppSession, downloadFileViaProxy } from '../services/b2Api'
 import { api } from '../services/api'
 import './BangMotion.css'
-
-// Kredensial aplikasi untuk render MP4 di backend (fallback config DB).
-const B2_APP_CREDS = B2_APP_CREDENTIALS
 
 const STYLE_OPTIONS = [
   { value: 'auto', label: 'Auto — ikut tema terbaik' },
@@ -188,7 +185,7 @@ export default function BangMotion() {
 
       // Status → simpan ke B2.
       setChats((prev) => prev.map((c) => (c.id === sid
-        ? { ...c, messages: c.messages.map((m) => (m.id === asstId ? { ...m, status: 'Menyimpan HTML ke Backblaze B2…' } : m)) }
+        ? { ...c, messages: c.messages.map((m) => (m.id === asstId ? { ...m, status: 'Menyimpan hasil ke awan…' } : m)) }
         : c)))
       const item = {
         id: `bm-${Date.now()}`,
@@ -218,7 +215,7 @@ export default function BangMotion() {
       setChats((prev) => prev.map((c) => (c.id === sid
         ? { ...c, messages: c.messages.map((m) => (m.id === asstId ? { ...m, item: { ...item, html }, b2Note } : m)) }
         : c)))
-      setToast?.({ title: 'Motion selesai', body: b2Note ? 'Tersimpan lokal (B2 gagal)' : 'Tersimpan ke Backblaze B2', type: 'create' })
+      setToast?.({ title: 'Motion selesai', body: b2Note ? 'Tersimpan lokal (awan gagal)' : 'Tersimpan ke awan', type: 'create' })
     } catch (err) {
       setChats((prev) => prev.map((c) => (c.id === sid
         ? { ...c, messages: c.messages.map((m) => (m.id === asstId ? { ...m, status: '', error: err.message } : m)) }
@@ -241,7 +238,6 @@ export default function BangMotion() {
         durationSec: msgItem.duration || 20,
         fps: 24, width: 1920, height: 1080,
         title: msgItem.title || 'bang-motion',
-        b2: B2_APP_CREDS,
       })
       const videoUrl = res.url || ''
       // Unduh via proxy (blob) supaya nama file rapi.
@@ -261,7 +257,7 @@ export default function BangMotion() {
           ? { ...m, item: { ...m.item, videoUrl, videoName: res.fileName, videoId: res.fileId } }
           : m)),
       })))
-      setToast?.({ title: 'Video MP4 siap', body: 'Tersimpan ke Backblaze B2 & terunduh.', type: 'create' })
+      setToast?.({ title: 'Video MP4 siap', body: 'Tersimpan ke awan & terunduh.', type: 'create' })
     } catch (err) {
       setError(`Render MP4 gagal: ${err.message}`)
     } finally {
@@ -345,14 +341,14 @@ export default function BangMotion() {
         <div className="bm-chat-head">
           <Film size={16} />
           <strong>{active?.title || 'Bang Motion'}</strong>
-          <small>motion graphics → HTML → B2 · prompt → Neon</small>
+          <small>motion graphics · tersimpan otomatis di awan</small>
         </div>
 
         <div className="bm-messages" ref={scrollRef}>
           {!active || active.messages.length === 0 ? (
             <div className="bm-hello">
               <Clapperboard size={40} />
-              <p>Halo! Tulis prompt di bawah — misal <strong>"opener 20 detik untuk aplikasi catatan Nota"</strong>. Hasil diputar di sini, tersimpan ke B2, dan prompt tercatat di Neon.</p>
+              <p>Halo! Tulis prompt di bawah — misal <strong>"opener 20 detik untuk aplikasi catatan Nota"</strong>. Hasil diputar di sini dan tersimpan otomatis ke awan.</p>
             </div>
           ) : active.messages.map((m) => (
             m.role === 'user' ? (
@@ -375,7 +371,7 @@ export default function BangMotion() {
                     />
                     <div className="bm-result-meta">
                       <strong>{m.item.title}</strong>
-                      <small>{m.item.provider} · {new Date(m.item.createdAt).toLocaleString('id-ID')}{m.b2Note ? ` · ⚠ B2: ${m.b2Note}` : ''}</small>
+                      <small>{m.item.provider} · {new Date(m.item.createdAt).toLocaleString('id-ID')}{m.b2Note ? ` · ⚠ Gagal simpan ke awan` : ''}</small>
                       <div className="bm-result-actions">
                         <button className="bm-use-btn" onClick={() => handleRenderMp4(m.item)} disabled={renderingId === m.item.id}>
                           {renderingId === m.item.id ? <Loader2 size={13} className="spin" /> : <Download size={13} />}

@@ -15,6 +15,93 @@ use crate::handlers::{require_auth, rate_limited, sha256, generate_otp};
 use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, IncentiveRequest, MailTestRequest, OwnerConfigRequest, SalaryQuery};
 
 // =====================================================================
+// KREDENSIAL APLIKASI (env Space) — TIDAK PERNAH dikirim ke frontend.
+// Set di Settings Space: NEON_API_KEY, B2_KEY_ID, B2_APP_KEY, HF_TOKEN.
+// Frontend memanggil dengan placeholder "APP_NEON"/"APP_B2" pada header
+// Authorization; proxy menggantinya dengan kredensial asli server-side.
+// =====================================================================
+
+fn app_neon_key() -> String {
+    std::env::var("NEON_API_KEY").unwrap_or_default()
+}
+
+struct AppB2Session {
+    api_url: String,
+    token: String,
+    account_id: String,
+    fetched_at: std::time::Instant,
+}
+
+static APP_B2_SESSION: std::sync::Mutex<Option<AppB2Session>> = std::sync::Mutex::new(None);
+
+/// Authorize B2 memakai kredensial aplikasi (env), cache ~20 jam.
+async fn app_b2_session() -> Result<(String, String, String), StatusCode> {
+    {
+        let guard = APP_B2_SESSION.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(s) = guard.as_ref() {
+            if s.fetched_at.elapsed() < std::time::Duration::from_secs(20 * 3600) {
+                return Ok((s.api_url.clone(), s.token.clone(), s.account_id.clone()));
+            }
+        }
+    }
+    let key_id = std::env::var("B2_KEY_ID").unwrap_or_default();
+    let app_key = std::env::var("B2_APP_KEY").unwrap_or_default();
+    if key_id.is_empty() || app_key.is_empty() {
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    }
+    let client = reqwest::Client::new();
+    let auth: Value = client
+        .get("https://api.backblazeb2.com/b2api/v2/b2_authorize_account")
+        .basic_auth(&key_id, Some(&app_key))
+        .send()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?
+        .json()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let api_url = auth.get("apiUrl").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let token = auth.get("authorizationToken").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let account_id = auth.get("accountId").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if api_url.is_empty() || token.is_empty() {
+        return Err(StatusCode::BAD_GATEWAY);
+    }
+    {
+        let mut guard = APP_B2_SESSION.lock().unwrap_or_else(|e| e.into_inner());
+        *guard = Some(AppB2Session {
+            api_url: api_url.clone(),
+            token: token.clone(),
+            account_id: account_id.clone(),
+            fetched_at: std::time::Instant::now(),
+        });
+    }
+    Ok((api_url, token, account_id))
+}
+
+/// GET /api/storage/app-session — info sesi aplikasi untuk frontend
+/// (TANPA kredensial apa pun; hanya metadata yang tidak sensitif).
+pub async fn storage_app_session(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let _user_id = require_auth(&state, &headers).await?;
+    let neon_ok = !app_neon_key().is_empty();
+    let (b2_ok, account_id, download_url) = match app_b2_session().await {
+        Ok((_, _, account)) => {
+            let dl = std::env::var("B2_DOWNLOAD_URL").unwrap_or_default();
+            (true, account, dl)
+        }
+        Err(_) => (false, String::new(), String::new()),
+    };
+    Ok(Json(json!({
+        "ok": true,
+        "neon": neon_ok,
+        "b2": b2_ok,
+        "account": account_id,
+        "downloadUrl": download_url,
+    })))
+}
+
+// =====================================================================
 // BANG MOTION — riwayat prompt/generasi (metadata di Neon, HTML di B2).
 // =====================================================================
 
@@ -184,35 +271,17 @@ pub async fn bang_motion_render(
     let size = mp4.len() as i64;
 
     // -- Upload MP4 ke B2 via b2 API (server-to-server) --
-    // Kredensial dari payload (frontend punya kredensial aplikasi) —
-    // fallback ke owner config (tabel owner_config, key 'backblaze').
-    let (key_id, app_key) = {
-        let b2 = payload.get("b2");
-        let kid = b2
-            .and_then(|b| b.get("key_id"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let akey = b2
-            .and_then(|b| b.get("application_key"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        if let (Some(k), Some(a)) = (kid, akey) {
-            if !k.trim().is_empty() && !a.trim().is_empty() {
-                (k, a)
-            } else {
-                let cfg = cfg_get_async(&state.db, "backblaze").await.unwrap_or_else(|| json!({}));
-                (
-                    cfg.get("key_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    cfg.get("application_key").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                )
-            }
-        } else {
-            let cfg = cfg_get_async(&state.db, "backblaze").await.unwrap_or_else(|| json!({}));
-            (
-                cfg.get("key_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                cfg.get("application_key").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            )
-        }
+    // Kredensial: env B2_KEY_ID/B2_APP_KEY (utama) → fallback owner config.
+    let env_kid = std::env::var("B2_KEY_ID").unwrap_or_default();
+    let env_akey = std::env::var("B2_APP_KEY").unwrap_or_default();
+    let (key_id, app_key) = if !env_kid.is_empty() && !env_akey.is_empty() {
+        (env_kid, env_akey)
+    } else {
+        let cfg = cfg_get_async(&state.db, "backblaze").await.unwrap_or_else(|| json!({}));
+        (
+            cfg.get("key_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            cfg.get("application_key").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        )
     };
     if key_id.is_empty() || app_key.is_empty() {
         return Err((StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "error": "Kredensial B2 belum diatur." }))));
@@ -363,7 +432,8 @@ pub async fn storage_2fa_send(
     if !crate::mail::is_configured() {
         tracing::warn!(event = "storage_2fa_dev", code = %code, "SMTP belum dikonfigurasi — kode storage 2FA: {}", code);
     }
-    Ok(Json(json!({ "ok": true, "sent": sent, "email": email })))
+    // Email tujuan TIDAK dikirim balik ke client (informasi sensitif).
+    Ok(Json(json!({ "ok": true, "sent": sent })))
 }
 
 /// POST /api/storage/2fa/verify — verifikasi kode, terima token sesi storage.
@@ -795,7 +865,8 @@ pub async fn b2_status(
 ///   1. Wajib sesi login Luxio (require_auth).
 ///   2. Allowlist host ketat: hanya domain API Neon & Backblaze B2.
 ///   3. Rate limit per user (90 request / 10 detik).
-///   4. Hanya meneruskan kredensial milik user itu sendiri (API key resmi).
+///   4. Kredensial aplikasi TIDAK dikirim dari frontend — header
+///      Authorization: Bearer APP_NEON / Basic APP_B2 diganti server-side.
 ///
 /// Body : { url, method?, headers?, bodyBase64? }
 /// Hasil: { status, contentType, bodyBase64 }
@@ -862,6 +933,22 @@ pub async fn storage_proxy(
                 continue;
             }
             if let Some(sv) = v.as_str() {
+                // Placeholder kredensial aplikasi diganti server-side:
+                //   Authorization: Bearer APP_NEON → Bearer {NEON_API_KEY}
+                //   Authorization: Basic APP_B2  → Bearer {token sesi B2}
+                if lk == "authorization" && sv.contains("APP_NEON") {
+                    let key = app_neon_key();
+                    if key.is_empty() {
+                        return Err(StatusCode::SERVICE_UNAVAILABLE);
+                    }
+                    req = req.header(k.as_str(), format!("Bearer {}", key));
+                    continue;
+                }
+                if lk == "authorization" && sv.contains("APP_B2") {
+                    let (_, token, _) = app_b2_session().await?;
+                    req = req.header(k.as_str(), format!("Bearer {}", token));
+                    continue;
+                }
                 req = req.header(k.as_str(), sv);
             }
         }

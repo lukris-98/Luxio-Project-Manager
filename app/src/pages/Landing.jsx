@@ -88,7 +88,7 @@ export default function Landing() {
     { icon: Users, title: 'Kolaborasi Tim', desc: 'Assign task ke divisi atau anggota tertentu. Semua orang tau tanggung jawabnya' },
     { icon: BarChart3, title: 'Monitoring Realtime', desc: 'Lihat progress seluruh tim dalam satu dashboard. Tidak perlu tanya-tanya lagi' },
     { icon: Clock, title: 'Deadline Tracking', desc: 'Tidak ada yang terlewat. Reminder otomatis sebelum deadline' },
-    { icon: Shield, title: 'Aman & Privat', desc: 'Data perusahaan kamu tersimpan aman di database Neon. Tidak ada yang bisa lihat selain tim kamu' },
+    { icon: Shield, title: 'Aman & Privat', desc: 'Data perusahaan kamu tersimpan aman dan terenkripsi. Tidak ada yang bisa lihat selain tim kamu' },
     { icon: Globe, title: 'Buka di Mana Saja', desc: 'PWA - bisa dibuka di browser apa saja, tanpa install aplikasi' },
   ]
 
@@ -102,8 +102,8 @@ export default function Landing() {
     { icon: Bot, title: 'AI Agent', desc: 'Asisten AI yang menjalankan tool resmi sistem' },
     { icon: Camera, title: 'Absen Masuk + GPS & Selfie', desc: 'Absen dengan foto selfie dan lokasi GPS' },
     { icon: BarChart3, title: 'Analytics (Umami)', desc: 'Dashboard pengunjung situs tanpa jejak cookie' },
-    { icon: Database, title: 'Monitoring Database (Neon)', desc: 'Pantau kuota & pemakaian PostgreSQL' },
-    { icon: HardDrive, title: 'Penyimpanan (Backblaze)', desc: 'Penyimpanan objek untuk foto profil & absensi' },
+    { icon: Database, title: 'Monitoring Database', desc: 'Pantau kuota & pemakaian database' },
+    { icon: HardDrive, title: 'Penyimpanan Awan', desc: 'Penyimpanan file untuk foto profil & absensi' },
     { icon: Shield, title: 'Keamanan: 2FA, PIN, email konfirmasi', desc: 'Aktivasi email, PIN pribadi, dan verifikasi dua langkah' },
   ]
   
@@ -116,9 +116,9 @@ const pricingPlans = [
   
   const faqs = [
     { q: 'Berapa harganya?', a: 'Gratis untuk tim sampai 10 orang. Untuk tim lebih besar, hubungi kami via email.' },
-    { q: 'Apakah data aman?', a: 'Sangat aman. Kami menggunakan enkripsi standar industri dan data tersimpan di server Neon yang aman.' },
+    { q: 'Apakah data aman?', a: 'Sangat aman. Kami menggunakan enkripsi standar industri dan data tersimpan di server yang aman.' },
     { q: 'Bisa coba dulu?', a: 'Bisa! Gratis tanpa kartu kredit. Langsung bisa pake setelah signup.' },
-    { q: 'Bagaimana cara connect ke database?', a: 'Setelah daftar, kamu akan diarahkan untuk setup perusahaan, divisi, dan anggota. Semua data tersimpan di Neon PostgreSQL.' },
+    { q: 'Bagaimana cara connect ke database?', a: 'Setelah daftar, kamu akan diarahkan untuk setup perusahaan, divisi, dan anggota. Semua data tersimpan di database yang aman.' },
   ]
   
   return (

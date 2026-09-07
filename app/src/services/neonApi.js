@@ -1,17 +1,20 @@
 // =====================================================================
-// neonApi.js — Klien Neon Platform API v2 (api.neon.tech) dari browser.
+// neonApi.js — Klien Neon Platform API v2 (api.neon.tech) dari browser,
+// VIA PROXY Luxio (`POST /api/storage/proxy` di backend).
 // =====================================================================
-// Login memakai API KEY akun Neon (dibuat di console.neon.tech → API Keys).
-// Mendukung operasi utama sesuai dokumentasi (koleksi dokumentasi api/
-// neon-docs/reference-api):
+// KEAMANAN: API key TIDAK PERNAH ada di frontend. Browser memakai
+// placeholder "APP_NEON" pada header Authorization; proxy backend
+// menggantinya dengan API key asli yang tersimpan di environment server.
+//
+// Operasi utama (dokumentasi Neon API v2):
 //   - Akun    : GET /users/me
 //   - API key : list / create / revoke
 //   - Project : list / create / get / delete
 //   - Branch  : list / create / delete
-//   - Endpoint: list / start / suspend / delete
+//   - Endpoint: list / start / suspend
 //   - Database: list / create / delete (per branch)
 //   - Role    : list / create / delete (per branch)
-//   - Snapshot: list / create / delete (per branch)
+//   - Snapshot: list / create (per branch)
 //   - Operasi : list (riwayat operations per project)
 //   - Konsumsi: consumption per project
 // =====================================================================
@@ -19,54 +22,35 @@
 import { proxyFetch } from './storageProxy'
 
 const BASE = 'https://api.neon.tech/v2'
-const KEY_STORE = 'luxio_neon_api_key'
 
-// API key aplikasi Luxio (milik pemilik akun Neon) — dipakai untuk
-// autologin halaman Penyimpanan tanpa mengisi form.
-export const NEON_APP_KEY = 'napi_q3q6h3cavnjrd20tdbw1vpggbuaflc2654jsr21xfl1pkwudc4l4hw8t3q2s12id'
+// Marker: dipakai bersama b2Api untuk status autologin di UI.
+export const NEON_APP_KEY = 'APP_NEON'
+export const ensureNeonAppSession = () => true
 
-/** Pastikan ada API key aktif (autologin dengan key aplikasi). */
-export const ensureNeonAppSession = () => {
-  if (!apiKey) setNeonKey(NEON_APP_KEY)
-  return isNeonLoggedIn()
-}
+export const isNeonLoggedIn = () => true
+export const getNeonKey = () => 'APP_NEON'
 
-let apiKey = (() => {
-  try { return localStorage.getItem(KEY_STORE) || '' } catch { return '' }
-})()
-
-export const getNeonKey = () => apiKey
-export const setNeonKey = (key) => {
-  apiKey = (key || '').trim()
-  try { apiKey ? localStorage.setItem(KEY_STORE, apiKey) : localStorage.removeItem(KEY_STORE) } catch { /* abaikan */ }
-}
-export const isNeonLoggedIn = () => Boolean(apiKey)
-
-/** Fetch generik dengan Bearer API key + pesan error yang ramah. */
+/** Fetch generik — kredensial diisi server-side oleh proxy. */
 export const neonFetch = async (path, { method = 'GET', body } = {}) => {
-  if (!apiKey) {
-    const err = new Error('Belum login ke Neon. Masukkan API key dulu.')
-    err.code = 'NOT_LOGGED_IN'
-    throw err
-  }
-  // Lewat proxy Luxio (api.neon.tech tidak mengirim header CORS untuk
-  // origin aplikasi, jadi browser tidak bisa memanggil langsung).
   const res = await proxyFetch(`${BASE}${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: 'Bearer APP_NEON',
       Accept: 'application/json',
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     ...(body ? { body } : {}),
   })
   if (res.status === 401) {
-    const err = new Error('API key Neon tidak valid atau sudah dicabut. Login ulang.')
+    const err = new Error('Akses storage tidak valid atau sudah dicabut.')
     err.code = 'UNAUTHORIZED'
     throw err
   }
+  if (res.status === 503) {
+    throw new Error('Server storage belum siap. Muat ulang halaman nanti.')
+  }
   if (res.status >= 400) {
-    throw new Error(res.json?.message || res.json?.error?.message || `Neon API error ${res.status}`)
+    throw new Error(res.json?.message || res.json?.error?.message || `API error ${res.status}`)
   }
   return res.json
 }

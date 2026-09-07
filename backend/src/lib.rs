@@ -153,6 +153,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Proxy API eksternal untuk halaman Penyimpanan (Neon & Backblaze B2)
         // — butuh sesi, allowlist host, rate limit (bukan proxy umum).
         .route("/api/storage/proxy", post(owner::storage_proxy))
+        .route("/api/storage/app-session", get(owner::storage_app_session))
         // Bang Motion: riwayat prompt (Neon) + render MP4 (puppeteer+ffmpeg→B2)
         .route("/api/bang-motion/prompts", post(owner::bang_motion_save).get(owner::bang_motion_list))
         .route("/api/bang-motion/prompts/{id}", delete(owner::bang_motion_delete))

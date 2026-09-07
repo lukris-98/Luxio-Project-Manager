@@ -64,17 +64,17 @@ export default function StoragePage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1><HardDrive size={22} /> Penyimpanan</h1>
-          <p>Kelola database Neon, object storage Backblaze B2, dan log backend HF dalam satu tempat.</p>
+          <p>Kelola database, penyimpanan file, dan log backend dalam satu tempat.</p>
         </div>
         <div className="storage-tabs" role="tablist">
           <button className={`storage-tab ${tab === 'neon' ? 'active' : ''}`} onClick={() => setTab('neon')} role="tab">
-            <Database size={15} /> Neon
+            <Database size={15} /> Database
           </button>
           <button className={`storage-tab ${tab === 'b2' ? 'active' : ''}`} onClick={() => setTab('b2')} role="tab">
-            <Boxes size={15} /> Backblaze B2
+            <Boxes size={15} /> File
           </button>
           <button className={`storage-tab ${tab === 'hf' ? 'active' : ''}`} onClick={() => setTab('hf')} role="tab">
-            <ScrollText size={15} /> Backend HF
+            <ScrollText size={15} /> Backend
           </button>
         </div>
       </div>
@@ -100,7 +100,7 @@ function StorageGate2fa({ onVerified }) {
     setBusy(true); setError(''); setInfo('')
     try {
       const res = await api.sendStorage2fa()
-      setInfo(`Kode verifikasi dikirim ke ${res.email || 'email master'}. Berlaku 5 menit.`)
+      setInfo(`Kode verifikasi sudah dikirim ke email kamu. Berlaku 5 menit.`)
       setStage('verify')
     } catch (e) {
       setError(e.message || 'Gagal mengirim kode.')
@@ -124,10 +124,10 @@ function StorageGate2fa({ onVerified }) {
     <div className="storage-gate">
       <div className="storage-gate-card neon">
         <div className="storage-gate-logo b2"><ShieldCheck size={30} /></div>
-        <h2>Verifikasi Penyimpanan</h2>
+        <h2>Verifikasi Keamanan</h2>
         <p>
-          Halaman ini mengakses database Neon &amp; storage Backblaze.
-          Masukkan kode verifikasi yang dikirim ke email <strong>master@luxio.web.id</strong>.
+          Halaman ini bersifat privat. Masukkan kode verifikasi yang dikirim
+          ke email kamu untuk melanjutkan.
         </p>
         {stage === 'send' ? (
           <button className="btn btn-primary storage-login-btn" onClick={send} disabled={busy}>
@@ -192,8 +192,8 @@ function HfLogsPanel() {
         <div className="storage-dash-account">
           <span className="storage-avatar hf"><ScrollText size={17} /></span>
           <div>
-            <strong>Log Space HF — lukris/n8n</strong>
-            <small>via api.huggingface.co (token dari env backend)</small>
+            <strong>Log Server</strong>
+            <small>Container &amp; build · read-only</small>
           </div>
         </div>
         <div className="storage-dash-bar-actions">
@@ -220,70 +220,42 @@ function HfLogsPanel() {
    ===================================================================== */
 
 function NeonPanel() {
-  // Autologin aktif: key aplikasi dipasang saat gate 2FA lolos, jadi
-  // loggedIn biasanya true sejak awal (form login tetap ada sebagai
-  // fallback bila key aplikasi dicabut).
-  const [loggedIn, setLoggedIn] = useState(isNeonLoggedIn())
-  const [busy, setBusy] = useState(false)
+  // Autologin penuh: kredensial dipegang server (env). Tidak ada form login.
+  const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'fail'
   const [error, setError] = useState('')
 
-  if (!loggedIn) {
-    return (
-      <NeonLogin
-        busy={busy} setBusy={setBusy} error={error} setError={setError}
-        onDone={() => setLoggedIn(true)}
-      />
-    )
-  }
-  return <NeonDashboard onLogout={() => { setNeonKey(''); setLoggedIn(false) }} />
-}
-
-function NeonLogin({ busy, setBusy, error, setError, onDone }) {
-  const [key, setKey] = useState('')
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    if (!key.trim()) return setError('Masukkan API key Neon.')
-    setBusy(true); setError('')
-    setNeonKey(key.trim())
+  const check = useCallback(async () => {
+    setStatus('loading'); setError('')
     try {
       await getMe()
-      onDone()
-    } catch (err) {
-      setNeonKey('')
-      setError(err.message)
-    } finally { setBusy(false) }
+      setStatus('ok')
+    } catch (e) {
+      setError(e.message)
+      setStatus('fail')
+    }
+  }, [])
+
+  useEffect(() => { check() }, [check])
+
+  if (status === 'loading') {
+    return <div className="storage-empty"><Loader2 size={16} className="spin" /> Menyambungkan…</div>
   }
-  return (
-    <div className="storage-gate">
-      <div className="storage-gate-card neon">
-        <div className="storage-gate-logo neon"><Database size={30} /></div>
-        <h2>Masuk ke Neon</h2>
-        <p>
-          Hubungkan akun Neon kamu untuk mengelola project, branch, endpoint,
-          dan database PostgreSQL langsung dari Luxio.
-        </p>
-        <form onSubmit={handleLogin} className="storage-gate-form">
-          <div className="input-group">
-            <label className="input-label" htmlFor="neon-key">API Key Neon</label>
-            <input
-              id="neon-key" className="input" type="password" autoComplete="off"
-              placeholder="napi_xxxxxxxxxxxxxxxx" value={key}
-              onChange={(e) => { setKey(e.target.value); setError('') }}
-            />
-          </div>
+  if (status === 'fail') {
+    return (
+      <div className="storage-gate">
+        <div className="storage-gate-card neon">
+          <div className="storage-gate-logo neon"><Database size={30} /></div>
+          <h2>Tidak bisa tersambung</h2>
+          <p>Server storage sedang tidak tersedia. Coba lagi.</p>
           {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
-          <button type="submit" className="btn btn-primary storage-login-btn" disabled={busy}>
-            {busy ? <Loader2 size={16} className="spin" /> : <KeyRound size={16} />}
-            {busy ? 'Memverifikasi…' : 'Masuk dengan API Key'}
+          <button className="btn btn-primary storage-login-btn" onClick={check}>
+            <RefreshCw size={16} /> Coba Lagi
           </button>
-        </form>
-        <small className="storage-gate-note">
-          Buat API key di <a href="https://console.neon.tech/app/settings/api-keys" target="_blank" rel="noreferrer">console.neon.tech → API Keys <ExternalLink size={10} /></a>.
-          Key disimpan hanya di browser kamu.
-        </small>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+  return <NeonDashboard onLogout={check} />
 }
 
 function NeonDashboard({ onLogout }) {
@@ -344,7 +316,7 @@ function NeonDashboard({ onLogout }) {
         <div className="storage-dash-account">
           <span className="storage-avatar neon"><UserRound size={17} /></span>
           <div>
-            <strong>{me?.name || 'Akun Neon'}</strong>
+            <strong>{me?.name || 'Akun'}</strong>
             <small>{me?.email || ''} · License: {me?.license || 'free'}</small>
           </div>
         </div>
@@ -460,9 +432,9 @@ function CreateProjectForm({ onDone, onCancel }) {
         <input className="input" value={name} onChange={(e) => { setName(e.target.value); setErr('') }} placeholder="mis. Production DB" autoFocus />
       </div>
       <div className="input-group">
-        <label className="input-label">Versi PostgreSQL</label>
+        <label className="input-label">Versi Database</label>
         <select className="input" value={pg} onChange={(e) => setPg(e.target.value)}>
-          {['17', '16', '15', '14'].map((v) => <option key={v} value={v}>PostgreSQL {v}</option>)}
+          {['17', '16', '15', '14'].map((v) => <option key={v} value={v}>Versi {v}</option>)}
         </select>
       </div>
       {err && <div className="gmail-error"><AlertTriangle size={15} /> {err}</div>}
@@ -569,61 +541,45 @@ function OperationsSection({ detail }) {
 }
 
 /* =====================================================================
-   PANEL BACKBLAZE B2
+   PANEL PENYIMPANAN FILE (autologin via kredensial aplikasi di server)
    ===================================================================== */
 
-// Kredensial bawaan aplikasi (diberikan pemilik akun B2) — lihat b2Api.js.
-const B2_DEFAULT = B2_APP_CREDENTIALS
-
 function B2Panel() {
-  const [loggedIn, setLoggedIn] = useState(isB2LoggedIn())
-  return loggedIn ? <B2Dashboard onLogout={() => { b2Logout(); setLoggedIn(false) }} /> : <B2Login onDone={() => setLoggedIn(true)} />
-}
-
-function B2Login({ onDone }) {
-  const saved = getB2Session()
-  const [keyId, setKeyId] = useState(B2_DEFAULT.keyId)
-  const [appKey, setAppKey] = useState(B2_DEFAULT.appKey)
-  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'fail'
   const [error, setError] = useState('')
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    if (!keyId.trim() || !appKey.trim()) return setError('keyID dan applicationKey wajib diisi.')
-    setBusy(true); setError('')
-    try { await b2Authorize(keyId, appKey); onDone() }
-    catch (err) { setError(err.message) }
-    finally { setBusy(false) }
+
+  const check = useCallback(async () => {
+    setStatus('loading'); setError('')
+    try {
+      await b2EnsureAppSession()
+      setStatus('ok')
+    } catch (e) {
+      setError(e.message)
+      setStatus('fail')
+    }
+  }, [])
+
+  useEffect(() => { check() }, [check])
+
+  if (status === 'loading') {
+    return <div className="storage-empty"><Loader2 size={16} className="spin" /> Menyambungkan…</div>
   }
-  return (
-    <div className="storage-gate">
-      <div className="storage-gate-card b2">
-        <div className="storage-gate-logo b2"><Boxes size={30} /></div>
-        <h2>Masuk ke Backblaze B2</h2>
-        <p>
-          Hubungkan akun B2 untuk mengelola bucket dan file (upload, unduh,
-          hapus) langsung dari Luxio.
-        </p>
-        <form onSubmit={handleLogin} className="storage-gate-form">
-          <div className="input-group">
-            <label className="input-label" htmlFor="b2-keyid">Key ID</label>
-            <input id="b2-keyid" className="input" value={keyId} onChange={(e) => { setKeyId(e.target.value); setError('') }} autoComplete="off" />
-          </div>
-          <div className="input-group">
-            <label className="input-label" htmlFor="b2-appkey">Application Key</label>
-            <input id="b2-appkey" className="input" type="password" value={appKey} onChange={(e) => { setAppKey(e.target.value); setError('') }} autoComplete="off" />
-          </div>
+  if (status === 'fail') {
+    return (
+      <div className="storage-gate">
+        <div className="storage-gate-card b2">
+          <div className="storage-gate-logo b2"><Boxes size={30} /></div>
+          <h2>Tidak bisa tersambung</h2>
+          <p>Server penyimpanan sedang tidak tersedia. Coba lagi.</p>
           {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
-          <button type="submit" className="btn btn-primary storage-login-btn" disabled={busy}>
-            {busy ? <Loader2 size={16} className="spin" /> : <KeyRound size={16} />}
-            {busy ? 'Menghubungkan…' : 'Masuk ke B2'}
+          <button className="btn btn-primary storage-login-btn" onClick={check}>
+            <RefreshCw size={16} /> Coba Lagi
           </button>
-        </form>
-        <small className="storage-gate-note">
-          Kredensial {saved?.keyName || B2_DEFAULT.keyName} sudah terisi bawaan. Disimpan hanya di browser kamu.
-        </small>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+  return <B2Dashboard onLogout={check} />
 }
 
 function B2Dashboard({ onLogout }) {

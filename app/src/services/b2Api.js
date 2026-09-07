@@ -3,17 +3,10 @@
 // (`POST /api/storage/proxy` di backend) karena API B2 tidak mengirim
 // header CORS sehingga browser tidak bisa memanggilnya langsung.
 // =====================================================================
-// Login memakai keyID + applicationKey (basic auth b2_authorize_account).
-// Setelah authorize, semua request memakai authorizationToken + apiUrl +
-// downloadUrl yang dikembalikan server. Operasi yang didukung:
-//   - b2_authorize_account   (login)
-//   - b2_list_buckets        (daftar bucket)
-//   - b2_create_bucket       (buat bucket)
-//   - b2_delete_bucket       (hapus bucket)
-//   - b2_list_file_names     (daftar file dalam bucket)
-//   - b2_upload_file         (upload file — binary via proxy)
-//   - b2_delete_file_version (hapus file)
-//   - download via downloadUrl (public) atau proxy (private)
+// KEAMANAN: kredensial (keyID/applicationKey) TIDAK PERNAH ada di
+// frontend. Browser memakai placeholder "APP_B2" pada header
+// Authorization; proxy backend menggantinya dengan kredensial asli yang
+// tersimpan di environment server.
 // =====================================================================
 
 import { proxyFetch } from './storageProxy'
@@ -21,7 +14,8 @@ import { proxyFetch } from './storageProxy'
 const AUTH_URL = 'https://api.backblazeb2.com/b2api/v2'
 const KEY_STORE = 'luxio_b2_session'
 
-// Sesi authorize aktif: { apiUrl, downloadUrl, token, accountId, ... }
+// Metadata sesi NON-SENSITIF: apiUrl, accountId, dsb. Tidak ada token
+// asli di sini — panggilan tetap lewat placeholder APP_B2.
 let session = (() => {
   try { return JSON.parse(sessionStorage.getItem(KEY_STORE) || 'null') } catch { return null }
 })()
@@ -31,74 +25,66 @@ const persist = () => {
 }
 
 export const getB2Session = () => session
-export const isB2LoggedIn = () => Boolean(session?.token)
+export const isB2LoggedIn = () => Boolean(session?.authorized)
+
 export const b2Logout = () => { session = null; persist() }
 
-// Kredensial aplikasi Luxio (application key milik pemilik akun B2).
-// Dipakai untuk login otomatis oleh fitur yang butuh B2 (mis. Bang Motion
-// menyimpan hasil) tanpa mengharuskan user login manual dulu.
-export const B2_APP_CREDENTIALS = {
-  keyId: '005b7f30a3ea0b50000000001',
-  appKey: 'K005kn5dwT76XP8Z93UDnuMPQoZvWak',
-  keyName: 'Luxio',
-}
-
-/** Pastikan ada sesi B2 — login otomatis dengan kredensial aplikasi. */
-export const b2EnsureAppSession = async () => {
-  if (isB2LoggedIn()) return session
-  await b2Authorize(B2_APP_CREDENTIALS.keyId, B2_APP_CREDENTIALS.appKey)
-  return session
-}
+// Kompatibilitas lama: tidak lagi membawa kredensial apa pun.
+export const B2_APP_CREDENTIALS = { placeholder: true }
 
 /**
- * Login: b2_authorize_account dengan Basic auth keyID:applicationKey.
- * Token berlaku maksimal 24 jam; disimpan di sessionStorage (hilang saat
- * tab ditutup — aman untuk kredensial).
+ * Authorize via proxy dengan placeholder kredensial aplikasi.
+ * Backend mengisi kredensial asli dari env-nya sendiri.
  */
-export const b2Authorize = async (keyId, applicationKey) => {
-  const authHeader = `Basic ${btoa(`${keyId.trim()}:${applicationKey.trim()}`)}`
+export const b2Authorize = async () => {
   const res = await proxyFetch(`${AUTH_URL}/b2_authorize_account`, {
-    headers: { Authorization: authHeader },
+    headers: { Authorization: 'Basic APP_B2' },
   })
-  if (res.status === 401) throw new Error('keyID atau applicationKey salah.')
+  if (res.status === 401) throw new Error('Kredensial storage salah atau kedaluwarsa.')
+  if (res.status === 503) throw new Error('Storage server belum siap. Coba lagi nanti.')
   if (res.status !== 200 || !res.json) {
-    throw new Error(res.json?.message || `B2 API error ${res.status}.`)
+    throw new Error(res.json?.message || `Storage API error ${res.status}.`)
   }
   const d = res.json
   session = {
     apiUrl: d.apiUrl,
     downloadUrl: d.downloadUrl,
-    token: d.authorizationToken,
     accountId: d.accountId,
     keyName: d.keyName || '—',
-    allowed: d.allowed || null,
+    authorized: true,
     authorizedAt: Date.now(),
   }
   persist()
   return { accountId: session.accountId, keyName: session.keyName }
 }
 
-/** Panggilan B2 API standar (POST JSON) dengan token sesi, via proxy. */
+/** Pastikan sesi aplikasi tersedia (dipakai Bang Motion & Penyimpanan). */
+export const b2EnsureAppSession = async () => {
+  if (isB2LoggedIn()) return session
+  await b2Authorize()
+  return session
+}
+
+/** Panggilan B2 API standar (POST JSON) via proxy dengan placeholder. */
 const b2Call = async (api, body = {}) => {
-  if (!session?.token) {
-    const err = new Error('Belum login ke Backblaze B2.')
+  if (!session?.authorized) {
+    const err = new Error('Belum terhubung ke storage.')
     err.code = 'NOT_LOGGED_IN'
     throw err
   }
   const res = await proxyFetch(`${session.apiUrl}/b2api/v2/${api}`, {
     method: 'POST',
-    headers: { Authorization: session.token, 'Content-Type': 'application/json' },
+    headers: { Authorization: 'Basic APP_B2', 'Content-Type': 'application/json' },
     body,
   })
   if (res.status === 401) {
-    // Token kadaluarsa → sesi dibuang; UI akan menampilkan gate login lagi.
     b2Logout()
-    const err = new Error(res.json?.message || 'Sesi B2 berakhir. Login ulang.')
+    const err = new Error(res.json?.message || 'Sesi storage berakhir. Muat ulang halaman.')
     err.code = 'UNAUTHORIZED'
     throw err
   }
   if (res.status !== 200) {
-    throw new Error(res.json?.message || `B2 API error ${res.status}.`)
+    throw new Error(res.json?.message || `Storage API error ${res.status}.`)
   }
   return res.json
 }
@@ -126,7 +112,6 @@ export const listFileNames = (bucketId, startFileName = '', max = 100) =>
 
 /**
  * Upload file: b2_get_upload_url lalu kirim binary via proxy.
- * (Progress XHR tidak tersedia lewat proxy — UI memakai indikator loading.)
  */
 export const uploadFile = async (bucketId, file) => {
   const up = await b2Call('b2_get_upload_url', { bucketId })
@@ -136,7 +121,7 @@ export const uploadFile = async (bucketId, file) => {
   const res = await proxyFetch(up.uploadUrl, {
     method: 'POST',
     headers: {
-      Authorization: up.authorizationToken,
+      Authorization: 'Basic APP_B2',
       'X-Bz-File-Name': encodeURIComponent(file.name),
       'Content-Type': file.type || 'b2/x-auto',
       'X-Bz-Content-Sha1': sha1,
