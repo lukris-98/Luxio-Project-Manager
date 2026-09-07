@@ -17,7 +17,7 @@ import './GooglePages.css'
 import './google-native.css'
 
 // =====================================================================
-// YouTubePage â€” satu halaman, tiga API YouTube dalam tiga tab.
+// YouTubePage — satu halaman, tiga API YouTube dalam tiga tab.
 // =====================================================================
 //   Tab "Data"      â†’ YouTube Data API v3         (channel, video, playlist)
 //   Tab "Analytics" â†’ YouTube Analytics API v2    (query metrik interaktif)
@@ -53,10 +53,10 @@ const RANGES = [
 ]
 
 const fmtDate = (iso) => {
-  if (!iso) return 'â€”'
+  if (!iso) return '—'
   try {
     return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-  } catch { return 'â€”' }
+  } catch { return '—' }
 }
 
 export default function YouTubePage() {
@@ -123,7 +123,7 @@ export default function YouTubePage() {
           </h1>
           <p>
             {channel
-              ? `${channel.title} Â· ${formatCount(channel.subscribers)} subscriber`
+              ? `${channel.title} · ${formatCount(channel.subscribers)} subscriber`
               : auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola channel YouTube kamu'}
           </p>
         </div>
@@ -177,7 +177,7 @@ export default function YouTubePage() {
 }
 
 // =====================================================================
-// TAB 1 â€” YouTube Data API v3
+// TAB 1 — YouTube Data API v3
 // =====================================================================
 
 function DataTab({ channel, loading, onToast }) {
@@ -302,9 +302,9 @@ function DataTab({ channel, loading, onToast }) {
                 <div className="gp-row-main">
                   <div className="gp-row-title">{v.title}</div>
                   <div className="gp-row-sub">
-                    {formatCount(v.views)} view Â· {formatCount(v.likes)} suka Â· {formatCount(v.comments)} komentar
-                    Â· {formatDuration(v.duration)} Â· {fmtDate(v.publishedAt)}
-                    {v.privacyStatus && v.privacyStatus !== 'public' ? ` Â· ${v.privacyStatus}` : ''}
+                    {formatCount(v.views)} view · {formatCount(v.likes)} suka · {formatCount(v.comments)} komentar
+                    · {formatDuration(v.duration)} · {fmtDate(v.publishedAt)}
+                    {v.privacyStatus && v.privacyStatus !== 'public' ? ` · ${v.privacyStatus}` : ''}
                   </div>
                 </div>
                 <div className="gp-row-actions">
@@ -335,7 +335,7 @@ function DataTab({ channel, loading, onToast }) {
                 <div className="gp-row-main">
                   <div className="gp-row-title">{p.title}</div>
                   <div className="gp-row-sub">
-                    {p.itemCount} video Â· {p.privacyStatus} Â· dibuat {fmtDate(p.publishedAt)}
+                    {p.itemCount} video · {p.privacyStatus} · dibuat {fmtDate(p.publishedAt)}
                   </div>
                 </div>
                 <div className="gp-row-actions">
@@ -428,7 +428,7 @@ function DataTab({ channel, loading, onToast }) {
 }
 
 // =====================================================================
-// TAB 2 â€” YouTube Analytics API v2
+// TAB 2 — YouTube Analytics API v2
 // =====================================================================
 
 function AnalyticsTab({ channel, onToast }) {
@@ -537,7 +537,7 @@ function AnalyticsTab({ channel, onToast }) {
               <div className="gp-stat-label"><ThumbsUp size={11} /> Interaksi</div>
               <div className="gp-stat-value">{formatCount(summary.likes + summary.comments + summary.shares)}</div>
               <div className="gp-stat-sub">
-                {formatCount(summary.likes)} suka Â· {formatCount(summary.comments)} komentar
+                {formatCount(summary.likes)} suka · {formatCount(summary.comments)} komentar
               </div>
             </div>
             <div className="gp-stat">
@@ -692,7 +692,7 @@ function AnalyticsTab({ channel, onToast }) {
 }
 
 // =====================================================================
-// TAB 3 â€” YouTube Reporting API v1
+// TAB 3 — YouTube Reporting API v1
 // =====================================================================
 
 function ReportingTab({ onToast }) {
@@ -866,8 +866,8 @@ function ReportingTab({ onToast }) {
                     {j.systemManaged && <span className="gp-chip warn" style={{ marginLeft: 6 }}>sistem</span>}
                   </div>
                   <div className="gp-row-sub">
-                    {j.reportTypeId} Â· dibuat {fmtDate(j.createTime)}
-                    {j.expireTime ? ` Â· kedaluwarsa ${fmtDate(j.expireTime)}` : ''}
+                    {j.reportTypeId} · dibuat {fmtDate(j.createTime)}
+                    {j.expireTime ? ` · kedaluwarsa ${fmtDate(j.expireTime)}` : ''}
                   </div>
                 </div>
                 <div className="gp-row-actions">
@@ -898,7 +898,7 @@ function ReportingTab({ onToast }) {
                     <div key={r.id} className="gp-row" style={{ paddingLeft: 46 }}>
                       <div className="gp-row-main">
                         <div className="gp-row-title" style={{ fontSize: '0.8125rem' }}>
-                          {fmtDate(r.startTime)} â€” {fmtDate(r.endTime)}
+                          {fmtDate(r.startTime)} — {fmtDate(r.endTime)}
                         </div>
                         <div className="gp-row-sub">dibuat {fmtDate(r.createTime)}</div>
                       </div>

@@ -87,18 +87,21 @@ export async function fetchModelsDirect(cfg) {
 }
 
 // Kirim chat ke model AI (openai-compatible / openai-responses / anthropic-messages).
-export async function callAIChat(cfg, messages) {
+// opts: { maxTokens, temperature } — dipakai generator yang butuh output panjang.
+export async function callAIChat(cfg, messages, opts = {}) {
   const base = normalizeBaseUrl(cfg.base_url)
   const model = cfg.model.trim()
   const key = cfg.api_key.trim()
   if (!base || !key || !model) throw new Error('Konfigurasi AI belum lengkap.')
+  const maxTokens = opts.maxTokens || 2000
+  const temperature = opts.temperature ?? 0.7
 
   let response
   if (cfg.api_type === 'anthropic-messages') {
     const res = await fetchWithTimeout(`${base}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model, max_tokens: 2000, messages }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, temperature, messages }),
     })
     if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`)
     const data = await res.json()
@@ -111,6 +114,7 @@ export async function callAIChat(cfg, messages) {
         model,
         instructions: 'You are a helpful AI assistant.',
         input: messages.map((m) => m.role === 'user' ? m.content : { type: 'message', role: m.role, content: [{ type: 'input_text', text: m.content }] }),
+        max_output_tokens: maxTokens,
       }),
     })
     if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`)
@@ -120,7 +124,7 @@ export async function callAIChat(cfg, messages) {
     const res = await fetchWithTimeout(`${base}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, temperature: 0.7, messages }),
+      body: JSON.stringify({ model, temperature, max_tokens: maxTokens, messages }),
     })
     if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`)
     const data = await res.json()

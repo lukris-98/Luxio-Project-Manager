@@ -16,14 +16,21 @@ RUN mkdir -p src && echo "fn main() {}" > src/main.rs && echo "" > src/lib.rs &&
 COPY backend/src ./src
 RUN touch src/main.rs src/lib.rs && cargo build --release
 
+# Runtime: chromium + ffmpeg untuk render MP4 Bang Motion, node untuk script.
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates chromium ffmpeg nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /app/backend/target/release/luxio-server /app/luxio-server
+COPY backend/scripts/render-mp4.mjs /app/scripts/render-mp4.mjs
+COPY backend/scripts/package.json /app/scripts/package.json
+RUN cd /app/scripts && npm install --omit=dev 2>/dev/null || true
 
 ENV PORT=7860
+ENV CHROME_PATH=/usr/bin/chromium
 EXPOSE 7860
 
 CMD ["./luxio-server"]

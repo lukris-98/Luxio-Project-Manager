@@ -23,6 +23,7 @@ const GENDER_OPTIONS = ['', 'Laki-laki', 'Perempuan']
 const STATUS_OPTIONS = ['', 'Full-time', 'Part-time', 'Kontrak', 'Magang', 'Freelance']
 const EDU_OPTIONS = ['', 'SMA/SMK', 'D3', 'S1', 'S2', 'S3']
 const THEME_FAMILY_OPTIONS = [
+  { value: 'sanity', label: 'Sanity' },
   { value: 'luxio', label: 'Luxio' },
   { value: 'luxio-new', label: 'Luxio New' },
   { value: 'main-white', label: 'Main White' },

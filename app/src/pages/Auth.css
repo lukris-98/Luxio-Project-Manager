@@ -204,23 +204,28 @@
   background: var(--border);
 }
 
-/* Tombol Google */
+/* Tombol Google — selalu putih agar terbaca di semua tema */
 .btn-google {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
+  background: #FFFFFF;
+  border: 1px solid #DADCE0;
+  color: #1F1F1F;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .btn-google:hover {
-  background: var(--bg-secondary);
-  border-color: var(--accent);
+  background: #F8F9FA;
+  border-color: #DADCE0;
+}
+
+.btn-google:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .auth-link {

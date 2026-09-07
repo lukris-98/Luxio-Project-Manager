@@ -609,5 +609,44 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Bang Motion: riwayat prompt/generasi motion graphics per user.
+    // Metadata hasil (judul, gaya, durasi, aspek, nama file di B2) dipakai
+    // untuk mengisi galeri & membuka ulang chat history.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS bang_motion_prompts (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            title TEXT NOT NULL DEFAULT '',
+            prompt TEXT NOT NULL DEFAULT '',
+            style TEXT NOT NULL DEFAULT 'auto',
+            duration INTEGER NOT NULL DEFAULT 20,
+            ratio TEXT NOT NULL DEFAULT '16:9',
+            extras TEXT NOT NULL DEFAULT '',
+            provider TEXT NOT NULL DEFAULT '',
+            b2_file_name TEXT NOT NULL DEFAULT '',
+            b2_file_id TEXT NOT NULL DEFAULT '',
+            b2_url TEXT NOT NULL DEFAULT '',
+            size_bytes BIGINT NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'done',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Kode 2FA untuk membuka halaman Penyimpanan (kirim email ke master).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS storage_2fa_codes (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            code_hash TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }

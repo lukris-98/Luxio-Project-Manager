@@ -37,7 +37,7 @@ static RATE_LIMITS: Mutex<Option<HashMap<String, (chrono::DateTime<Utc>, u32)>>>
 
 /// Cek apakah `key` sudah melebihi `max` request dalam `window_secs` detik.
 /// Mengembalikan `true` bila rate limit tercapai (harus ditolak).
-fn rate_limited(key: &str, max: u32, window_secs: i64) -> bool {
+pub(crate) fn rate_limited(key: &str, max: u32, window_secs: i64) -> bool {
     let now = Utc::now();
     let mut guard = RATE_LIMITS.lock().unwrap_or_else(|e| e.into_inner());
     if guard.is_none() {
@@ -267,7 +267,7 @@ async fn create_session(db: &PgPool, user_id: &str) -> Result<String, StatusCode
 /// Ambil `user_id` dari header `Authorization: Bearer <token>`.
 /// Mengembalikan `None` bila header tidak ada, token tidak dikenal,
 /// atau sesi sudah kedaluwarsa.
-async fn user_from_headers(db: &PgPool, headers: &HeaderMap) -> Result<Option<String>, StatusCode> {
+pub(crate) async fn user_from_headers(db: &PgPool, headers: &HeaderMap) -> Result<Option<String>, StatusCode> {
     let token = match headers.get(axum::http::header::AUTHORIZATION) {
         Some(v) => v.to_str().ok().map(|s| s.to_string()),
         None => None,
@@ -312,7 +312,7 @@ async fn user_from_headers(db: &PgPool, headers: &HeaderMap) -> Result<Option<St
     }
 }
 
-fn sha256(input: &str) -> String {
+pub(crate) fn sha256(input: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
     format!("{:x}", hasher.finalize())
@@ -1144,7 +1144,7 @@ pub async fn verify_2fa(
     }
 }
 
-fn generate_otp() -> String {
+pub(crate) fn generate_otp() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
     let rnd = (nanos as u32).wrapping_mul(2654435761).wrapping_add(0x9E3779B9);

@@ -23,21 +23,25 @@ export const APP_THEME_CONFIG = {
   'main-white-dark': { scheme: 'dark', color: '#000000' },
   'luxio-new-light': { scheme: 'light', color: '#F4F4FB' },
   'luxio-new-dark': { scheme: 'dark', color: '#101014' },
+  'sanity-light': { scheme: 'light', color: '#F7F7F7' },
+  'sanity-dark': { scheme: 'dark', color: '#0B0B0B' },
 }
 
 export const APP_THEME_VALUES = Object.keys(APP_THEME_CONFIG)
-export const normalizeAppTheme = (theme) => APP_THEME_VALUES.includes(theme) ? theme : 'dark'
+export const normalizeAppTheme = (theme) => APP_THEME_VALUES.includes(theme) ? theme : 'sanity-dark'
 export const getAppThemeConfig = (theme) => APP_THEME_CONFIG[normalizeAppTheme(theme)]
 export const getAppThemeFamily = (theme) => {
   const t = normalizeAppTheme(theme)
   if (t.startsWith('main-white')) return 'main-white'
   if (t.startsWith('luxio-new')) return 'luxio-new'
+  if (t.startsWith('sanity')) return 'sanity'
   return 'luxio'
 }
 export const getAppThemeMode = (theme) => normalizeAppTheme(theme).endsWith('light') ? 'light' : 'dark'
 export const makeAppTheme = (family, mode) => {
   if (family === 'main-white') return `main-white-${mode === 'light' ? 'light' : 'dark'}`
   if (family === 'luxio-new') return `luxio-new-${mode === 'light' ? 'light' : 'dark'}`
+  if (family === 'sanity') return `sanity-${mode === 'light' ? 'light' : 'dark'}`
   return mode === 'light' ? 'light' : 'dark'
 }
 export const toggleAppThemeMode = (theme) => makeAppTheme(getAppThemeFamily(theme), getAppThemeMode(theme) === 'dark' ? 'light' : 'dark')
@@ -149,7 +153,7 @@ export const useStore = create(
   currentPage: 'dashboard',
 
   // ---------- TEMA APLIKASI (tersimpan di localStorage) ----------
-  theme: 'dark',
+  theme: 'sanity-dark',
   setTheme: (theme) => set({ theme: normalizeAppTheme(theme) }),
 
   // ---------- STATE ALUR SETUP ----------
@@ -287,9 +291,11 @@ export const useStore = create(
   userPin: '',
   setUserPin: (pin) => {
     set({ userPin: pin })
-    // Sinkron ke backend (best-effort) agar PIN tersimpan di database
-    // dan tidak diminta ulang saat login berikutnya.
-    api.setPin(pin).catch(() => {})
+    // Sinkron ke backend HANYA untuk owner (endpoint /api/profile/pin
+    // menolak non-owner dengan 403). Untuk akun lain PIN cukup tersimpan
+    // lokal — jangan gagalkan UX dengan error yang tidak berarti.
+    const role = get().activeRole || get().currentUser?.role
+    if (role === 'owner') api.setPin(pin).catch(() => {})
   },
 
   // Riwayat progress harian per project untuk hitung strike: { [projectId]: { 'YYYY-MM-DD': pct } }

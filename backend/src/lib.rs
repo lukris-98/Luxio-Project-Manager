@@ -150,6 +150,18 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/salary/incentive/{id}", delete(owner::salary_delete_incentive))
         // Konfigurasi Neon aktif (owner)
         .route("/api/owner/neon/active", get(owner::neon_active_config))
+        // Proxy API eksternal untuk halaman Penyimpanan (Neon & Backblaze B2)
+        // — butuh sesi, allowlist host, rate limit (bukan proxy umum).
+        .route("/api/storage/proxy", post(owner::storage_proxy))
+        // Bang Motion: riwayat prompt (Neon) + render MP4 (puppeteer+ffmpeg→B2)
+        .route("/api/bang-motion/prompts", post(owner::bang_motion_save).get(owner::bang_motion_list))
+        .route("/api/bang-motion/prompts/{id}", delete(owner::bang_motion_delete))
+        .route("/api/bang-motion/render", post(owner::bang_motion_render))
+        // Storage 2FA (kirim + verifikasi kode email sebelum buka Penyimpanan)
+        .route("/api/storage/2fa/send", post(owner::storage_2fa_send))
+        .route("/api/storage/2fa/verify", post(owner::storage_2fa_verify))
+        // Log Space HF (run/build) — read-only, token dari env backend
+        .route("/api/hf/logs", get(owner::hf_logs))
         // Tes kirim email (owner)
         .route("/api/owner/mail/test", post(owner::mail_test))
         // AI Agent (Item 8)
@@ -201,7 +213,17 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/notifications/read", post(handlers::read_notifications))
         .route("/api/notifications/send", post(handlers::send_notification))
         // Layer: batas body -> security headers -> CORS -> tracing
-        .layer(RequestBodyLimitLayer::new(2 * 1024 * 1024))
+        .layer(RequestBodyLimitLayer::new(2 * 1024 * 1024));
+
+    // Proxy storage API eksternal (Neon & Backblaze B2) — router terpisah
+    // dengan body limit 48 MB karena upload file B2 lewat sini (base64).
+    let storage = Router::new()
+        .route("/api/storage/proxy", post(owner::storage_proxy))
+        .layer(RequestBodyLimitLayer::new(48 * 1024 * 1024));
+
+    let app = Router::new()
+        .merge(app)
+        .merge(storage)
         .layer(SetResponseHeaderLayer::overriding(
             axum::http::header::X_CONTENT_TYPE_OPTIONS,
             HeaderValue::from_static("nosniff"),

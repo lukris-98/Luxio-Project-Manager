@@ -1,5 +1,5 @@
 ﻿// =====================================================================
-// BloggerPage.jsx â€” Halaman Blogger (OAuth Google, kelola blog).
+// BloggerPage.jsx — Halaman Blogger (OAuth Google, kelola blog).
 // =====================================================================
 // Login: tombol "Login dengan Blogger" (popup OAuth GIS, scope blogger).
 // Setelah login: pilih blog, kelola post (buat/edit/hapus, publish/ke
@@ -9,9 +9,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  isGoogleConfigured, requestGoogleToken, clearGoogleTokens,
+  isGoogleConfigured, requestGoogleToken, clearGoogleTokens, revokeGoogleToken,
   GOOGLE_SCOPES, fetchGoogleUserInfo,
 } from '../services/googleAuth'
+import { cacheClear, cacheInvalidate } from '../services/bloggerCache'
 import {
   listBlogs, listPosts, getPost, createPost, updatePost, publishPost,
   revertPost, deletePost, listPages, listComments,
@@ -20,7 +21,7 @@ import {
 import {
   Rss, RefreshCw, Search, Plus, Pencil, Trash2, Send, Undo2, ExternalLink,
   LogIn, LogOut, FileText, MessageSquare, AlertTriangle, Globe, Loader2,
-  Check, Ban, X, Eye, Tags,
+  Check, Ban, X, Eye, Tags, UserRound,
 } from 'lucide-react'
 import './BloggerPage.css'
 import './google-native.css'
@@ -74,8 +75,39 @@ export default function BloggerPage() {
 
   const logout = async () => {
     clearGoogleTokens()
+    cacheClear()
     setAuth({ state: 'idle', email: '' })
     setBlogs([]); setActiveBlog(null); setPosts([]); setPages([]); setComments([])
+  }
+
+  // Ganti akun Google: revoke token + bersihkan cache + popup pilih akun.
+  const switchAccount = async () => {
+    try {
+      const BLOGGER = [...GOOGLE_SCOPES.BLOGGER, ...GOOGLE_SCOPES.PROFILE]
+      await revokeGoogleToken(BLOGGER).catch(() => {})
+    } catch { /* abaikan */ }
+    clearGoogleTokens()
+    cacheClear()
+    setAuth({ state: 'idle', email: '' })
+    setBlogs([]); setActiveBlog(null); setPosts([]); setPages([]); setComments([])
+    // Popup OAuth dengan prompt='select_account' agar Google menampilkan
+    // pemilih akun (bukan langsung pakai sesi yang sudah ada).
+    setAuth({ state: 'busy', email: '' })
+    setAuthError('')
+    try {
+      const entry = await requestGoogleToken({
+        scopes: [...GOOGLE_SCOPES.BLOGGER, ...GOOGLE_SCOPES.PROFILE],
+        prompt: 'select_account',
+      })
+      const info = await fetchGoogleUserInfo([...GOOGLE_SCOPES.BLOGGER, ...GOOGLE_SCOPES.PROFILE]).catch(() => null)
+      setAuth({ state: 'ok', email: info?.email || entry.email || '' })
+      showToast(info?.email ? `Akun diganti: ${info.email}` : 'Akun diganti.')
+    } catch (e) {
+      setAuthError(e.code === 'NOT_CONFIGURED'
+        ? 'Integrasi Google belum aktif. Lakukan hard refresh (Ctrl+Shift+R).'
+        : (e.message || 'Gagal ganti akun.'))
+      setAuth({ state: 'error', email: '' })
+    }
   }
 
   useEffect(() => {
@@ -88,7 +120,7 @@ export default function BloggerPage() {
   useEffect(() => {
     if (auth.state !== 'ok') return
     let cancelled = false
-    (async () => {
+    ;(async () => {
       setLoading(true); setError('')
       try {
         const list = await listBlogs()
@@ -103,10 +135,11 @@ export default function BloggerPage() {
     return () => { cancelled = true }
   }, [auth.state])
 
-  const loadPosts = useCallback(async ({ append = false, token = '' } = {}) => {
+  const loadPosts = useCallback(async ({ append = false, token = '', force = false } = {}) => {
     if (!activeBlog) return
     setLoading(true); setError('')
     try {
+      if (force) cacheInvalidate(`https://www.googleapis.com/blogger/v3/blogs/${activeBlog.id}/posts`)
       const data = await listPosts(activeBlog.id, { status, max: 25, pageToken: token })
       const q = search.trim().toLowerCase()
       const filtered = q
@@ -216,74 +249,117 @@ export default function BloggerPage() {
   }
 
   return (
-    <div className="blogger-page">
-      <div className="page-header">
-        <div className="page-header-left">
-          <h1><Rss size={22} style={{ color: '#FF8000' }} /> Blogger</h1>
-          <p>{auth.email ? `Masuk sebagai ${auth.email}` : 'Kelola blog kamu'}{activeBlog ? ` â€” ${activeBlog.name}` : ''} â€” client pribadi di Luxio, bukan halaman resmi Google.</p>
+    <div className="blogger-shell">
+      {/* ================= SIDEBAR ================= */}
+      <aside className="blogger-sidebar">
+        {/* Identitas halaman */}
+        <div className="blogger-side-head">
+          <span className="blogger-side-logo"><Rss size={18} /></span>
+          <div className="blogger-side-head-text">
+            <strong>Blogger</strong>
+            <small>{auth.email || 'Akun Google'}</small>
+          </div>
         </div>
-        <div className="page-header-right">
-          {activeBlog && (
-            <button className="btn btn-secondary" onClick={() => window.open(activeBlog.url, '_blank')} title="Buka blog">
-              <ExternalLink size={16} />
-            </button>
-          )}
-          <button
-            className="btn btn-secondary"
-            onClick={() => { tab === 'posts' ? loadPosts() : tab === 'pages' ? loadPages() : loadComments() }}
-            title="Muat ulang"
-            disabled={loading || !activeBlog}
-          >
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
-          </button>
-          <button className="btn btn-ghost" onClick={logout} title="Keluar"><LogOut size={16} /></button>
-        </div>
-      </div>
 
-      {blogs.length > 1 && (
-        <div className="blogger-blogs">
-          {blogs.map((b) => (
-            <button
-              key={b.id}
-              className={`blogger-blog-chip ${activeBlog?.id === b.id ? 'active' : ''}`}
-              onClick={() => { setActiveBlog(b); setPosts([]) }}
+        {/* Dropdown ganti blog */}
+        <div className="blogger-side-blog">
+          <label className="blogger-side-label" htmlFor="blogger-side-blog-select">Blog</label>
+          {blogs.length > 1 ? (
+            <select
+              id="blogger-side-blog-select"
+              className="blogger-blog-select"
+              value={activeBlog?.id || ''}
+              onChange={(e) => {
+                const b = blogs.find((x) => String(x.id) === e.target.value)
+                if (b) { setActiveBlog(b); setPosts([]) }
+              }}
             >
-              <Globe size={13} /> {b.name}
-              <small>{b.posts} post</small>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="blogger-toolbar">
-        <div className="blogger-tabs">
-          <button className={`blogger-tab ${tab === 'posts' ? 'active' : ''}`} onClick={() => setTab('posts')}><FileText size={14} /> Post</button>
-          <button className={`blogger-tab ${tab === 'pages' ? 'active' : ''}`} onClick={() => setTab('pages')}><Eye size={14} /> Halaman</button>
-          <button className={`blogger-tab ${tab === 'comments' ? 'active' : ''}`} onClick={() => setTab('comments')}><MessageSquare size={14} /> Komentar</button>
-        </div>
-        {tab === 'posts' && (
-          <>
-            <div className="blogger-status">
-              {STATUS_TABS.map((s) => (
-                <button key={s.id} className={`blogger-status-btn ${status === s.id ? 'active' : ''}`} onClick={() => setStatus(s.id)}>
-                  {s.name}
-                </button>
+              {blogs.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
               ))}
-            </div>
-            <form className="blogger-search" onSubmit={(e) => { e.preventDefault(); loadPosts() }}>
-              <Search size={15} />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari postâ€¦" />
-            </form>
-          </>
-        )}
-      </div>
+            </select>
+          ) : activeBlog ? (
+            <span className="blogger-blog-label"><Globe size={14} /> {activeBlog.name}</span>
+          ) : (
+            <span className="blogger-blog-label"><Globe size={14} /> Tidak ada blog</span>
+          )}
+        </div>
 
-      {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
+        {/* Navigasi vertikal: Post / Halaman / Komentar */}
+        <nav className="blogger-side-nav">
+          <button className={`blogger-side-link ${tab === 'posts' ? 'active' : ''}`} onClick={() => setTab('posts')}>
+            <FileText size={16} /> Post
+          </button>
+          <button className={`blogger-side-link ${tab === 'pages' ? 'active' : ''}`} onClick={() => setTab('pages')}>
+            <Eye size={16} /> Halaman
+          </button>
+          <button className={`blogger-side-link ${tab === 'comments' ? 'active' : ''}`} onClick={() => setTab('comments')}>
+            <MessageSquare size={16} /> Komentar
+          </button>
+        </nav>
+
+        {/* Filter status (hanya tab Post) */}
+        {tab === 'posts' && (
+          <div className="blogger-side-status">
+            <span className="blogger-side-label">Status</span>
+            {STATUS_TABS.map((s) => (
+              <button key={s.id} className={`blogger-side-filter ${status === s.id ? 'active' : ''}`} onClick={() => setStatus(s.id)}>
+                {s.name}
+                {s.id === 'live' && activeBlog ? (
+                  <small>{activeBlog.posts}</small>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="blogger-side-spacer" />
+
+        {/* Aksi akun */}
+        <div className="blogger-side-foot">
+          <button className="blogger-side-link" onClick={switchAccount} disabled={auth.state === 'busy'}>
+            <UserRound size={16} /> Ganti Akun
+          </button>
+          <button className="blogger-side-link" onClick={() => activeBlog && window.open(activeBlog.url, '_blank')} disabled={!activeBlog}>
+            <ExternalLink size={16} /> Buka Blog
+          </button>
+          <button className="blogger-side-link" onClick={logout} title="Keluar">
+            <LogOut size={16} /> Keluar
+          </button>
+        </div>
+      </aside>
+
+      {/* ================= KONTEN ================= */}
+      <div className="blogger-content">
+        <div className="blogger-content-header">
+          <div className="blogger-content-title">
+            <h1>{tab === 'posts' ? 'Post' : tab === 'pages' ? 'Halaman' : 'Komentar'}</h1>
+            <p>{activeBlog ? activeBlog.name : ''}</p>
+          </div>
+          <div className="blogger-content-actions">
+            {tab === 'posts' && (
+              <form className="blogger-search" onSubmit={(e) => { e.preventDefault(); loadPosts() }}>
+                <Search size={15} />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari post…" />
+              </form>
+            )}
+            <button
+              className="blogger-hero-btn"
+              onClick={() => { tab === 'posts' ? loadPosts({ force: true }) : tab === 'pages' ? loadPages() : loadComments() }}
+              title="Muat ulang"
+              disabled={loading || !activeBlog}
+            >
+              <RefreshCw size={16} className={loading ? 'spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
 
       {/* ---- POST ---- */}
       {tab === 'posts' && (
         <div className="blogger-posts">
-          {loading && !posts.length && <div className="gmail-empty"><Loader2 size={22} className="spin" /> Memuat postâ€¦</div>}
+          {loading && !posts.length && <div className="gmail-empty"><Loader2 size={22} className="spin" /> Memuat post…</div>}
           {!loading && !posts.length && !error && (
             <div className="gmail-empty"><FileText size={26} /> Belum ada post pada filter ini.</div>
           )}
@@ -300,8 +376,8 @@ export default function BloggerPage() {
                   </div>
                 )}
                 <div className="blogger-post-meta">
-                  <span>{p.published ? new Date(p.published).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'â€”'}</span>
-                  <span>Â·</span>
+                  <span>{p.published ? new Date(p.published).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+                  <span>·</span>
                   <span>{p.comments} komentar</span>
                   {p.url && (
                     <a href={p.url} target="_blank" rel="noreferrer" className="blogger-post-link"><ExternalLink size={11} /> lihat</a>
@@ -318,7 +394,7 @@ export default function BloggerPage() {
           ))}
           {nextPageToken && (
             <button className="btn btn-secondary blogger-more" disabled={loading} onClick={() => loadPosts({ append: true, token: nextPageToken })}>
-              {loading ? 'Memuatâ€¦' : 'Muat lebih banyak'}
+              {loading ? 'Memuat…' : 'Muat lebih banyak'}
             </button>
           )}
         </div>
@@ -327,7 +403,7 @@ export default function BloggerPage() {
       {/* ---- PAGES ---- */}
       {tab === 'pages' && (
         <div className="blogger-posts">
-          {loading && !pages.length && <div className="gmail-empty"><Loader2 size={22} className="spin" /> Memuat halamanâ€¦</div>}
+          {loading && !pages.length && <div className="gmail-empty"><Loader2 size={22} className="spin" /> Memuat halaman…</div>}
           {!loading && !pages.length && !error && <div className="gmail-empty"><Eye size={26} /> Belum ada halaman statis.</div>}
           {pages.map((pg) => (
             <div key={pg.id} className="blogger-post-card">
@@ -349,7 +425,7 @@ export default function BloggerPage() {
       {/* ---- COMMENTS ---- */}
       {tab === 'comments' && (
         <div className="blogger-posts">
-          {loading && !comments.length && <div className="gmail-empty"><Loader2 size={22} className="spin" /> Memuat komentarâ€¦</div>}
+          {loading && !comments.length && <div className="gmail-empty"><Loader2 size={22} className="spin" /> Memuat komentar…</div>}
           {!loading && !comments.length && !error && <div className="gmail-empty"><MessageSquare size={26} /> Belum ada komentar.</div>}
           {comments.map((c) => (
             <div key={c.id} className="blogger-comment-card">
@@ -400,7 +476,7 @@ export default function BloggerPage() {
               </div>
               <div className="input-group">
                 <label className="input-label">Konten (HTML)</label>
-                <textarea className="input blogger-editor-content" rows={14} value={editor.content} onChange={(e) => setEditor({ ...editor, content: e.target.value })} placeholder="<p>Tulis konten di siniâ€¦</p>" />
+                <textarea className="input blogger-editor-content" rows={14} value={editor.content} onChange={(e) => setEditor({ ...editor, content: e.target.value })} placeholder="<p>Tulis konten di sini…</p>" />
               </div>
             </div>
             <div className="modal-footer">
@@ -419,6 +495,7 @@ export default function BloggerPage() {
       )}
 
       {toastMsg && <div className="gmail-toast">{toastMsg}</div>}
+      </div>
     </div>
   )
 }
@@ -443,7 +520,7 @@ function LoginGate({ error, onLogin, busy }) {
         {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
         <button className="btn btn-primary gmail-login-btn" onClick={onLogin} disabled={busy}>
           {busy ? <Loader2 size={16} className="spin" /> : <LogIn size={16} />}
-          {busy ? 'Menunggu Googleâ€¦' : 'Login dengan Blogger'}
+          {busy ? 'Menunggu Google…' : 'Login dengan Blogger'}
         </button>
         <small className="gmail-login-note">
           Autentikasi resmi via Google (OAuth 2.0). Token disimpan hanya di browser kamu.

@@ -1,0 +1,998 @@
+/* =====================================================================
+   SANITY THEME (needmcp style "sanity") — appearance only.
+   Sumber: app/DESIGN.md (diunduh via `npx needmcp@1.3.0 design sanity`).
+   =====================================================================
+   Scope: hanya aktif pada [data-theme="sanity-light"] / "sanity-dark".
+   Tema lama (dark, light, main-white-*, luxio-new-*) TIDAK disentuh —
+   rollback: pilih keluarga tema lama di Settings, atau hapus file ini
+   + importnya di main.jsx + entri "sanity" di store/useStore.js.
+   ===================================================================== */
+
+/* ---------- Tokens ---------- */
+[data-theme="sanity-light"] {
+  color-scheme: light;
+
+  --bg-primary: #F7F7F7;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #EDEDED;
+  --bg-elevated: #FFFFFF;
+
+  --text-primary: #0B0B0B;
+  --text-secondary: #3D3D3D;
+  --text-muted: #797979;
+
+  --accent: #F36458;
+  --accent-hover: #0052EF;
+  --accent-muted: rgba(0, 82, 239, 0.1);
+  --accent2: #0052EF;
+  --accent3: #55BEFF;
+  --focus-ring: #0052EF;
+
+  --cyan: #55BEFF;
+  --green: #19D600;
+  --purple: #E600FF;
+  --yellow: #F59E0B;
+
+  --success: #19D600;
+  --warning: #F59E0B;
+  --error: #DC2626;
+
+  --border: #EDEDED;
+  --border-hover: #D6D6D6;
+  --border-strong: #D6D6D6;
+
+  --font-body: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+
+  --card-shadow: none;
+
+  --sn-coral: #F36458;
+  --sn-blue: #0052EF;
+  --sn-surface: #FFFFFF;
+  --sn-surface-dark: #212121;
+  --sn-surface-deep: #0B0B0B;
+  --sn-on-dark: #FFFFFF;
+  --sn-on-dark-mute: #B9B9B9;
+  --sn-hairline: #EDEDED;
+  --sn-hairline-dark: #353535;
+  --sn-ring: rgba(0, 82, 239, 0.15);
+}
+
+[data-theme="sanity-dark"] {
+  color-scheme: dark;
+
+  --bg-primary: #0B0B0B;
+  --bg-secondary: #212121;
+  --bg-tertiary: #2E2E2E;
+  --bg-elevated: #212121;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #B9B9B9;
+  --text-muted: #797979;
+
+  --accent: #F36458;
+  --accent-hover: #0052EF;
+  --accent-muted: rgba(0, 82, 239, 0.22);
+  --accent2: #0052EF;
+  --accent3: #55BEFF;
+  --focus-ring: #55BEFF;
+
+  --cyan: #55BEFF;
+  --green: #19D600;
+  --purple: #E600FF;
+  --yellow: #F59E0B;
+
+  --success: #19D600;
+  --warning: #F59E0B;
+  --error: #F87171;
+
+  --border: #212121;
+  --border-hover: #353535;
+  --border-strong: #797979;
+
+  --font-body: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+
+  --card-shadow: none;
+
+  --sn-coral: #F36458;
+  --sn-blue: #0052EF;
+  --sn-surface: #212121;
+  --sn-surface-dark: #0B0B0B;
+  --sn-surface-deep: #000000;
+  --sn-on-dark: #FFFFFF;
+  --sn-on-dark-mute: #B9B9B9;
+  --sn-hairline: #212121;
+  --sn-hairline-dark: #353535;
+  --sn-ring: rgba(0, 82, 239, 0.3);
+}
+
+/* Dasar: tipografi Space Grotesk + tracking negatif khas Sanity */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) h1,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) h2,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) h3,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) h4,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) h5,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) h6 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) h1 {
+  letter-spacing: -0.04em;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) code,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) pre,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) kbd {
+  font-family: var(--font-mono);
+}
+
+/* Link: electric blue (light) / sky (dark) */
+:is([data-theme="sanity-light"]) a { color: var(--sn-blue); }
+:is([data-theme="sanity-light"]) a:hover { color: #003EC0; }
+:is([data-theme="sanity-dark"]) a { color: #55BEFF; }
+:is([data-theme="sanity-dark"]) a:hover { color: #8AD7FF; }
+
+/* Scrollbar monokrom */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"])::-webkit-scrollbar-track { background: transparent; }
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"])::-webkit-scrollbar-thumb { background: var(--sn-hairline-dark); }
+
+/* =====================================================================
+   1. ACCORDION (details/summary — style generik untuk pemakaian massal)
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) details {
+  background: var(--sn-surface);
+  border: 1px solid var(--sn-hairline);
+  border-radius: 6px !important;
+  padding: 12px 16px;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) details[open] summary {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--sn-hairline);
+}
+
+/* =====================================================================
+   2. ALERT — kartu aksen kiri 3px (info/warning/danger)
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) [role="alert"],
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .edit-quota-card {
+  background: var(--sn-surface);
+  border: 1px solid var(--sn-hairline);
+  border-left: 3px solid var(--sn-blue);
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  padding: 16px;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .edit-quota-card {
+  border-left-color: var(--warning);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .edit-quota-card svg {
+  color: var(--warning);
+}
+
+/* Toast notifikasi = alert gelap */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .notif-toast {
+  background: var(--sn-surface-dark) !important;
+  color: var(--sn-on-dark);
+  border: 1px solid var(--sn-hairline-dark);
+  border-left: 3px solid var(--sn-blue);
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+/* =====================================================================
+   3. AVATAR — lingkaran penuh dengan ring hairline
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .user-avatar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .user-avatar-sm,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-avatar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-menu-avatar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-drop-avatar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .member-avatar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .contrib-avatar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .task-assignee-avatar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .chat-bubble-avatar {
+  border-radius: 50% !important;
+  box-shadow: 0 0 0 1px var(--sn-hairline) !important;
+}
+
+/* =====================================================================
+   4. BADGE — pill; neutral filled gelap, status warna solid
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .badge {
+  border-radius: 999px !important;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .badge-success {
+  background: #19D600;
+  color: #0B0B0B;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .badge-warning {
+  background: #F59E0B;
+  color: #0B0B0B;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .badge-error {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .badge-muted {
+  background: var(--sn-surface-dark);
+  color: var(--sn-on-dark);
+}
+
+/* =====================================================================
+   5. BUTTON — primary/secondary pill, ghost rounded-sm
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn {
+  min-height: 44px;
+  padding: 8px 16px;
+  font-weight: 600;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn:disabled {
+  opacity: 0.4;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn-primary {
+  background: var(--sn-coral);
+  color: #FFFFFF !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn-primary:hover {
+  background: var(--sn-blue) !important;
+  color: #FFFFFF !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn-secondary {
+  background: var(--sn-surface-dark);
+  color: var(--sn-on-dark-mute);
+  border: 1px solid transparent;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn-secondary:hover {
+  background: var(--sn-blue) !important;
+  color: #FFFFFF !important;
+  border-color: transparent;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 5px !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn-ghost:hover {
+  background: var(--sn-blue) !important;
+  color: #FFFFFF !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn-sm {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .btn-lg {
+  min-height: 52px;
+}
+
+/* =====================================================================
+   6. CARD — surface + hairline, mounted (tanpa shadow / hover-lift)
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .card,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .settings-card,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .kpi-card,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .chart-panel,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .stats-card,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .flow-column,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .kanban-column,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .detail-board,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .detail-progress,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .stage-content,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .target-list-panel,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .target-list-row {
+  background: var(--sn-surface) !important;
+  border: 1px solid var(--sn-hairline) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .card:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .kpi-card:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .chart-panel:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .stats-card:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .target-list-row:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .kanban-column:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .detail-board:hover {
+  transform: none !important;
+  border-color: var(--border-hover) !important;
+}
+
+/* =====================================================================
+   7. CHECKBOX — kotak gelap 18px, checked = electric blue
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  display: inline-grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  background: var(--sn-surface-dark);
+  border: 1.5px solid var(--sn-hairline-dark);
+  border-radius: 3px !important;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="checkbox"]::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: scale(0);
+  transition: transform 0.12s ease-in-out;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  background: #FFFFFF;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="checkbox"]:checked {
+  background: var(--sn-blue) !important;
+  border-color: var(--sn-blue) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--sn-ring) !important;
+}
+
+/* =====================================================================
+   8. DROPDOWN — surface + hairline; item hover = electric blue
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-menu,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .dropdown-menu,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-menu,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .role-switch-menu,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .notifications-panel {
+  background: var(--sn-surface) !important;
+  color: var(--text-primary);
+  border: 1px solid var(--sn-hairline) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 0 1px var(--sn-hairline) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .notifications-panel-header {
+  background: var(--sn-surface) !important;
+  border-bottom: 1px solid var(--sn-hairline);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-option,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-menu-item,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .role-switch-option {
+  border-radius: 3px;
+  transition: background 0.12s, color 0.12s;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-option:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-menu-item:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .role-switch-option:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .dropdown-menu button:hover {
+  background: var(--sn-blue) !important;
+  color: #FFFFFF !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .role-switch-option.active {
+  color: var(--sn-blue);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-menu-sep {
+  border-top: 1px solid var(--sn-hairline);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-menu-group-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+/* =====================================================================
+   9. INPUT — kotak gelap (surface-dark), radius xs, ring fokus biru
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .input,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar-search input {
+  background: var(--sn-surface-dark) !important;
+  color: var(--sn-on-dark) !important;
+  border: 1px solid var(--sn-hairline-dark) !important;
+  border-radius: 3px !important;
+  min-height: 44px;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .input:hover {
+  border-color: var(--sn-on-dark-mute) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .input:focus {
+  border-color: var(--sn-blue) !important;
+  box-shadow: 0 0 0 3px var(--sn-ring) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .input::placeholder {
+  color: var(--sn-on-dark-mute);
+  opacity: 0.75;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .input:disabled {
+  opacity: 0.4;
+}
+
+/* Label input = technical label mono uppercase */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .input-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+/* Panah select native putih agar terbaca di kotak gelap */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9b9b9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* =====================================================================
+   10. MODAL — surface gelap, radius md, scrim deep 60%
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal {
+  background: var(--sn-surface-dark) !important;
+  color: var(--sn-on-dark);
+  border: none !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 0 1px var(--sn-hairline-dark) !important;
+  padding: 32px;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal-overlay,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal-overlay,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal-overlay {
+  background: rgba(11, 11, 11, 0.6) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal h2,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal h3,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal h2,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal h2 {
+  color: var(--sn-on-dark);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal p,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal-body p,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal p {
+  color: var(--sn-on-dark-mute);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal-header {
+  border-bottom: 1px solid var(--sn-hairline-dark);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal-footer {
+  border-top: 1px solid var(--sn-hairline-dark);
+}
+
+/* Input & tombol sekunder di dalam modal gelap perlu kontras sendiri */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal .input,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal .input,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal .input {
+  background: var(--sn-surface-deep) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal .btn-secondary,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal .btn-secondary,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal .btn-secondary {
+  background: transparent;
+  border-color: var(--sn-hairline-dark);
+}
+
+/* =====================================================================
+   11. NAVBAR — topbar & sidebar surface-dark, tinggi 60px
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar {
+  min-height: 60px;
+  background: var(--sn-surface-dark) !important;
+  border-bottom: 1px solid var(--sn-hairline-dark) !important;
+  color: var(--sn-on-dark-mute);
+}
+
+/* Tombol ikon topbar (eksplisit — JANGAN blanket .topbar button, karena
+   panel notifikasi/profil di dalam topbar harus tetap memakai warna panel) */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .menu-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .theme-toggle-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .notification-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .install-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .install-app-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .role-switch-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .profile-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .sidebar-close {
+  color: var(--sn-on-dark-mute) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .menu-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .theme-toggle-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .notification-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .install-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .install-app-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .role-switch-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .profile-btn:hover {
+  color: var(--sn-on-dark) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar {
+  background: var(--sn-surface-dark) !important;
+  border-right: 1px solid var(--sn-hairline-dark) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar-header {
+  border-bottom: 1px solid var(--sn-hairline-dark);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .logo-text {
+  color: var(--sn-on-dark) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-item {
+  color: var(--sn-on-dark-mute) !important;
+  border-radius: 5px !important;
+  font-weight: 500;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-item svg {
+  color: var(--sn-on-dark-mute) !important;
+  opacity: 1 !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-item:hover {
+  background: var(--sn-hairline-dark) !important;
+  color: var(--sn-on-dark) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-item:hover svg {
+  color: var(--sn-on-dark) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-item.active {
+  background: var(--sn-blue) !important;
+  color: #FFFFFF !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-item.active svg {
+  color: #FFFFFF !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar-footer,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar-bottom {
+  border-top: 1px solid var(--sn-hairline-dark);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-btn {
+  color: var(--sn-on-dark-mute) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-btn:hover {
+  background: var(--sn-hairline-dark) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .user-name {
+  color: var(--sn-on-dark) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .user-details span {
+  color: var(--sn-on-dark-mute) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar-collapse-btn {
+  color: var(--sn-on-dark-mute);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar-collapse-btn:hover {
+  color: var(--sn-on-dark);
+  background: var(--sn-hairline-dark);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar-search {
+  background: var(--sn-surface-deep) !important;
+  border: 1px solid var(--sn-hairline-dark) !important;
+  border-radius: 3px !important;
+  color: var(--sn-on-dark-mute);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sync-badge {
+  background: var(--sn-surface-deep) !important;
+  border: 1px solid var(--sn-hairline-dark) !important;
+  color: var(--sn-on-dark-mute) !important;
+  border-radius: 999px !important;
+}
+
+/* Bingkai konten utama: hairline, radius md */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .main-content {
+  border: 1px solid var(--sn-hairline) !important;
+  border-radius: 6px !important;
+  background: var(--bg-primary);
+}
+
+/* Dropdown navigasi di dalam sidebar (tetap keluarga gelap) */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-dropdown {
+  background: var(--sn-surface-deep) !important;
+  border: 1px solid var(--sn-hairline-dark) !important;
+  border-radius: 6px !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-dropdown-head {
+  border-bottom: 1px solid var(--sn-hairline-dark);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-drop-item:hover {
+  background: var(--sn-blue) !important;
+  color: #FFFFFF !important;
+}
+
+/* =====================================================================
+   12. PROGRESS — track pill 8px, fill coral
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .progress-bar {
+  height: 8px !important;
+  border-radius: 999px !important;
+  background: var(--bg-tertiary) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .progress-fill {
+  border-radius: 999px !important;
+  background: var(--sn-coral) !important;
+}
+
+/* =====================================================================
+   13. RADIO — lingkaran gelap, dot electric blue saat checked
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="radio"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  display: inline-grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  background: var(--sn-surface-dark);
+  border: 1.5px solid var(--sn-hairline-dark);
+  border-radius: 50% !important;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="radio"]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sn-blue);
+  transform: scale(0);
+  transition: transform 0.12s ease-in-out;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="radio"]:checked {
+  border-color: var(--sn-blue) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="radio"]:checked::before {
+  transform: scale(1);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) input[type="radio"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--sn-ring) !important;
+}
+
+/* =====================================================================
+   14. SELECT — trigger seperti input, menu seperti dropdown
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-trigger {
+  background: var(--sn-surface-dark) !important;
+  color: var(--sn-on-dark) !important;
+  border: 1px solid var(--sn-hairline-dark) !important;
+  border-radius: 3px !important;
+  min-height: 44px;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-trigger:hover {
+  border-color: var(--sn-on-dark-mute) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-trigger:focus,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-open .select-trigger {
+  border-color: var(--sn-blue) !important;
+  box-shadow: 0 0 0 3px var(--sn-ring) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-value-placeholder {
+  color: var(--sn-on-dark-mute);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-menu {
+  padding: 8px 0;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-option-active {
+  color: var(--sn-blue);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .select-chevron {
+  color: var(--sn-on-dark-mute);
+}
+
+/* =====================================================================
+   15. SWITCH — track pill, checked = electric blue, thumb bone
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .toggle-slider {
+  border-radius: 999px !important;
+  background: var(--text-muted) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .toggle input:checked + .toggle-slider {
+  background: var(--sn-blue) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .toggle-slider::before {
+  background: #F7F7F7 !important;
+  border-radius: 50% !important;
+}
+
+/* =====================================================================
+   16. TABLE — header mono uppercase, baris hairline, hover surface
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) table {
+  border-collapse: collapse;
+  width: 100%;
+  background: transparent;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-hover);
+  background: transparent;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) td {
+  padding: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--sn-hairline);
+  background: transparent;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) tbody tr:hover td,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .owner-table tr:hover td {
+  background: var(--bg-primary);
+}
+
+/* =====================================================================
+   17. TABS — pill mono uppercase; aktif = electric blue
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .filter-tab-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .agent-tab-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .agent-filter-tab-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .owner-filter-tab-btn,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .note-view-toggle button,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .div-view-toggle button {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-height: 32px;
+  padding: 6px 16px;
+  border: none !important;
+  border-bottom: none !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  transition: background 0.15s, color 0.15s;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .filter-tab-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .agent-tab-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .agent-filter-tab-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .owner-filter-tab-btn:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .note-view-toggle button:hover,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .div-view-toggle button:hover {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .filter-tab-btn.active,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .agent-tab-btn.active,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .agent-filter-tab-btn.active,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .owner-filter-tab-btn.active,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .note-view-toggle button.active,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .div-view-toggle button.active {
+  background: var(--sn-blue) !important;
+  color: #FFFFFF !important;
+}
+
+/* =====================================================================
+   18. TEXTAREA — spesifikasi input, multiline
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) textarea.input {
+  min-height: 88px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* Panel notifikasi: item unread tetap tersendir via hairline */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .notification-item {
+  border-bottom: 1px solid var(--sn-hairline);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .notification-item.unread {
+  background: var(--bg-tertiary);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .notification-item.clickable:hover {
+  background: var(--bg-primary);
+}
+
+/* =====================================================================
+   KONTRAS V2 — token re-map di permukaan gelap.
+   Semua elemen DI DALAM sidebar/topbar/modal/toast otomatis memakai
+   teks terang + border gelap, karena token teks/border di-scope ulang.
+   Ini memperbaiki teks tak terbaca (gelap di atas gelap) di semua
+   halaman tanpa mengubah markup.
+   ===================================================================== */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .notif-toast,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sync-badge {
+  --text-primary: var(--sn-on-dark);
+  --text-secondary: var(--sn-on-dark-mute);
+  --text-muted: var(--sn-on-dark-mute);
+  --bg-secondary: var(--sn-surface-dark);
+  --bg-tertiary: var(--sn-hairline-dark);
+  --bg-elevated: var(--sn-hairline-dark);
+  --border: var(--sn-hairline-dark);
+  --border-hover: var(--sn-on-dark-mute);
+  --border-strong: var(--sn-on-dark-mute);
+  --accent-muted: rgba(85, 190, 255, 0.18);
+  color: var(--sn-on-dark);
+}
+
+/* Panel TERANG yang muncul di atas topbar gelap (tema sanity-light):
+   token di-reset agar teks di dalamnya gelap kembali. */
+[data-theme="sanity-light"] .notifications-panel,
+[data-theme="sanity-light"] .profile-menu,
+[data-theme="sanity-light"] .role-switch-menu,
+[data-theme="sanity-light"] .dropdown-menu {
+  --text-primary: #0B0B0B;
+  --text-secondary: #3D3D3D;
+  --text-muted: #797979;
+  --bg-primary: #F7F7F7;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #EDEDED;
+  --bg-elevated: #FFFFFF;
+  --border: #EDEDED;
+  --border-hover: #D6D6D6;
+  --border-strong: #D6D6D6;
+  --accent-muted: rgba(0, 82, 239, 0.1);
+  color: #0B0B0B;
+}
+
+/* Tombol sekunder & checkbox/radio di dalam permukaan gelap butuh
+   kontras sendiri (bg dasarnya sama dengan permukaannya). */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar .btn-secondary,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar .btn-secondary,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal .btn-secondary,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal .btn-secondary,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal .btn-secondary {
+  background: transparent;
+  border-color: var(--sn-hairline-dark);
+  color: var(--sn-on-dark);
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal input[type="checkbox"],
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal input[type="radio"],
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal input[type="checkbox"],
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal input[type="radio"],
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal input[type="checkbox"],
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal input[type="radio"],
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-dropdown input[type="checkbox"],
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-dropdown input[type="radio"] {
+  background: var(--sn-surface-deep) !important;
+}
+
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal .select-trigger,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal .select-trigger,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal .select-trigger {
+  background: var(--sn-surface-deep) !important;
+}
+
+/* Placeholder search topbar */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar-search input::placeholder {
+  color: var(--sn-on-dark-mute);
+  opacity: 0.75;
+}
+
+/* Bingkai konten: gunakan edge yang terlihat di kedua tema */
+[data-theme="sanity-light"] {
+  --sn-edge: #E3E3E3;
+}
+[data-theme="sanity-dark"] {
+  --sn-edge: #353535;
+}
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .main-content {
+  border-color: var(--sn-edge) !important;
+}
+
+/* Netralisasi gradasi oranye bawaan (page/section header) */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .page-header {
+  background: transparent;
+}
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .section-header {
+  background: transparent;
+  border-bottom-color: var(--sn-hairline);
+}
+
+/* Flyout dropdown sidebar saat terlipat: panel gelap rapi */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar.collapsed .nav-dropdown {
+  background: var(--sn-surface-deep) !important;
+  border-color: var(--sn-hairline-dark) !important;
+}

@@ -1,4 +1,12 @@
-/* BloggerPage — halaman Blogger di dalam Luxio */
+/* BloggerPage — halaman Blogger di dalam Luxio (layout sidebar) */
+
+.blogger-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--space-4);
+  min-height: 100%;
+  align-items: start;
+}
 
 .blogger-page {
   display: flex;
@@ -7,68 +15,212 @@
   min-height: 100%;
 }
 
-.blogger-page .page-header {
+/* ── Sidebar ───────────────────────────────────────────────── */
+.blogger-sidebar {
+  position: sticky;
+  top: 12px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.blogger-page .page-header-left h1 {
-  font-size: 1.25rem;
-  margin-bottom: var(--space-1);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.blogger-page .page-header-left p {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.blogger-page .page-header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-/* Pemilih blog */
-.blogger-blogs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.blogger-blog-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
+  border-radius: 16px;
+  min-height: calc(100vh - 120px);
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+}
+
+.blogger-side-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.blogger-side-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #FF8000, #F0561D);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.blogger-side-head-text { min-width: 0; }
+
+.blogger-side-head-text strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.blogger-side-head-text small {
+  display: block;
+  font-size: 0.6875rem;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+}
+
+.blogger-side-blog { display: flex; flex-direction: column; gap: 6px; }
+
+.blogger-side-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.blogger-blog-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 0.8125rem;
   font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 999px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blogger-blog-select {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 30px 6px 12px;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  transition: border-color 0.15s;
 }
 
-.blogger-blog-chip small { font-weight: 400; opacity: 0.7; }
+.blogger-blog-select:hover { border-color: var(--border-hover); }
+.blogger-blog-select:focus { outline: none; border-color: #FF8000; }
 
-.blogger-blog-chip:hover { border-color: var(--accent); color: var(--text); }
-
-.blogger-blog-chip.active {
-  background: var(--accent-muted);
-  border-color: var(--accent);
-  color: var(--accent);
+/* Link vertikal: Post / Halaman / Komentar */
+.blogger-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* Toolbar */
-.blogger-toolbar {
+.blogger-side-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.blogger-side-link:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.blogger-side-link.active {
+  background: rgba(255, 128, 0, 0.12);
+  color: #FF8000;
+}
+
+.blogger-side-link:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Filter status di bawah link Post */
+.blogger-side-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
+.blogger-side-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.78125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.blogger-side-filter:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+.blogger-side-filter.active {
+  background: rgba(255, 128, 0, 0.1);
+  color: #FF8000;
+  font-weight: 700;
+}
+
+.blogger-side-filter small {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.blogger-side-filter.active small {
+  color: #FF8000;
+  background: rgba(255, 128, 0, 0.14);
+}
+
+.blogger-side-spacer { flex: 1; min-height: 12px; }
+
+.blogger-side-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Konten ────────────────────────────────────────────────── */
+.blogger-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.blogger-content-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -76,65 +228,86 @@
   flex-wrap: wrap;
 }
 
-.blogger-tabs, .blogger-status { display: flex; gap: 4px; flex-wrap: wrap; }
+.blogger-content-title h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
 
-.blogger-tab {
+.blogger-content-title p {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blogger-content-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Tombol ikon bulat (dipakai header konten) */
+.blogger-hero-btn {
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 8px;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, transform 0.15s;
 }
 
-.blogger-tab:hover { color: var(--text); background: var(--bg-tertiary); }
-.blogger-tab.active { background: var(--accent-muted); color: var(--accent); border-color: var(--accent); }
-
-.blogger-status-btn {
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 999px;
-  cursor: pointer;
+.blogger-hero-btn:hover:not(:disabled) {
+  border-color: #FF8000;
+  color: #FF8000;
+  transform: translateY(-1px);
 }
 
-.blogger-status-btn:hover { color: var(--text); background: var(--bg-tertiary); }
-.blogger-status-btn.active { background: var(--accent-muted); color: var(--accent); border-color: var(--accent); }
+.blogger-hero-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Pencarian ─────────────────────────────────────────────── */
 .blogger-search {
   display: flex;
   align-items: center;
   gap: 8px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 7px 12px;
-  min-width: 200px;
+  border-radius: 999px;
+  padding: 8px 16px;
+  min-width: 220px;
+  max-width: 320px;
   color: var(--text-muted);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.blogger-search:focus-within {
+  border-color: #FF8000;
+  box-shadow: 0 0 0 3px rgba(255, 128, 0, 0.14);
 }
 
 .blogger-search input {
   border: none;
   outline: none;
   background: transparent;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 0.875rem;
   width: 100%;
 }
 
-/* Daftar post */
+/* ── Daftar post ───────────────────────────────────────────── */
 .blogger-posts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .blogger-post-card, .blogger-comment-card {
@@ -144,12 +317,16 @@
   gap: 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  transition: border-color 0.15s;
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
-.blogger-post-card:hover, .blogger-comment-card:hover { border-color: var(--accent-muted); }
+.blogger-post-card:hover, .blogger-comment-card:hover {
+  border-color: rgba(255, 128, 0, 0.4);
+  box-shadow: 0 6px 18px rgba(255, 106, 0, 0.08);
+  transform: translateY(-1px);
+}
 
 .blogger-post-main { flex: 1; min-width: 0; }
 
@@ -172,43 +349,46 @@
   font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.4px;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 999px;
   background: var(--bg-tertiary);
   color: var(--text-muted);
 }
 
-.blogger-badge.live { background: rgba(74, 222, 128, 0.14); color: #4ADE80; }
-.blogger-badge.draft { background: rgba(250, 204, 21, 0.12); color: #FACC15; }
-.blogger-badge.scheduled { background: rgba(96, 165, 250, 0.14); color: #60A5FA; }
-.blogger-badge.pending { background: rgba(250, 204, 21, 0.12); color: #FACC15; }
-.blogger-badge.emptied { background: rgba(148, 163, 184, 0.14); color: #94A3B8; }
+.blogger-badge.live { background: rgba(34, 197, 94, 0.14); color: #16A34A; }
+.blogger-badge.draft { background: rgba(250, 204, 21, 0.14); color: #A16207; }
+.blogger-badge.scheduled { background: rgba(96, 165, 250, 0.14); color: #2563EB; }
+.blogger-badge.pending { background: rgba(250, 204, 21, 0.14); color: #A16207; }
+.blogger-badge.emptied { background: rgba(148, 163, 184, 0.14); color: #64748B; }
 
 .blogger-post-labels {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 7px;
   font-size: 0.75rem;
-  color: var(--accent);
-  margin-top: 4px;
+  color: var(--text-muted);
 }
 
 .blogger-post-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  margin-top: 8px;
   font-size: 0.75rem;
   color: var(--text-muted);
-  margin-top: 6px;
 }
 
 .blogger-post-link {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  color: var(--accent);
+  gap: 4px;
+  color: #FF8000;
+  font-weight: 600;
   text-decoration: none;
 }
+
 .blogger-post-link:hover { text-decoration: underline; }
 
 .blogger-post-actions { display: flex; gap: 2px; flex-shrink: 0; }
@@ -218,16 +398,17 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
+  padding: 7px;
+  border-radius: 9px;
+  transition: background 0.15s, color 0.15s;
 }
 
-.blogger-post-actions button:hover { color: var(--accent); background: var(--bg-tertiary); }
-.blogger-post-actions button.danger:hover { color: #F87171; }
+.blogger-post-actions button:hover { color: #FF8000; background: rgba(255, 128, 0, 0.1); }
+.blogger-post-actions button.danger:hover { color: #DC2626; background: rgba(220, 38, 38, 0.1); }
 
 .blogger-more { align-self: center; }
 
-/* Komentar */
+/* ── Komentar ──────────────────────────────────────────────── */
 .blogger-comment-head {
   display: flex;
   align-items: center;
@@ -245,10 +426,58 @@
   word-break: break-word;
 }
 
-/* Editor */
+/* ── Editor ────────────────────────────────────────────────── */
 .blogger-editor { max-width: 720px; width: 100%; }
 
 .blogger-editor-content { resize: vertical; min-height: 260px; font-family: monospace; font-size: 0.8125rem; }
 
-/* Login logo Blogger (oranye) */
-.gmail-login-logo.blogger { background: #FF8000; }
+/* ── Gate login ────────────────────────────────────────────── */
+.blogger-page .gmail-login-gate { display: flex; align-items: center; justify-content: center; min-height: 50vh; }
+
+.gmail-login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 32px 28px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
+}
+
+.gmail-login-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  margin: 0 auto;
+}
+
+.gmail-login-logo.blogger {
+  background: linear-gradient(135deg, #FF8000, #F0561D);
+  box-shadow: 0 8px 20px rgba(255, 106, 0, 0.3);
+  color: #fff;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .blogger-shell { grid-template-columns: 1fr; }
+  .blogger-sidebar {
+    position: static;
+    min-height: 0;
+    max-height: none;
+  }
+  .blogger-side-spacer { display: none; }
+  .blogger-side-foot {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding-top: 10px;
+  }
+  .blogger-side-foot .blogger-side-link { width: auto; padding: 7px 12px; }
+}

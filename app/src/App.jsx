@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
+import { flushSync } from 'react-dom'
 import { getAppThemeConfig, normalizeAppTheme, useStore } from './store/useStore'
 import { initModalFocus } from './utils/modalFocus'
 import UrlSync from './components/UrlSync'
@@ -29,6 +30,7 @@ const Kanban = lazy(() => import('./pages/Kanban'))
 const TodoList = lazy(() => import('./pages/TodoList'))
 const PrivateNote = lazy(() => import('./pages/PrivateNote'))
 const Vault = lazy(() => import('./pages/Vault'))
+const StoragePage = lazy(() => import('./pages/StoragePage'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const Team = lazy(() => import('./pages/Team'))
 const Settings = lazy(() => import('./pages/Settings'))
@@ -38,11 +40,11 @@ const AgentChat = lazy(() => import('./pages/AgentChat'))
 const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard'))
 const AttendancePage = lazy(() => import('./pages/AttendancePage'))
 const AttendanceAdmin = lazy(() => import('./pages/AttendanceAdmin'))
-const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const Research = lazy(() => import('./pages/Research'))
 const Apps = lazy(() => import('./pages/Apps'))
 const Connect = lazy(() => import('./pages/Connect'))
 const MetadataCreator = lazy(() => import('./pages/MetadataCreator'))
+const BangMotion = lazy(() => import('./pages/BangMotion'))
 const GmailPage = lazy(() => import('./pages/GmailPage'))
 const BloggerPage = lazy(() => import('./pages/BloggerPage'))
 // Grup "Google" di sidebar — satu halaman per layanan API Google.
@@ -79,6 +81,7 @@ function App() {
       import('./pages/TodoList'),
       import('./pages/PrivateNote'),
       import('./pages/Vault'),
+      import('./pages/StoragePage'),
       import('./pages/Calendar'),
       import('./pages/Team'),
       import('./pages/Settings'),
@@ -88,11 +91,11 @@ function App() {
       import('./pages/OwnerDashboard'),
       import('./pages/AttendancePage'),
       import('./pages/AttendanceAdmin'),
-      import('./pages/NotificationsPage'),
       import('./pages/Research'),
       import('./pages/Apps'),
       import('./pages/Connect'),
       import('./pages/MetadataCreator'),
+      import('./pages/BangMotion'),
       import('./pages/GmailPage'),
       import('./pages/BloggerPage'),
       import('./pages/DrivePage'),
@@ -150,6 +153,8 @@ function App() {
         return <PrivateNote />
       case 'vault':
         return <Vault />
+      case 'storage':
+        return <StoragePage />
       case 'calendar':
         return <Calendar />
       case 'team':
@@ -168,8 +173,6 @@ function App() {
         return <AttendancePage />
       case 'attendance-admin':
         return <AttendanceAdmin />
-      case 'send-notification':
-        return <NotificationsPage />
       case 'research':
         return <Research />
       case 'apps':
@@ -178,6 +181,8 @@ function App() {
         return <Connect />
       case 'metadata-creator':
         return <MetadataCreator />
+      case 'bang-motion':
+        return <BangMotion />
       case 'gmail':
         return <GmailPage />
       case 'blogger':
@@ -217,6 +222,33 @@ function App() {
   } else {
     content = <Layout>{renderApp()}</Layout>
   }
+
+  // ---------------------------------------------------------------
+  // Transisi antar halaman ala "theme lain" — View Transition API.
+  // Aksi setCurrentPage di-store dibungkus document.startViewTransition:
+  // snapshot lama diambil, halaman baru dirender sinkron (flushSync) di
+  // dalam callback transisi. Browser tanpa dukungan render langsung.
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    const original = useStore.getState().setCurrentPage
+    useStore.setState({
+      setCurrentPage: (page) => {
+        const state = useStore.getState()
+        if (page === state.currentPage) {
+          original(page)
+          return
+        }
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        if (!document.startViewTransition || reduce) {
+          original(page)
+          return
+        }
+        document.startViewTransition(() => {
+          flushSync(() => original(page))
+        })
+      },
+    })
+  }, [])
 
   return (
     <>

@@ -834,3 +834,37 @@ img {
 [data-theme="light"] .notifications-list {
   background: #FFFFFF;
 }
+
+/* =====================================================================
+   View Transition antar halaman (View Transition API).
+   Konten lama memudar+geser halus keluar, konten baru masuk dari bawah.
+   Browser tanpa dukungan mengabaikan blok ini (fallback: langsung render).
+   ===================================================================== */
+::view-transition-old(root) {
+  animation: vtOut 0.18s ease-in forwards;
+}
+
+::view-transition-new(root) {
+  animation: vtIn 0.22s ease-out;
+}
+
+@keyframes vtOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.995);
+  }
+}
+
+@keyframes vtIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.997);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}

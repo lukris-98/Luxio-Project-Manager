@@ -55,7 +55,9 @@
           dark: { scheme: 'dark', color: '#0C0C0E' },
           light: { scheme: 'light', color: '#F1F1F3' },
           'main-white-light': { scheme: 'light', color: '#FFFFFF' },
-          'main-white-dark': { scheme: 'dark', color: '#000000' }
+          'main-white-dark': { scheme: 'dark', color: '#000000' },
+          'sanity-light': { scheme: 'light', color: '#F7F7F7' },
+          'sanity-dark': { scheme: 'dark', color: '#0B0B0B' }
         }
         if (themes[t]) {
           document.documentElement.setAttribute('data-theme', t)
@@ -66,7 +68,7 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Roboto:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Roboto:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root">
@@ -76,31 +78,53 @@
            tetap terbaca oleh crawler/reviewer yang tidak menjalankan JS:
            menjelaskan tujuan aplikasi + akses informasi tanpa login.
            ================================================================= -->
-      <main style="max-width: 760px; margin: 0 auto; padding: 48px 24px; font-family: system-ui, sans-serif; color: #1a1a24; line-height: 1.7;">
-        <p style="font-size: 13px; letter-spacing: 2px; font-weight: 700; color: #6C2EF2; margin: 0 0 8px;">LUXIO â€" PROJECT &amp; TARGET MANAGER</p>
-        <h1 style="font-size: 34px; margin: 0 0 16px;">Kelola project dan target tim kamu dalam satu tempat</h1>
-        <p style="font-size: 17px;">Luxio adalah aplikasi web untuk mengelola project, target, dan tugas harian tim. Buat project, pantau progres lewat papan kanban, catat absensi anggota, kelola tim &amp; kompensasi, dan kolaborasi lewat chat internal â€" semuanya tanpa spreadsheet yang berantakan.</p>
+      <main style="min-height: 100vh; background: #0B0B0B; color: #FFFFFF; font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased;">
+        <div style="max-width: 780px; margin: 0 auto; padding: 64px 24px 72px;">
+          <!-- Brand -->
+          <div style="display: inline-flex; align-items: center; gap: 12px; margin-bottom: 36px;">
+            <span style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #F36458 0%, #55BEFF 100%); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 19px; color: #FFFFFF;">L</span>
+            <span style="font-size: 12px; letter-spacing: 2.5px; font-weight: 700; color: #B9B9B9; text-transform: uppercase;">Luxio — Project &amp; Target Manager</span>
+          </div>
 
-        <h2 style="font-size: 20px; margin: 28px 0 8px;">Apa yang bisa dilakukan di Luxio?</h2>
-        <ul style="padding-left: 22px;">
-          <li>Manajemen project: progres, status, dan tenggat per divisi</li>
-          <li>Target &amp; kanban: pantau tahapan pekerjaan tim secara visual</li>
-          <li>Absensi: catat kehadiran dengan foto &amp; lokasi</li>
-          <li>Manajemen tim &amp; gaji, catatan pribadi ber-PIN, dan vault kredensial</li>
-          <li>Integrasi opsional Google: Gmail &amp; Blogger</li>
-        </ul>
+          <!-- Hero -->
+          <h1 style="font-size: clamp(30px, 6vw, 46px); line-height: 1.08; letter-spacing: -0.03em; margin: 0 0 18px;">Kelola project dan target tim kamu dalam satu tempat</h1>
+          <p style="font-size: 17px; color: #B9B9B9; line-height: 1.6; margin: 0 0 36px; max-width: 640px;">Luxio adalah aplikasi web untuk mengelola project, target, dan tugas harian tim. Buat project, pantau progres lewat papan kanban, catat absensi anggota, kelola tim &amp; kompensasi, dan kolaborasi lewat chat internal — semuanya tanpa spreadsheet yang berantakan.</p>
 
-        <h2 style="font-size: 20px; margin: 28px 0 8px;">Halaman informasi (tanpa perlu login)</h2>
-        <ul style="padding-left: 22px;">
-          <li><a href="/tentang">Tentang Luxio</a> â€" apa itu Luxio dan untuk siapa</li>
-          <li><a href="/pricing">Harga</a> â€" paket gratis untuk personal</li>
-          <li><a href="/faq">FAQ</a> â€" pertanyaan umum</li>
-          <li><a href="/privasi">Kebijakan Privasi</a> â€" data apa yang dikumpulkan &amp; bagaimana digunakan</li>
-          <li><a href="/syarat">Syarat &amp; Ketentuan Layanan</a></li>
-        </ul>
+          <a href="https://luxio.web.id/" style="display: inline-flex; align-items: center; gap: 8px; background: #F36458; color: #FFFFFF; font-weight: 600; font-size: 15px; padding: 13px 26px; border-radius: 999px; text-decoration: none; margin-bottom: 48px;">Coba Gratis Sekarang →</a>
 
-        <h2 style="font-size: 20px; margin: 28px 0 8px;">Cara mulai</h2>
-        <p>Buka <a href="https://luxio.web.id/">https://luxio.web.id</a>, buat akun gratis, dan ajak tim kamu. Tidak diperlukan kartu kredit. Pertanyaan? Email <a href="mailto:master@luxio.web.id">master@luxio.web.id</a>.</p>
+          <!-- Fitur -->
+          <h2 style="font-size: 21px; letter-spacing: -0.01em; margin: 0 0 16px;">Apa yang bisa dilakukan di Luxio?</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 44px;">
+            <div style="background: #212121; border: 1px solid #353535; border-radius: 14px; padding: 18px 20px; font-size: 14.5px; color: #B9B9B9; line-height: 1.55;"><strong style="color: #FFFFFF; display: block; margin-bottom: 4px;">Manajemen Project</strong>Progres, status, dan tenggat per divisi</div>
+            <div style="background: #212121; border: 1px solid #353535; border-radius: 14px; padding: 18px 20px; font-size: 14.5px; color: #B9B9B9; line-height: 1.55;"><strong style="color: #FFFFFF; display: block; margin-bottom: 4px;">Target &amp; Kanban</strong>Pantau tahapan pekerjaan tim secara visual</div>
+            <div style="background: #212121; border: 1px solid #353535; border-radius: 14px; padding: 18px 20px; font-size: 14.5px; color: #B9B9B9; line-height: 1.55;"><strong style="color: #FFFFFF; display: block; margin-bottom: 4px;">Absensi</strong>Catat kehadiran dengan foto &amp; lokasi</div>
+            <div style="background: #212121; border: 1px solid #353535; border-radius: 14px; padding: 18px 20px; font-size: 14.5px; color: #B9B9B9; line-height: 1.55;"><strong style="color: #FFFFFF; display: block; margin-bottom: 4px;">Tim &amp; Keamanan</strong>Manajemen tim &amp; gaji, catatan pribadi ber-PIN, dan vault kredensial</div>
+            <div style="background: #212121; border: 1px solid #353535; border-radius: 14px; padding: 18px 20px; font-size: 14.5px; color: #B9B9B9; line-height: 1.55;"><strong style="color: #FFFFFF; display: block; margin-bottom: 4px;">Integrasi Google</strong>Gmail &amp; Blogger (opsional)</div>
+          </div>
+
+          <!-- Informasi -->
+          <h2 style="font-size: 21px; letter-spacing: -0.01em; margin: 0 0 16px;">Halaman informasi (tanpa perlu login)</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 44px;">
+            <div style="display: flex; flex-direction: column; gap: 10px; background: #212121; border: 1px solid #353535; border-radius: 14px; padding: 18px 20px; font-size: 14.5px; line-height: 1.5;">
+              <a href="/tentang" style="color: #55BEFF; text-decoration: none;">Tentang Luxio →</a>
+              <a href="/pricing" style="color: #55BEFF; text-decoration: none;">Harga — paket gratis untuk personal →</a>
+              <a href="/faq" style="color: #55BEFF; text-decoration: none;">FAQ — pertanyaan umum →</a>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; background: #212121; border: 1px solid #353535; border-radius: 14px; padding: 18px 20px; font-size: 14.5px; line-height: 1.5;">
+              <a href="/privasi" style="color: #55BEFF; text-decoration: none;">Kebijakan Privasi →</a>
+              <a href="/syarat" style="color: #55BEFF; text-decoration: none;">Syarat &amp; Ketentuan Layanan →</a>
+              <span style="color: #B9B9B9;">Pertanyaan? <a href="mailto:master@luxio.web.id" style="color: #55BEFF; text-decoration: none;">master@luxio.web.id</a></span>
+            </div>
+          </div>
+
+          <!-- CTA -->
+          <div style="background: #212121; border: 1px solid #353535; border-radius: 14px; padding: 22px 24px;">
+            <h2 style="font-size: 18px; margin: 0 0 8px;">Cara mulai</h2>
+            <p style="font-size: 14.5px; color: #B9B9B9; line-height: 1.6; margin: 0;">Buka <a href="https://luxio.web.id/" style="color: #55BEFF; text-decoration: none;">https://luxio.web.id</a>, buat akun gratis, dan ajak tim kamu. Tidak diperlukan kartu kredit. Pertanyaan? Email <a href="mailto:master@luxio.web.id" style="color: #55BEFF; text-decoration: none;">master@luxio.web.id</a>.</p>
+          </div>
+
+          <p style="font-size: 12px; color: #797979; margin: 40px 0 0; letter-spacing: 0.3px;">© 2026 Luxio — aplikasi ini memerlukan JavaScript untuk pengalaman penuh.</p>
+        </div>
       </main>
     </div>
     <script type="module" src="/src/main.jsx"></script>

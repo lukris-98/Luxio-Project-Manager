@@ -35,21 +35,57 @@
   width: 56px;
 }
 
+/* Sidebar terlipat: posisi ikon TIDAK berubah saat mengecil/membesar —
+   hanya teks yang memudar keluar/masuk (max-width + opacity). */
+.sidebar.collapsed .nav-item {
+  justify-content: flex-start;
+  flex-direction: row;
+  gap: 10px;
+  padding-left: 10px;
+  padding-right: 6px;
+}
+
+.logo-text,
+.nav-item > span,
+.user-details,
+.sidebar-version {
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 260px;
+  opacity: 1;
+  transform: translateX(0);
+  transition: max-width 0.22s ease, opacity 0.16s ease 0.05s, transform 0.22s ease;
+}
+
 .sidebar.collapsed .logo-text,
+.sidebar.collapsed .nav-item > span,
 .sidebar.collapsed .user-details,
-.sidebar.collapsed .nav-item span {
+.sidebar.collapsed .sidebar-version {
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-8px);
+  pointer-events: none;
+  transition: max-width 0.22s ease, opacity 0.12s ease, transform 0.22s ease;
+}
+
+/* Saat sidebar terlipat: header & footer tetap rata kiri (ikon stabil) */
+.sidebar.collapsed .sidebar-header {
+  justify-content: flex-start;
+  padding-left: 10px;
+}
+
+.sidebar.collapsed .sidebar-close {
   display: none;
 }
 
-.sidebar.collapsed .sidebar-header {
-  justify-content: center;
+.sidebar.collapsed .profile-btn {
+  justify-content: flex-start;
+  padding-left: 10px;
 }
 
-.sidebar.collapsed .nav-item {
-  justify-content: center;
-  padding: var(--space-2);
-  flex-direction: column;
-  gap: 2px;
+.sidebar.collapsed .sidebar-bottom {
+  justify-content: flex-start;
+  padding-left: 6px;
 }
 
 .sidebar.collapsed .nav-item svg {
@@ -60,12 +96,16 @@
   min-height: 14px;
 }
 
+.sidebar.collapsed .sidebar-collapse-btn {
+  align-self: flex-start;
+}
+
 .sidebar.collapsed .nav-drop-chevron {
   display: none;
 }
 
 .sidebar.collapsed .sidebar-footer {
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--space-3);
 }
 
@@ -73,17 +113,8 @@
   justify-content: center;
 }
 
-.sidebar.collapsed .profile-btn {
-  justify-content: center;
-  padding: var(--space-2);
-}
-
 .sidebar.collapsed .profile-chevron {
   display: none;
-}
-
-.sidebar.collapsed .sidebar-collapse-btn {
-  align-self: center;
 }
 
 /* Tombol perkecil/perbesar sidebar (ikon saja, tanpa teks) — pojok kanan bawah */
@@ -211,9 +242,7 @@
   color: var(--accent);
 }
 
-/* Dropdown item per link (target/kanban/todo/catatan).
-   Ditampilkan di antara link (mengalir ke bawah link yang diklik),
-   bukan flyout ke kanan. */
+/* Dropdown item per link (target/kanban/todo/catatan). */
 .nav-item-wrap {
   position: relative;
   width: 100%;
@@ -230,33 +259,10 @@
   transform: rotate(90deg);
 }
 
-/* Animasi expand/collapse dropdown sidebar */
-.nav-dropdown {
+/* Dropdown item per link (target/kanban/todo/catatan). */
+.nav-item-wrap {
   position: relative;
-  z-index: 1;
-  margin: 0;
   width: 100%;
-  background: transparent;
-  border: none;
-  overflow: hidden;
-  animation: navDropdownExpand 0.22s ease;
-  transform-origin: top;
-}
-
-@keyframes navDropdownExpand {
-  0% {
-    opacity: 0;
-    max-height: 0;
-    transform: translateY(-6px);
-  }
-  60% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    max-height: 400px;
-    transform: translateY(0);
-  }
 }
 
 /* Sidebar diangkat ke atas backdrop saat dropdown terbuka, agar item
@@ -265,17 +271,20 @@
   z-index: 140;
 }
 
-.nav-dropdown {
+/* Dropdown sidebar: expand IN-FLOW (mendorong link di bawahnya ke bawah,
+   bukan menumpuk di atasnya) dengan animasi buka halus via AnimatedDropdown. */
+.sidebar.nav-dropdown-open .nav-dropdown {
   position: relative;
-  z-index: 1;
-  margin: 0;
   width: 100%;
-  background: transparent;
-  border: none;
+  margin: 2px 0 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-/* Sidebar terlipat: dropdown tidak mungkin 64px, tampilkan panel di bawah
-   link yang diklik (tetap menempel kiri, bukan flyout lebar ke tengah). */
+/* Sidebar terlipat (56px): dropdown tidak muat in-flow — tampilkan sebagai
+   flyout di bawah link yang diklik. */
 .sidebar.collapsed.nav-dropdown-open {
   overflow: visible;
 }
@@ -284,16 +293,15 @@
   overflow: visible;
 }
 
-.sidebar.collapsed .nav-dropdown{
+.sidebar.collapsed .nav-dropdown {
   position: absolute;
   left: 0;
   top: 100%;
   width: 240px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  box-shadow: none;
-  animation: navDropdownExpand 0.2s ease;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
   transform-origin: top left;
 }
 
@@ -325,9 +333,10 @@
   text-decoration: underline;
 }
 
-/* Maks 5 item terlihat (grup Google punya 5 layanan); lebih dari itu scroll */
+/* Maks 8 item terlihat; lebih dari itu scroll di dalam panel (panel tetap
+   mengambang penuh di atas item lain). */
 .nav-dropdown-list {
-  max-height: calc(5 * 46px);
+  max-height: calc(8 * 46px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -349,6 +358,10 @@
   text-align: left;
   min-height: 46px;
   transition: background 0.15s;
+}
+
+.nav-dropdown-item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent) !important;
 }
 
 .nav-dropdown-item:hover {

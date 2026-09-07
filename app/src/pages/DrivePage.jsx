@@ -15,7 +15,7 @@ import './GooglePages.css'
 import './google-native.css'
 
 // =====================================================================
-// DrivePage â€” Google Drive API v3.
+// DrivePage — Google Drive API v3.
 // =====================================================================
 // Scope yang dipakai: drive.file. Artinya halaman ini HANYA melihat file
 // yang dibuat atau diunggah lewat Luxio, bukan seluruh isi Drive user.
@@ -33,10 +33,10 @@ const PERM_LIST = [
 ]
 
 const fmtDate = (iso) => {
-  if (!iso) return 'â€”'
+  if (!iso) return '—'
   try {
     return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-  } catch { return 'â€”' }
+  } catch { return '—' }
 }
 
 export default function DrivePage() {
@@ -48,7 +48,7 @@ export default function DrivePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
-  // Tumpukan folder: [{ id, name }] â€” elemen terakhir = folder aktif.
+  // Tumpukan folder: [{ id, name }] — elemen terakhir = folder aktif.
   const [crumbs, setCrumbs] = useState([])
   const [uploadPct, setUploadPct] = useState(-1)
   const [shareTarget, setShareTarget] = useState(null)

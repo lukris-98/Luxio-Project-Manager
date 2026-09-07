@@ -324,7 +324,6 @@ export const api = {
   // ---- Notifikasi in-app ----
   getNotifications: () => get('/api/notifications'),
   readNotifications: (ids, all) => post('/api/notifications/read', all ? { all: true } : { ids }),
-  sendNotification: (data) => post('/api/notifications/send', data),
 
   // ---- AI Providers (multi-provider) ----
   getAIProviders: () => get('/api/agent/providers'),
@@ -332,6 +331,17 @@ export const api = {
   updateAIProvider: (id, data) => put(`/api/agent/providers/${id}`, data),
   deleteAIProvider: (id) => del(`/api/agent/providers/${id}`, {}),
   fetchAIModels: (data) => post('/api/agent/providers/fetch-models', data),
+
+  // ---- Bang Motion (riwayat prompt di Neon + render MP4) ----
+  saveBangMotionPrompt: (data) => post('/api/bang-motion/prompts', data),
+  getBangMotionPrompts: () => get('/api/bang-motion/prompts'),
+  deleteBangMotionPrompt: (id) => del(`/api/bang-motion/prompts/${id}`, {}),
+  renderBangMotion: (data) => post('/api/bang-motion/render', data, 300000),
+
+  // ---- Storage 2FA + HF logs ----
+  sendStorage2fa: () => post('/api/storage/2fa/send', {}),
+  verifyStorage2fa: (code) => post('/api/storage/2fa/verify', { code }),
+  getHfLogs: (stream, lines) => get('/api/hf/logs', { stream: stream || 'run', lines: lines || 200 }),
 
   // ---- Lupa Password ----
   forgotPassword: (email) => post('/api/auth/forgot-password', { email }),

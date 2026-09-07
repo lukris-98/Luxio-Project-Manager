@@ -95,7 +95,7 @@ export default function Landing() {
   const featureGroups = [
     { icon: Target, title: 'Manajemen Project & Proyek', desc: 'Project mingguan, bulanan, quarterly dengan progress terukur' },
     { icon: Kanban, title: 'Kanban & To-Do', desc: 'Kelola task dengan board kanban atau daftar to-do sederhana' },
-    { icon: Lock, title: 'Catatan Pribadi + PIN', desc: 'Catatan rahasia dikunci PIN â€” aman dari orang lain' },
+    { icon: Lock, title: 'Catatan Pribadi + PIN', desc: 'Catatan rahasia dikunci PIN — aman dari orang lain' },
     { icon: Calendar, title: 'Kalender & Pengingat', desc: 'Jadwal & reminder otomatis sebelum deadline tiba' },
     { icon: Users, title: 'Tim, Divisi & Kewenangan', desc: 'Atur divisi, tim, dan hak akses tiap anggota' },
     { icon: MessageSquare, title: 'Chat antar anggota + grup otomatis', desc: 'Diskusi antar anggota, grup chat otomatis per tim' },
@@ -207,7 +207,7 @@ const pricingPlans = [
             <h1>Kelola Project Tim<br/>Jadi Lebih <em>Jelas</em></h1>
             <p>
               Luxio bantu kamu dan tim konsisten mencapai project. 
-              Mingguan, bulanan, atau quarterly â€” semua dalam satu tempat.
+              Mingguan, bulanan, atau quarterly — semua dalam satu tempat.
             </p>
             <div className="hero-cta">
               <button className="btn btn-primary btn-lg" onClick={() => setAppState('auth')}>
@@ -217,7 +217,7 @@ const pricingPlans = [
             
             <div className="hero-note">
               <Check size={14} />
-              <span>Tanpa kartu kredit Â· Gratis untuk tim kecil</span>
+              <span>Tanpa kartu kredit · Gratis untuk tim kecil</span>
             </div>
             
             {/* Animated Counters */}
@@ -244,7 +244,7 @@ const pricingPlans = [
             <div className={`visual-card main ${cardZoomed ? 'zoomed' : ''} ${cardShaking ? 'shake' : ''}`}>
               <div className="card-header">
                 <button className="card-btn card-btn-red" onClick={handleCardClose} aria-label="Tutup">
-                  <span>Ã—</span>
+                  <span>×</span>
                 </button>
                 <button
                   className={`card-btn card-btn-yellow ${cardMinimized ? 'is-active' : ''}`}

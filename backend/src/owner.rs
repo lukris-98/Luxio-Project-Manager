@@ -11,8 +11,446 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::handlers::require_auth;
+use crate::handlers::{require_auth, rate_limited, sha256, generate_otp};
 use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, IncentiveRequest, MailTestRequest, OwnerConfigRequest, SalaryQuery};
+
+// =====================================================================
+// BANG MOTION — riwayat prompt/generasi (metadata di Neon, HTML di B2).
+// =====================================================================
+
+/// POST /api/bang-motion/prompts — simpan metadata satu generasi.
+pub async fn bang_motion_save(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let id = Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO bang_motion_prompts
+            (id, user_id, title, prompt, style, duration, ratio, extras, provider,
+             b2_file_name, b2_file_id, b2_url, size_bytes, status, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'done',NOW())",
+    )
+    .bind(&id)
+    .bind(&user_id)
+    .bind(payload.get("title").and_then(|v| v.as_str()).unwrap_or(""))
+    .bind(payload.get("prompt").and_then(|v| v.as_str()).unwrap_or(""))
+    .bind(payload.get("style").and_then(|v| v.as_str()).unwrap_or("auto"))
+    .bind(payload.get("duration").and_then(|v| v.as_i64()).unwrap_or(20) as i32)
+    .bind(payload.get("ratio").and_then(|v| v.as_str()).unwrap_or("16:9"))
+    .bind(payload.get("extras").and_then(|v| v.as_str()).unwrap_or(""))
+    .bind(payload.get("provider").and_then(|v| v.as_str()).unwrap_or(""))
+    .bind(payload.get("b2_file_name").and_then(|v| v.as_str()).unwrap_or(""))
+    .bind(payload.get("b2_file_id").and_then(|v| v.as_str()).unwrap_or(""))
+    .bind(payload.get("b2_url").and_then(|v| v.as_str()).unwrap_or(""))
+    .bind(payload.get("size_bytes").and_then(|v| v.as_i64()).unwrap_or(0))
+    .execute(&state.db)
+    .await
+    .map_err(|e| { eprintln!("[DB ERROR] {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+    Ok(Json(json!({ "ok": true, "id": id })))
+}
+
+/// GET /api/bang-motion/prompts — daftar riwayat milik user.
+pub async fn bang_motion_list(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let rows = sqlx::query(
+        "SELECT id, title, prompt, style, duration, ratio, extras, provider,
+                b2_file_name, b2_file_id, b2_url, size_bytes, created_at
+         FROM bang_motion_prompts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 60",
+    )
+    .bind(&user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| { eprintln!("[DB ERROR] {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+    let items: Vec<Value> = rows
+        .iter()
+        .map(|r| json!({
+            "id": r.get::<String, _>("id"),
+            "title": r.get::<String, _>("title"),
+            "prompt": r.get::<String, _>("prompt"),
+            "style": r.get::<String, _>("style"),
+            "duration": r.get::<i32, _>("duration"),
+            "ratio": r.get::<String, _>("ratio"),
+            "extras": r.get::<String, _>("extras"),
+            "provider": r.get::<String, _>("provider"),
+            "b2_file_name": r.get::<String, _>("b2_file_name"),
+            "b2_file_id": r.get::<String, _>("b2_file_id"),
+            "b2_url": r.get::<String, _>("b2_url"),
+            "size": r.get::<i64, _>("size_bytes"),
+            "createdAt": r.get::<chrono::DateTime<Utc>, _>("created_at").timestamp_millis(),
+        }))
+        .collect();
+    Ok(Json(json!({ "items": items })))
+}
+
+/// DELETE /api/bang-motion/prompts/{id} — hapus riwayat.
+pub async fn bang_motion_delete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    sqlx::query("DELETE FROM bang_motion_prompts WHERE id = $1 AND user_id = $2")
+        .bind(&id)
+        .bind(&user_id)
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+// =====================================================================
+// BANG MOTION — render MP4 (puppeteer + ffmpeg) dan upload ke B2.
+// =====================================================================
+
+/// POST /api/bang-motion/render
+/// Body: { htmlBase64, durationSec, fps, width, height, title }
+/// Proses: tulis HTML ke tmp → node render-mp4.mjs (chromium screenshot
+/// per frame → ffmpeg libx264) → upload MP4 ke B2 (bucket luxio-motion).
+/// Hasil: { ok, fileName, fileId, url, sizeBytes }
+pub async fn bang_motion_render(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = match require_auth(&state, &headers).await {
+        Ok(u) => u,
+        Err(_) => return Err((StatusCode::UNAUTHORIZED, Json(json!({ "error": "Unauthorized" })))),
+    };
+    if rate_limited(&format!("bmrender:{}", user_id), 3, 300) {
+        return Err((StatusCode::TOO_MANY_REQUESTS, Json(json!({ "error": "Tunggu sebentar sebelum render lagi (maks 3 per 5 menit)." }))));
+    }
+
+    let html_b64 = payload.get("htmlBase64").and_then(|v| v.as_str()).unwrap_or("");
+    if html_b64.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "htmlBase64 kosong" }))));
+    }
+    use base64::Engine as _;
+    let html = base64::engine::general_purpose::STANDARD
+        .decode(html_b64)
+        .map_err(|_| (StatusCode::BAD_REQUEST, Json(json!({ "error": "base64 tidak valid" }))))?;
+    let duration: f64 = payload.get("durationSec").and_then(|v| v.as_f64()).unwrap_or(20.0).clamp(1.0, 120.0);
+    let fps: i64 = payload.get("fps").and_then(|v| v.as_i64()).unwrap_or(24).clamp(8, 30);
+    let width: i64 = payload.get("width").and_then(|v| v.as_i64()).unwrap_or(1920);
+    let height: i64 = payload.get("height").and_then(|v| v.as_i64()).unwrap_or(1080);
+    let title = payload.get("title").and_then(|v| v.as_str()).unwrap_or("motion").to_string();
+
+    // -- Tulis HTML & output ke tmp --
+    let tmp = std::env::temp_dir();
+    let stamp = Utc::now().timestamp_millis();
+    let html_path = tmp.join(format!("bm-{}.html", stamp));
+    let mp4_path = tmp.join(format!("bm-{}.mp4", stamp));
+    std::fs::write(&html_path, &html)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": format!("gagal menulis tmp: {}", e) }))))?;
+
+    // -- Jalankan renderer --
+    let script_path = std::env::var("RENDER_SCRIPT")
+        .unwrap_or_else(|_| "/app/scripts/render-mp4.mjs".to_string());
+    let chrome = std::env::var("CHROME_PATH").unwrap_or_else(|_| "/usr/bin/chromium".to_string());
+    let out = tokio::process::Command::new("node")
+        .arg(&script_path)
+        .arg(&html_path)
+        .arg(&mp4_path)
+        .arg(fps.to_string())
+        .arg(duration.to_string())
+        .arg(width.to_string())
+        .arg(height.to_string())
+        .env("CHROME_PATH", &chrome)
+        .output()
+        .await;
+    let out = match out {
+        Ok(o) if o.status.success() => o,
+        Ok(o) => {
+            let err = String::from_utf8_lossy(&o.stderr).chars().rev().take(500).collect::<String>().chars().rev().collect::<String>();
+            eprintln!("[BM RENDER] gagal: {}", err);
+            let _ = std::fs::remove_file(&html_path);
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": format!("Render gagal: {}", err) }))));
+        }
+        Err(e) => {
+            let _ = std::fs::remove_file(&html_path);
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": format!("node tidak tersedia: {}", e) }))));
+        }
+    };
+    let _ = out;
+    let _ = std::fs::remove_file(&html_path);
+
+    let mp4 = std::fs::read(&mp4_path)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": format!("MP4 tidak ditemukan: {}", e) }))))?;
+    let _ = std::fs::remove_file(&mp4_path);
+    let size = mp4.len() as i64;
+
+    // -- Upload MP4 ke B2 via b2 API (server-to-server) --
+    // Kredensial dari payload (frontend punya kredensial aplikasi) —
+    // fallback ke owner config (tabel owner_config, key 'backblaze').
+    let (key_id, app_key) = {
+        let b2 = payload.get("b2");
+        let kid = b2
+            .and_then(|b| b.get("key_id"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let akey = b2
+            .and_then(|b| b.get("application_key"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        if let (Some(k), Some(a)) = (kid, akey) {
+            if !k.trim().is_empty() && !a.trim().is_empty() {
+                (k, a)
+            } else {
+                let cfg = cfg_get_async(&state.db, "backblaze").await.unwrap_or_else(|| json!({}));
+                (
+                    cfg.get("key_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    cfg.get("application_key").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                )
+            }
+        } else {
+            let cfg = cfg_get_async(&state.db, "backblaze").await.unwrap_or_else(|| json!({}));
+            (
+                cfg.get("key_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                cfg.get("application_key").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            )
+        }
+    };
+    if key_id.is_empty() || app_key.is_empty() {
+        return Err((StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "error": "Kredensial B2 belum diatur." }))));
+    }
+    let client = reqwest::Client::new();
+    let auth: Value = client
+        .get("https://api.backblazeb2.com/b2api/v2/b2_authorize_account")
+        .basic_auth(&key_id, Some(&app_key))
+        .send()
+        .await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "B2 authorize gagal" }))))?
+        .json()
+        .await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "B2 authorize gagal" }))))?;
+    let api_url = auth.get("apiUrl").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let auth_token = auth.get("authorizationToken").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let account_id = auth.get("accountId").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let download_url = auth.get("downloadUrl").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    // Pastikan bucket ada.
+    let buckets: Value = client
+        .post(format!("{}/b2api/v2/b2_list_buckets", api_url))
+        .header("Authorization", &auth_token)
+        .json(&json!({ "accountId": account_id }))
+        .send()
+        .await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "b2_list_buckets gagal" }))))?
+        .json()
+        .await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "b2_list_buckets gagal" }))))?;
+    let bucket = buckets
+        .get("buckets")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| arr.iter().find(|b| b.get("bucketName").and_then(|n| n.as_str()) == Some("luxio-motion")))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let bucket_id = if bucket.get("bucketId").is_some() {
+        bucket.get("bucketId").and_then(|v| v.as_str()).unwrap_or("").to_string()
+    } else {
+        let created: Value = client
+            .post(format!("{}/b2api/v2/b2_create_bucket", api_url))
+            .header("Authorization", &auth_token)
+            .json(&json!({ "accountId": account_id, "bucketName": "luxio-motion", "bucketType": "allPublic" }))
+            .send()
+            .await
+            .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "b2_create_bucket gagal" }))))?
+            .json()
+            .await
+            .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "b2_create_bucket gagal" }))))?;
+        created.get("bucketId").and_then(|v| v.as_str()).unwrap_or("").to_string()
+    };
+
+    let up: Value = client
+        .post(format!("{}/b2api/v2/b2_get_upload_url", api_url))
+        .header("Authorization", &auth_token)
+        .json(&json!({ "bucketId": bucket_id }))
+        .send()
+        .await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "b2_get_upload_url gagal" }))))?
+        .json()
+        .await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "b2_get_upload_url gagal" }))))?;
+    let upload_url = up.get("uploadUrl").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let upload_token = up.get("authorizationToken").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    // SHA1 file.
+    use sha1::{Sha1, Digest as _};
+    let mut hasher = Sha1::new();
+    hasher.update(&mp4);
+    let sha1 = format!("{:x}", hasher.finalize());
+    let file_name = format!("bang-motion/{}.mp4", stamp);
+    let _ = &file_name;
+
+    let uploaded: Value = client
+        .post(&upload_url)
+        .header("Authorization", &upload_token)
+        .header("X-Bz-File-Name", reqwest::header::HeaderValue::from_str(&file_name)
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": "nama file tidak valid" }))))?)
+        .header("Content-Type", "video/mp4")
+        .header("X-Bz-Content-Sha1", &sha1)
+        .body(mp4)
+        .send()
+        .await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "upload MP4 gagal" }))))?
+        .json()
+        .await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "upload MP4 gagal" }))))?;
+
+    let file_id = uploaded.get("fileId").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let url = format!("{}/file/luxio-motion/{}", download_url, file_name);
+
+    Ok(Json(json!({
+        "ok": true,
+        "fileName": file_name,
+        "fileId": file_id,
+        "url": url,
+        "sizeBytes": size,
+    })))
+}
+
+// =====================================================================
+// STORAGE 2FA — buka halaman Penyimpanan wajib verifikasi kode email
+// yang dikirim ke OWNER (master@luxio.web.id).
+// =====================================================================
+
+const STORAGE_2FA_SECRET: &str = "luxio-storage-2fa-v1";
+
+/// POST /api/storage/2fa/send — kirim kode ke email OWNER.
+pub async fn storage_2fa_send(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if rate_limited(&format!("storage2fa:{}", user_id), 3, 60) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+    let row = sqlx::query("SELECT email, name FROM users WHERE id = $1")
+        .bind(&user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let email: String = row.get("email");
+    let name: String = row.get("name");
+
+    let code = generate_otp();
+    let code_hash = sha256(&format!("{}{}", code, STORAGE_2FA_SECRET));
+    sqlx::query(
+        "INSERT INTO storage_2fa_codes (id, user_id, code_hash, expires_at, used, created_at)
+         VALUES ($1, $2, $3, $4, FALSE, NOW())",
+    )
+    .bind(Uuid::new_v4().to_string())
+    .bind(&user_id)
+    .bind(&code_hash)
+    .bind(Utc::now() + chrono::Duration::minutes(5))
+    .execute(&state.db)
+    .await
+    .map_err(|e| { eprintln!("[DB ERROR] {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    // Kode lama langsung kadaluarsa (hanya kode terbaru berlaku).
+    let _ = sqlx::query(
+        "UPDATE storage_2fa_codes SET used = TRUE WHERE user_id = $1 AND id != (SELECT id FROM storage_2fa_codes WHERE user_id = $1 AND used = FALSE ORDER BY created_at DESC LIMIT 1)",
+    )
+    .bind(&user_id)
+    .execute(&state.db)
+    .await;
+
+    let sent = crate::mail::send_login_otp(&email, &name, &code).await.unwrap_or(false);
+    if !crate::mail::is_configured() {
+        tracing::warn!(event = "storage_2fa_dev", code = %code, "SMTP belum dikonfigurasi — kode storage 2FA: {}", code);
+    }
+    Ok(Json(json!({ "ok": true, "sent": sent, "email": email })))
+}
+
+/// POST /api/storage/2fa/verify — verifikasi kode, terima token sesi storage.
+pub async fn storage_2fa_verify(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let code = payload.get("code").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    if code.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if rate_limited(&format!("storage2fav:{}", user_id), 8, 60) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+    let code_hash = sha256(&format!("{}{}", code, STORAGE_2FA_SECRET));
+    let row = sqlx::query(
+        "SELECT id FROM storage_2fa_codes
+         WHERE user_id = $1 AND code_hash = $2 AND used = FALSE AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(&user_id)
+    .bind(&code_hash)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    match row {
+        Some(r) => {
+            let rid: String = r.get("id");
+            let _ = sqlx::query("UPDATE storage_2fa_codes SET used = TRUE WHERE id = $1")
+                .bind(&rid)
+                .execute(&state.db)
+                .await;
+            Ok(Json(json!({ "ok": true })))
+        }
+        None => Err(StatusCode::UNAUTHORIZED),
+    }
+}
+
+// =====================================================================
+// BACKEND HF LOGS — baca log container/build Space via API Hugging Face
+// (SSE stream → dikumpulkan jadi teks terbatas).
+// =====================================================================
+
+/// GET /api/hf/logs?stream=run|build&lines=200
+/// Token HF diambil dari env `HF_TOKEN` (backend). Log hanya dibaca —
+/// read-only API resmi HF, bukan scraping.
+pub async fn hf_logs(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<Value>, StatusCode> {
+    let _user_id = require_auth(&state, &headers).await?;
+    let token = std::env::var("HF_TOKEN").unwrap_or_default();
+    if token.is_empty() {
+        return Ok(Json(json!({ "ok": false, "error": "HF_TOKEN belum diset di backend." })));
+    }
+    let stream = q.get("stream").map(|s| s.as_str()).unwrap_or("run");
+    let space = std::env::var("HF_SPACE").unwrap_or_else(|_| "lukris/n8n".to_string());
+    let lines: usize = q.get("lines").and_then(|l| l.parse().ok()).unwrap_or(200).min(1000);
+
+    let client = reqwest::Client::new();
+    let url = format!("https://huggingface.co/api/spaces/{}/logs/{}", space, stream);
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| { eprintln!("[HF LOGS] gagal: {}", e); StatusCode::BAD_GATEWAY })?;
+    if !resp.status().is_success() {
+        return Ok(Json(json!({ "ok": false, "error": format!("HF API status {}", resp.status()) })));
+    }
+    let text = resp.text().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+    // SSE: baris "data: ..." → gabungkan isi log, ambil N baris terakhir.
+    let collected: String = text
+        .lines()
+        .filter_map(|l| l.strip_prefix("data:"))
+        .map(|l| l.trim_start())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let tail: Vec<&str> = collected.lines().collect::<Vec<_>>();
+    let start = tail.len().saturating_sub(lines);
+    let out = tail[start..].join("\n");
+    Ok(Json(json!({ "ok": true, "space": space, "stream": stream, "logs": out })))
+}
 
 // =====================================================================
 // OWNER DASHBOARD — analytics (Umami), database (Neon), storage
@@ -344,6 +782,122 @@ pub async fn b2_status(
         "api_url": auth.get("apiUrl").cloned().unwrap_or_default(),
         "download_url": auth.get("downloadUrl").cloned().unwrap_or_default(),
         "allowed": auth.get("allowed").cloned().unwrap_or_default(),
+    })))
+}
+
+/// POST /api/storage/proxy — proxy API eksternal untuk halaman Penyimpanan
+/// (Neon + Backblaze B2). API tersebut tidak mengirim header CORS, jadi
+/// browser tidak bisa memanggilnya langsung; backend meneruskannya
+/// server-to-server.
+///
+/// Safeguard anti penyalahgunaan (sesuai HF Content Policy — bukan proxy
+/// umum untuk mem-bypass batasan):
+///   1. Wajib sesi login Luxio (require_auth).
+///   2. Allowlist host ketat: hanya domain API Neon & Backblaze B2.
+///   3. Rate limit per user (90 request / 10 detik).
+///   4. Hanya meneruskan kredensial milik user itu sendiri (API key resmi).
+///
+/// Body : { url, method?, headers?, bodyBase64? }
+/// Hasil: { status, contentType, bodyBase64 }
+pub async fn storage_proxy(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if rate_limited(&format!("storproxy:{}", user_id), 90, 10) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    // -- Validasi URL + allowlist host (anti open-proxy / SSRF) --
+    let url = payload
+        .get("url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let parsed = reqwest::Url::parse(&url).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let host = parsed.host_str().unwrap_or("").to_lowercase();
+    if parsed.scheme() != "https" {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let allowed = host == "api.neon.tech"
+        || host == "console.neon.tech"
+        || host == "backblazeb2.com"
+        || host.ends_with(".backblazeb2.com")
+        || host.ends_with(".neon.tech");
+    if !allowed {
+        eprintln!("[STORAGE PROXY] host ditolak: {}", host);
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let method = payload
+        .get("method")
+        .and_then(|v| v.as_str())
+        .unwrap_or("GET")
+        .to_uppercase();
+    if !matches!(method.as_str(), "GET" | "POST" | "PUT" | "PATCH" | "DELETE") {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let client = reqwest::Client::new();
+    let mut req = match method.as_str() {
+        "GET" => client.get(&url),
+        "POST" => client.post(&url),
+        "PUT" => client.put(&url),
+        "PATCH" => client.patch(&url),
+        "DELETE" => client.delete(&url),
+        _ => return Err(StatusCode::BAD_REQUEST),
+    };
+
+    // Header dari frontend (Authorization, Content-Type, X-Bz-File-Name, dst.).
+    // Header hop-by-hop / sensitif diabaikan.
+    if let Some(hs) = payload.get("headers").and_then(|v| v.as_object()) {
+        for (k, v) in hs {
+            let lk = k.to_lowercase();
+            if matches!(
+                lk.as_str(),
+                "host" | "content-length" | "connection" | "transfer-encoding" | "cookie" | "origin" | "referer"
+            ) {
+                continue;
+            }
+            if let Some(sv) = v.as_str() {
+                req = req.header(k.as_str(), sv);
+            }
+        }
+    }
+
+    // Body biner (base64) — dipakai untuk upload file B2 & JSON body.
+    if let Some(b64) = payload.get("bodyBase64").and_then(|v| v.as_str()) {
+        use base64::Engine as _;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(b64)
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+        req = req.body(bytes);
+    }
+
+    let resp = req.send().await.map_err(|e| {
+        eprintln!("[STORAGE PROXY] request gagal: {}", e);
+        StatusCode::BAD_GATEWAY
+    })?;
+    let status = resp.status().as_u16();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    use base64::Engine as _;
+    let body_b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+
+    Ok(Json(json!({
+        "status": status,
+        "contentType": content_type,
+        "bodyBase64": body_b64,
     })))
 }
 

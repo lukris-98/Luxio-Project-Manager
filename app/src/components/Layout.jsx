@@ -11,7 +11,7 @@ import { subscribeToPush } from '../utils/push'
 import { useAutoHideNav } from '../utils/useAutoHideNav'
 import Logo from './Logo'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, Megaphone, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard
 } from 'lucide-react'
 import './Layout.css'
 
@@ -45,7 +45,6 @@ const NAV_COLORS = {
   'owner-dashboard': 'var(--accent)',
   attendance: 'var(--accent)',
   'attendance-admin': 'var(--accent)',
-  'send-notification': 'var(--accent)',
   research: 'var(--accent)',
   apps: 'var(--accent)',
   connect: 'var(--accent)',
@@ -73,6 +72,15 @@ const TOOL_LINKS = [
     label: 'Metadata Creator',
     sub: 'SEO nama & 40 label untuk Adobe Stock',
     page: 'metadata-creator',
+  },
+  {
+    key: 'tool-bang-motion',
+    id: 'bang-motion',
+    type: 'tool',
+    icon: Clapperboard,
+    label: 'Bang Motion',
+    sub: 'Motion graphics AI — opener, promo, explainer',
+    page: 'bang-motion',
   },
 ]
 
@@ -250,6 +258,8 @@ export default function Layout({ children }) {
     { id: 'todo-list', icon: ListTodo, label: 'Todo' },
     { id: 'private-note', icon: StickyNote, label: 'Catatan' },
     { id: 'vault', icon: KeyRound, label: 'Brankas' },
+    // Penyimpanan cloud (Neon + Backblaze B2) — semua role.
+    { id: 'storage', icon: HardDrive, label: 'Penyimpanan' },
     { id: 'calendar', icon: Calendar, label: 'Kalender' },
     { id: 'my-tasks', icon: CheckSquare, label: 'Task Saya' },
     // Super Admin / Owner => Divisi (CRUD divisi+tim), Admin/User => Tim.
@@ -267,10 +277,6 @@ export default function Layout({ children }) {
     // Dashboard absensi (khusus admin/super_admin/owner).
     ...(effRole === 'admin' || effRole === 'super_admin' || effRole === 'owner'
       ? [{ id: 'attendance-admin', icon: ClipboardList, label: 'Dashboard Absen' }]
-      : []),
-    // Kirim notifikasi ke bawahan (owner/super_admin/admin).
-    ...(effRole === 'owner' || effRole === 'super_admin' || effRole === 'admin'
-      ? [{ id: 'send-notification', icon: Megaphone, label: 'Kirim Notifikasi' }]
       : []),
     // Riset konten — semua role.
     { id: 'research', icon: Search, label: 'Riset Konten' },
@@ -294,9 +300,6 @@ export default function Layout({ children }) {
   // Kalau role diganti dan sedang di halaman khusus owner, lempar ke dashboard.
   useEffect(() => {
     if ((currentPage === 'admin-users' || currentPage === 'owner-dashboard') && effRole !== 'owner') {
-      setCurrentPage('dashboard')
-    }
-    if (currentPage === 'send-notification' && !['owner', 'super_admin', 'admin'].includes(effRole)) {
       setCurrentPage('dashboard')
     }
   }, [effRole, currentPage, setCurrentPage])
@@ -329,7 +332,9 @@ export default function Layout({ children }) {
     setNotifOpen(willOpen)
     if (!willOpen) return
     // Saat pertama kali dibuka, minta izin notifikasi (jika belum) + daftarkan Web Push.
-    requestNotificationPermission()
+    // requestNotificationPermission bisa mengembalikan string (izin sudah
+    // ada / tidak didukung) atau Promise — bungkus dengan Promise.resolve.
+    Promise.resolve(requestNotificationPermission())
       .then((perm) => {
         if (perm === 'granted') subscribeToPush()
       })
@@ -370,9 +375,24 @@ export default function Layout({ children }) {
     if (DROPDOWN_IDS.has(pageId)) setLabelFilter(null)
   }
 
-  // Klik link dengan dropdown: buka/tutup dropdown item-nya.
+  // Klik link dengan dropdown: buka dropdown item-nya & tutup yang lain
+  // (satu dropdown aktif pada satu waktu), lalu pindahkan fokus keyboard
+  // ke item pertama dropdown yang baru terbuka.
+  const dropdownItemRefs = useRef({})
+  const dropdownElRefs = useRef({})
   const handleDropdownToggle = (item) => {
-    setOpenDropdown((cur) => (cur === item.id ? null : item.id))
+    setOpenDropdown((cur) => {
+      const next = cur === item.id ? null : item.id
+      if (next) {
+        // Auto-scroll: kalau daftar dropdown "tenggelam" di bawah area
+        // sidebar yang terlihat, gulir sampai seluruh daftarnya terlihat.
+        requestAnimationFrame(() => {
+          dropdownElRefs.current[next]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          dropdownItemRefs.current[next]?.[0]?.focus({ preventScroll: true })
+        })
+      }
+      return next
+    })
   }
 
   // Buka item dari dropdown: label => buka halaman dgn filter label; item lain
@@ -406,12 +426,17 @@ export default function Layout({ children }) {
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
-  // PIN akun wajib di-set setelah login (untuk catatan pribadi).
+  // PIN akun: ditawarkan SEKALI per akun per perangkat setelah login
+  // (PIN catatan pribadi bersifat lokal; backend hanya menyimpan PIN owner).
+  // Kalau ditutup ("Nanti"), jangan menginterogasi lagi di login berikutnya.
+  const pinPromptKey = `luxio_pin_prompt_${currentUser?.id ?? 'anon'}`
   useEffect(() => {
-    if (isAuthenticated && !userPin) {
-      setPinModalOpen(true)
-    }
-  }, [isAuthenticated, userPin])
+    if (!isAuthenticated || userPin) return
+    let dismissed = null
+    try { dismissed = localStorage.getItem(pinPromptKey) } catch { /* abaikan */ }
+    if (dismissed === '1') return
+    setPinModalOpen(true)
+  }, [isAuthenticated, userPin, pinPromptKey])
 
   return (
     <div className={`app-layout ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -472,7 +497,11 @@ export default function Layout({ children }) {
               {/* Dropdown item link (target/kanban/todo/catatan/tool/google) */}
               {hasDropdown && (
                 <AnimatedDropdown show={openDropdown === item.id}>
-                <div className="nav-dropdown" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="nav-dropdown"
+                  ref={(el) => { dropdownElRefs.current[item.id] = el }}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <div className="nav-dropdown-head">
                     <span>{item.label}</span>
                     {/* Grup statis tidak punya halaman "Semua". */}
@@ -483,9 +512,13 @@ export default function Layout({ children }) {
                     )}
                   </div>
                   <div className="nav-dropdown-list">
-                    {dropdownItems.map((entry) => (
+                    {dropdownItems.map((entry, di) => (
                       <button
                         key={entry.key}
+                        ref={(el) => {
+                          if (!dropdownItemRefs.current[item.id]) dropdownItemRefs.current[item.id] = []
+                          dropdownItemRefs.current[item.id][di] = el
+                        }}
                         className={`nav-dropdown-item ${currentPage === entry.page ? 'active' : ''}`}
                         onClick={() => handleDropdownItem(entry)}
                       >
@@ -805,12 +838,17 @@ export default function Layout({ children }) {
         />
       )}
 
-      {/* Modal wajib: set PIN akun (muncul setelah login bila belum di-set) */}
+      {/* Modal PIN akun (muncul setelah login bila belum di-set; bisa "Nanti") */}
       {pinModalOpen && (
         <PinSetupModal
-          onClose={() => { if (userPin) setPinModalOpen(false) }}
+          onClose={() => {
+            if (!userPin) {
+              try { localStorage.setItem(pinPromptKey, '1') } catch { /* abaikan */ }
+            }
+            setPinModalOpen(false)
+          }}
           onSet={(pin) => { setUserPin(pin); setPinModalOpen(false); setToast({ title: 'PIN tersimpan', body: 'PIN akun kamu sudah diatur', type: 'create' }) }}
-          closable={Boolean(userPin)}
+          closable
         />
       )}
     </div>

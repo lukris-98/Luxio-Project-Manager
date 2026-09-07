@@ -13,7 +13,7 @@ import './GooglePages.css'
 import './google-native.css'
 
 // =====================================================================
-// GCalendarPage â€” Google Calendar API v3.
+// GCalendarPage — Google Calendar API v3.
 // =====================================================================
 // Halaman ini SENGAJA terpisah dari pages/Calendar.jsx (kalender internal
 // Luxio yang datanya lokal). Di sini semua data datang dari akun Google
@@ -42,7 +42,7 @@ const WEEKDAYS = [
 ]
 
 const fmtDateTime = (iso, allDay) => {
-  if (!iso) return 'â€”'
+  if (!iso) return '—'
   try {
     const d = new Date(iso)
     return allDay
@@ -53,7 +53,7 @@ const fmtDateTime = (iso, allDay) => {
 
 const dayKey = (iso) => {
   try { return new Date(iso).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }) }
-  catch { return 'â€”' }
+  catch { return '—' }
 }
 
 // Nilai untuk <input type="datetime-local"> (tanpa zona, waktu lokal).
@@ -315,7 +315,7 @@ export default function GCalendarPage() {
           {calendars.length === 0 && <option value="primary">Kalender utama</option>}
           {calendars.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.summary}{c.primary ? ' (utama)' : ''}{c.canWrite ? '' : ' â€” baca saja'}
+              {c.summary}{c.primary ? ' (utama)' : ''}{c.canWrite ? '' : ' — baca saja'}
             </option>
           ))}
         </select>
@@ -403,8 +403,8 @@ export default function GCalendarPage() {
                     </div>
                     <div className="gp-row-sub">
                       {ev.allDay ? 'Sepanjang hari' : fmtDateTime(ev.start)}
-                      {ev.location ? ` Â· ${ev.location}` : ''}
-                      {ev.attendees.length ? ` Â· ${ev.attendees.length} peserta` : ''}
+                      {ev.location ? ` · ${ev.location}` : ''}
+                      {ev.attendees.length ? ` · ${ev.attendees.length} peserta` : ''}
                     </div>
                   </div>
                   <div className="gp-row-actions">

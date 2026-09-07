@@ -11,14 +11,25 @@
 // =====================================================================
 
 import { googleFetch, GOOGLE_SCOPES } from './googleAuth'
+import { cacheGet, cacheSet, cacheInvalidate } from './bloggerCache'
 
 const BASE = 'https://www.googleapis.com/blogger/v3'
 const SCOPES = () => [...GOOGLE_SCOPES.BLOGGER]
 
+// Helper: GET dengan cache TTL (berpindah tab/blog jadi instan).
+const cachedFetch = async (url, { ttl = 120_000 } = {}) => {
+  const key = url
+  const hit = cacheGet(key)
+  if (hit) return hit
+  const data = await googleFetch(url, { scopes: SCOPES() })
+  cacheSet(key, data, ttl)
+  return data
+}
+
 // ---------- Blog ----------
 
 export const listBlogs = async () => {
-  const data = await googleFetch(`${BASE}/users/self/blogs`, { scopes: SCOPES() })
+  const data = await cachedFetch(`${BASE}/users/self/blogs`)
   return (data.items || []).map((b) => ({
     id: b.id,
     name: b.name,
@@ -39,7 +50,8 @@ export const listPosts = async (blogId, { status = 'live', max = 25, pageToken =
     const params = new URLSearchParams({ maxResults: String(max), view: 'AUTHOR', fetchBodies: 'true' })
     if (statusParam) params.set('status', statusParam)
     if (pageToken) params.set('pageToken', pageToken)
-    const data = await googleFetch(`${BASE}/blogs/${blogId}/posts?${params.toString()}`, { scopes: SCOPES() })
+    const url = `${BASE}/blogs/${blogId}/posts?${params.toString()}`
+    const data = await cachedFetch(url)
     return { posts: (data.items || []).map(mapPost), nextPageToken: data.nextPageToken || '' }
   }
   // 'all' bukan nilai status API valid — gabungkan live + draft + scheduled.
@@ -72,8 +84,15 @@ const mapPost = (p) => ({
 })
 
 export const getPost = async (blogId, postId) => {
-  const data = await googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}?view=AUTHOR`, { scopes: SCOPES() })
+  const data = await cachedFetch(`${BASE}/blogs/${blogId}/posts/${postId}?view=AUTHOR`)
   return mapPost(data)
+}
+
+// Setiap operasi tulis menghapus cache post + hitungan blog agar UI
+// langsung menampilkan data terbaru pada fetch berikutnya.
+const invalidatePosts = (blogId) => {
+  cacheInvalidate(`${BASE}/blogs/${blogId}/posts`)
+  cacheInvalidate(`${BASE}/users/self/blogs`)
 }
 
 export const createPost = (blogId, { title, content, labels = [], isDraft = false }) =>
@@ -81,39 +100,41 @@ export const createPost = (blogId, { title, content, labels = [], isDraft = fals
     method: 'POST',
     scopes: SCOPES(),
     body: { kind: 'blogger#post', blog: { id: blogId }, title, content, labels },
-  }).then(mapPost)
+  }).then((r) => { invalidatePosts(blogId); return mapPost(r) })
 
 export const updatePost = (blogId, postId, { title, content, labels = [] }) =>
   googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}`, {
     method: 'PATCH',
     scopes: SCOPES(),
     body: { kind: 'blogger#post', title, content, labels },
-  }).then(mapPost)
+  }).then((r) => { invalidatePosts(blogId); return mapPost(r) })
 
 // Publish post yang masih draft.
 export const publishPost = (blogId, postId) =>
   googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}/publish`, {
     method: 'POST',
     scopes: SCOPES(),
-  }).then(mapPost)
+  }).then((r) => { invalidatePosts(blogId); return mapPost(r) })
 
 // Kembalikan post LIVE menjadi draft.
 export const revertPost = (blogId, postId) =>
   googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}/revert`, {
     method: 'POST',
     scopes: SCOPES(),
-  }).then(mapPost)
+  }).then((r) => { invalidatePosts(blogId); return mapPost(r) })
 
 export const deletePost = (blogId, postId) =>
   googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}`, {
     method: 'DELETE',
     scopes: SCOPES(),
-  })
+  }).then((r) => { invalidatePosts(blogId); return r })
 
 // ---------- Halaman statis ----------
 
+const invalidatePages = (blogId) => cacheInvalidate(`${BASE}/blogs/${blogId}/pages`)
+
 export const listPages = async (blogId) => {
-  const data = await googleFetch(`${BASE}/blogs/${blogId}/pages?view=AUTHOR`, { scopes: SCOPES() })
+  const data = await cachedFetch(`${BASE}/blogs/${blogId}/pages?view=AUTHOR`)
   return (data.items || []).map((p) => ({
     id: p.id,
     title: p.title || '(tanpa judul)',
@@ -126,10 +147,15 @@ export const listPages = async (blogId) => {
 
 // ---------- Komentar ----------
 
+const invalidateComments = (blogId) => {
+  cacheInvalidate(`${BASE}/blogs/${blogId}/comments`)
+  cacheInvalidate(`${BASE}/users/self/blogs`)
+}
+
 export const listComments = async (blogId, { max = 50, pageToken = '' } = {}) => {
   const params = new URLSearchParams({ maxResults: String(max), view: 'ADMIN' })
   if (pageToken) params.set('pageToken', pageToken)
-  const data = await googleFetch(`${BASE}/blogs/${blogId}/comments?${params.toString()}`, { scopes: SCOPES() })
+  const data = await cachedFetch(`${BASE}/blogs/${blogId}/comments?${params.toString()}`)
   return {
     comments: (data.items || []).map((c) => ({
       id: c.id,
@@ -145,30 +171,30 @@ export const listComments = async (blogId, { max = 50, pageToken = '' } = {}) =>
 }
 
 export const getPostComments = (blogId, postId) =>
-  googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}/comments`, { scopes: SCOPES() })
+  cachedFetch(`${BASE}/blogs/${blogId}/posts/${postId}/comments`)
 
 // Tandai komentar sebagai spam / tidak-spam (moderasi).
 export const markCommentSpam = (blogId, postId, commentId) =>
   googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}/comments/${commentId}/spam`, {
     method: 'POST',
     scopes: SCOPES(),
-  })
+  }).then((r) => { invalidateComments(blogId); return r })
 
 export const approveComment = (blogId, postId, commentId) =>
   googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}/comments/${commentId}/approve`, {
     method: 'POST',
     scopes: SCOPES(),
-  })
+  }).then((r) => { invalidateComments(blogId); return r })
 
 export const deleteComment = (blogId, postId, commentId) =>
   googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}/comments/${commentId}`, {
     method: 'DELETE',
     scopes: SCOPES(),
-  })
+  }).then((r) => { invalidateComments(blogId); return r })
 
 // Hapus konten komentar (komentar jadi "EMPTIED", jejak tetap ada).
 export const deleteCommentContent = (blogId, postId, commentId) =>
   googleFetch(`${BASE}/blogs/${blogId}/posts/${postId}/comments/${commentId}/deletecontent`, {
     method: 'POST',
     scopes: SCOPES(),
-  })
+  }).then((r) => { invalidateComments(blogId); return r })
