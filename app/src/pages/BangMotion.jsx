@@ -19,6 +19,7 @@ import {
   Clapperboard, Trash2, ExternalLink, Loader2,
   AlertTriangle, Copy, Film, Wand2, HardDrive, LayoutTemplate,
   MoreHorizontal, Send, Plus, MessageSquare, Download,
+  Bot, ChevronDown, Check,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { callAIChat } from '../utils/aiConfig'
@@ -65,6 +66,7 @@ export default function BangMotion() {
   // ---------- Provider AI ----------
   const [providers, setProviders] = useState(null)
   const [providerId, setProviderId] = useState('')
+  const [modelOpen, setModelOpen] = useState(false) // dropdown ganti model
   useEffect(() => {
     let on = true
     api.getAIProviders()
@@ -78,6 +80,11 @@ export default function BangMotion() {
       .catch(() => { if (on) setProviders([]) })
     return () => { on = false }
   }, [])
+
+  const activeProvider = useMemo(
+    () => (providers || []).find((p) => p.id === providerId) || null,
+    [providers, providerId],
+  )
 
   // ---------- Sessions ----------
   // html TIDAK dipersist (hemat localStorage) — diambil dari B2 saat dibutuhkan.
@@ -130,6 +137,9 @@ export default function BangMotion() {
 
   const noProvider = providers !== null && providers.length === 0
 
+  // Provider terpilih tanpa API key → generasi pasti 401; peringatkan sejak awal.
+  const noKey = Boolean(activeProvider && !(activeProvider.api_key || '').trim())
+
   // ---------- Kirim prompt ----------
   const handleSend = async (e) => {
     e?.preventDefault?.()
@@ -179,7 +189,13 @@ export default function BangMotion() {
       const raw = await callAIChat(cfg, [
         { role: 'system', content: BANG_MOTION_SYSTEM_PROMPT },
         { role: 'user', content: userContent },
-      ], { maxTokens: 16000, temperature: 0.9 })
+      ], { maxTokens: 16000, temperature: 0.9 }).catch((err) => {
+        const m = String(err?.message || '')
+        if (/401|invalid.*key|unauthorized/i.test(m)) {
+          throw new Error(`API key provider "${provider.display_name || provider.provider_id}" salah atau kosong. Perbaiki di Pengaturan → AI Provider, lalu pilih lagi di dropdown model.`)
+        }
+        throw err
+      })
       const html = extractHtml(raw)
       if (!html || !/<html/i.test(html)) throw new Error('Model tidak menghasilkan HTML valid. Coba lagi / pakai model yang lebih kuat.')
 
@@ -342,6 +358,44 @@ export default function BangMotion() {
           <Film size={16} />
           <strong>{active?.title || 'Bang Motion'}</strong>
           <small>motion graphics · tersimpan otomatis di awan</small>
+
+          {/* Dropdown ganti model AI */}
+          {providers && providers.length > 0 && (
+            <div className="bm-model-pick">
+              <button
+                type="button" className={`bm-model-btn ${modelOpen ? 'open' : ''}`}
+                onClick={() => setModelOpen((o) => !o)} title="Ganti model AI"
+              >
+                <Bot size={14} />
+                <span>{activeProvider?.display_name || activeProvider?.provider_id || 'Model'}</span>
+                <em>{activeProvider?.model || '—'}</em>
+                <ChevronDown size={13} />
+              </button>
+              {modelOpen && (
+                <>
+                  <div className="bm-model-overlay" onClick={() => setModelOpen(false)} />
+                  <div className="bm-model-menu">
+                    <div className="bm-model-menu-title">Pilih model AI</div>
+                    {providers.map((p) => (
+                      <button
+                        key={p.id}
+                        className={`bm-model-item ${p.id === providerId ? 'active' : ''}`}
+                        onClick={() => { setProviderId(p.id); setModelOpen(false) }}
+                      >
+                        <Bot size={14} />
+                        <span className="bm-model-item-name">{p.display_name || p.provider_id}</span>
+                        <em>{p.model}</em>
+                        {p.id === providerId && <Check size={13} />}
+                      </button>
+                    ))}
+                    <button className="bm-model-manage" onClick={() => { setModelOpen(false); setCurrentPage('settings') }}>
+                      <Wand2 size={13} /> Kelola di Pengaturan
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="bm-messages" ref={scrollRef}>
@@ -399,6 +453,13 @@ export default function BangMotion() {
 
         {/* ---------- Composer ---------- */}
         <form className="bm-composer" onSubmit={handleSend}>
+          {noKey && (
+            <div className="gmail-error bm-composer-error">
+              <AlertTriangle size={14} />
+              API key provider "{activeProvider?.display_name || 'terpilih'}" belum diisi —{' '}
+              <button type="button" className="bm-link-btn" onClick={() => setCurrentPage('settings')}>lengkapi di Pengaturan</button>.
+            </div>
+          )}
           {menuOpen && (
             <div className="bm-pop">
               <div className="bm-pop-row">
