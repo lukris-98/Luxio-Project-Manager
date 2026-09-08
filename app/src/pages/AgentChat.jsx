@@ -451,7 +451,16 @@ export default function AgentChat() {
 
   useEffect(() => {
     api.getAIProviders()
-      .then((res) => { const list = res.providers || []; setProviders(list); setActiveProvider(list.find((p) => p.is_active) || list[0] || null) })
+      .then((res) => {
+        const list = res.providers || []
+        setProviders(list)
+        const act = list.find((p) => p.is_active) || list[0] || null
+        setActiveProvider(act)
+        // Provider tersimpan (Neon per user) → panggil AI via proxy backend.
+        if (act) {
+          setAiConfig((c) => ({ ...(c || DEFAULT_AI_CONFIG), providerId: act.id }))
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -521,7 +530,7 @@ export default function AgentChat() {
     setAiErr('')
   }
 
-  const configReady = Boolean(aiConfig.base_url && aiConfig.api_key && aiConfig.model)
+  const configReady = Boolean(aiConfig.providerId || (aiConfig.base_url && aiConfig.api_key && aiConfig.model))
 
   const requireConfig = () => {
     if (configReady) return true

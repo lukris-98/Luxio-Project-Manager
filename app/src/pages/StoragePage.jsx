@@ -162,29 +162,35 @@ function StorageGate2fa({ onVerified }) {
    ===================================================================== */
 
 function HfLogsPanel() {
-  const [stream, setStream] = useState('run')
-  const [logs, setLogs] = useState('')
+  // Dua sub-tab terpisah: Container (run) & Build — masing-masing punya
+  // isi log sendiri (cache per tab) dan auto-refresh aktif untuk tab aktif.
+  const [tab, setTab] = useState('run') // 'run' | 'build'
+  const [logsBy, setLogsBy] = useState({ run: '', build: '' })
+  const [loadedOnce, setLoadedOnce] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [auto, setAuto] = useState(false)
+  const [auto, setAuto] = useState(true)
 
-  const load = useCallback(async (s = stream) => {
+  const load = useCallback(async (s = tab) => {
     setLoading(true); setError('')
     try {
       const res = await api.getHfLogs(s, 300)
       if (!res.ok) throw new Error(res.error || 'Gagal mengambil log.')
-      setLogs(res.logs || '(kosong)')
+      setLogsBy((prev) => ({ ...prev, [s]: res.logs || '(kosong)' }))
+      setLoadedOnce((prev) => ({ ...prev, [s]: true }))
     } catch (e) {
       setError(e.message)
     } finally { setLoading(false) }
-  }, [stream])
+  }, [tab])
 
-  useEffect(() => { load(stream) }, [stream, load])
+  useEffect(() => { if (!loadedOnce[tab]) load(tab) }, [tab, loadedOnce, load])
   useEffect(() => {
     if (!auto) return
-    const id = setInterval(() => load(stream), 8000)
+    const id = setInterval(() => load(tab), 8000)
     return () => clearInterval(id)
-  }, [auto, stream, load])
+  }, [auto, tab, load])
+
+  const logs = logsBy[tab]
 
   return (
     <div className="storage-dash">
@@ -197,10 +203,20 @@ function HfLogsPanel() {
           </div>
         </div>
         <div className="storage-dash-bar-actions">
-          <select className="input" style={{ minHeight: 36, width: 140 }} value={stream} onChange={(e) => setStream(e.target.value)}>
-            <option value="run">Container (run)</option>
-            <option value="build">Build</option>
-          </select>
+          <div className="hf-log-tabs">
+            <button
+              className={`hf-log-tab ${tab === 'run' ? 'active' : ''}`}
+              onClick={() => setTab('run')}
+            >
+              Container
+            </button>
+            <button
+              className={`hf-log-tab ${tab === 'build' ? 'active' : ''}`}
+              onClick={() => setTab('build')}
+            >
+              Build
+            </button>
+          </div>
           <button className={`btn btn-ghost ${auto ? 'active' : ''}`} onClick={() => setAuto((a) => !a)} title="Auto refresh 8 detik">
             {auto ? 'Auto: ON' : 'Auto: OFF'}
           </button>
@@ -210,7 +226,7 @@ function HfLogsPanel() {
         </div>
       </div>
       {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
-      <pre className="hf-log-box">{loading && !logs ? 'Memuat log…' : logs || '(kosong)'}</pre>
+      <pre className="hf-log-box">{(loading && !logs) ? 'Memuat log…' : logs || '(kosong)'}</pre>
     </div>
   )
 }

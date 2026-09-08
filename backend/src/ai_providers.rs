@@ -184,7 +184,14 @@ pub async fn update_provider(
     if let Some(v) = &payload.display_name { sets.push(format!("display_name = ${idx}")); binds.push(v.trim().to_string()); idx += 1; }
     if let Some(v) = &payload.api_type { sets.push(format!("api_type = ${idx}")); binds.push(v.trim().to_string()); idx += 1; }
     if let Some(v) = &payload.base_url { sets.push(format!("base_url = ${idx}")); binds.push(v.trim().to_string()); idx += 1; }
-    if let Some(v) = &payload.api_key { sets.push(format!("api_key = ${idx}")); binds.push(v.trim().to_string()); idx += 1; }
+    if let Some(v) = &payload.api_key {
+        // String kosong = "biarkan key lama" (field edit dikosongkan user).
+        if !v.trim().is_empty() {
+            sets.push(format!("api_key = ${idx}"));
+            binds.push(v.trim().to_string());
+            idx += 1;
+        }
+    }
     if let Some(v) = &payload.model { sets.push(format!("model = ${idx}")); binds.push(v.trim().to_string()); idx += 1; }
     if let Some(v) = &payload.enabled { sets.push(format!("enabled = ${idx}")); binds.push(v.to_string()); idx += 1; }
     if let Some(v) = &payload.is_active { sets.push(format!("is_active = ${idx}")); binds.push(v.to_string()); idx += 1; }
@@ -313,4 +320,182 @@ fn mask_key(key: String) -> String {
     } else {
         String::from("***")
     }
+}
+
+// =====================================================================
+// PROXY CHAT AI — frontend kirim { providerId, messages, opts }, backend
+// ambil kredensial ASLI dari Neon (tabel ai_providers) lalu teruskan ke
+// provider. API key tidak pernah dikirim ke browser (list provider hanya
+// mengirim key tersamar).
+// =====================================================================
+
+#[derive(serde::Deserialize)]
+pub struct AiProxyChatRequest {
+    pub provider_id: String,
+    pub messages: Vec<AiProxyMessage>,
+    #[serde(default)]
+    pub max_tokens: Option<u32>,
+    #[serde(default)]
+    pub temperature: Option<f64>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct AiProxyMessage {
+    pub role: String,
+    pub content: String,
+}
+
+pub async fn proxy_chat(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<AiProxyChatRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = require_auth(&state, &headers).await.map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "ok": false, "error": "Unauthorized" })),
+        )
+    })?;
+
+    // Ambil kredensial asli milik user dari Neon.
+    let row = sqlx::query(
+        "SELECT api_type, base_url, api_key, model, enabled FROM ai_providers
+         WHERE id = $1 AND user_id = $2",
+    )
+    .bind(&payload.provider_id)
+    .bind(&user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": "DB error" })),
+        )
+    })?;
+    let Some(row) = row else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": "Provider tidak ditemukan." })),
+        ));
+    };
+    if !row.get::<bool, _>("enabled") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": "Provider dinonaktifkan." })),
+        ));
+    }
+    let api_type = row.get::<String, _>("api_type");
+    let base_url = row.get::<String, _>("base_url").trim_end_matches('/').to_string();
+    let api_key = row.get::<String, _>("api_key").trim().to_string();
+    let model = row.get::<String, _>("model").trim().to_string();
+    if base_url.is_empty() || model.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": "Konfigurasi provider belum lengkap." })),
+        ));
+    }
+    let max_tokens = payload.max_tokens.unwrap_or(2000);
+    let temperature = payload.temperature.unwrap_or(0.7);
+
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+    // Batas waktu total longgar (generasi HTML panjang bisa >1 menit).
+    let total_timeout = std::time::Duration::from_secs(180);
+
+    let resp = if api_type == "anthropic-messages" {
+        client
+            .post(format!("{}/messages", base_url))
+            .header("Content-Type", "application/json")
+            .header("x-api-key", &api_key)
+            .header("anthropic-version", "2023-06-01")
+            .timeout(total_timeout)
+            .json(&json!({
+                "model": model,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "messages": payload.messages.iter().map(|m| json!({ "role": m.role, "content": m.content })).collect::<Vec<_>>(),
+            }))
+            .send()
+            .await
+    } else if api_type == "openai-responses" {
+        client
+            .post(format!("{}/responses", base_url))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .timeout(total_timeout)
+            .json(&json!({
+                "model": model,
+                "input": payload.messages.iter().map(|m| json!({
+                    "type": "message",
+                    "role": m.role,
+                    "content": [{ "type": m.role.eq("user").then_some("input_text").unwrap_or("output_text"), "text": m.content }]
+                })).collect::<Vec<_>>(),
+                "max_output_tokens": max_tokens,
+            }))
+            .send()
+            .await
+    } else {
+        client
+            .post(format!("{}/chat/completions", base_url))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .timeout(total_timeout)
+            .json(&json!({
+                "model": model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "messages": payload.messages.iter().map(|m| json!({ "role": m.role, "content": m.content })).collect::<Vec<_>>(),
+            }))
+            .send()
+            .await
+    };
+
+    let resp = resp.map_err(|e| {
+        eprintln!("[AI PROXY] request gagal: {}", e);
+        (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "error": "Gagal menghubungi penyedia AI." })),
+        )
+    })?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if !status.is_success() {
+        let msg = body
+            .get("error")
+            .and_then(|e| e.get("message").and_then(|m| m.as_str()))
+            .or_else(|| body.get("error").and_then(|e| e.as_str()))
+            .or_else(|| body.get("message").and_then(|m| m.as_str()))
+            .unwrap_or("Permintaan ke penyedia AI ditolak.")
+            .to_string();
+        let code = match status.as_u16() {
+            401 | 403 => StatusCode::UNAUTHORIZED,
+            429 => StatusCode::TOO_MANY_REQUESTS,
+            s => StatusCode::from_u16(s).unwrap_or(StatusCode::BAD_GATEWAY),
+        };
+        return Err((code, Json(json!({ "ok": false, "error": msg }))));
+    }
+
+    let text = if api_type == "anthropic-messages" {
+        body.get("content")
+            .and_then(|c| c.as_array())
+            .and_then(|a| a.first())
+            .and_then(|c| c.get("text").and_then(|t| t.as_str()))
+            .map(|s| s.to_string())
+    } else if api_type == "openai-responses" {
+        body.get("output_text")
+            .and_then(|t| t.as_str())
+            .map(|s| s.to_string())
+    } else {
+        body.get("choices")
+            .and_then(|c| c.as_array())
+            .and_then(|a| a.first())
+            .and_then(|c| c.get("message").and_then(|m| m.get("content").and_then(|t| t.as_str())))
+            .map(|s| s.to_string())
+    }
+    .unwrap_or_default();
+
+    Ok(Json(json!({ "ok": true, "text": text, "model": model })))
 }

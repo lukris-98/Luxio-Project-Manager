@@ -283,6 +283,9 @@
 .settings-modal {
   width: 100%;
   max-width: 380px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   padding: var(--space-6);

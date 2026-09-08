@@ -137,9 +137,6 @@ export default function BangMotion() {
 
   const noProvider = providers !== null && providers.length === 0
 
-  // Provider terpilih tanpa API key → generasi pasti 401; peringatkan sejak awal.
-  const noKey = Boolean(activeProvider && !(activeProvider.api_key || '').trim())
-
   // ---------- Kirim prompt ----------
   const handleSend = async (e) => {
     e?.preventDefault?.()
@@ -178,6 +175,7 @@ export default function BangMotion() {
 
     try {
       const cfg = {
+        providerId: provider.id,
         api_type: provider.api_type || 'openai-compatible',
         base_url: provider.base_url, api_key: provider.api_key, model: provider.model,
       }
@@ -192,7 +190,7 @@ export default function BangMotion() {
       ], { maxTokens: 16000, temperature: 0.9 }).catch((err) => {
         const m = String(err?.message || '')
         if (/401|invalid.*key|unauthorized/i.test(m)) {
-          throw new Error(`API key provider "${provider.display_name || provider.provider_id}" salah atau kosong. Perbaiki di Pengaturan → AI Provider, lalu pilih lagi di dropdown model.`)
+          throw new Error(`API key provider "${provider.display_name || provider.provider_id}" ditolak (${m.slice(0, 160)}). Perbaiki di Pengaturan → AI Provider, lalu pilih lagi di dropdown model.`)
         }
         throw err
       })
@@ -453,13 +451,6 @@ export default function BangMotion() {
 
         {/* ---------- Composer ---------- */}
         <form className="bm-composer" onSubmit={handleSend}>
-          {noKey && (
-            <div className="gmail-error bm-composer-error">
-              <AlertTriangle size={14} />
-              API key provider "{activeProvider?.display_name || 'terpilih'}" belum diisi —{' '}
-              <button type="button" className="bm-link-btn" onClick={() => setCurrentPage('settings')}>lengkapi di Pengaturan</button>.
-            </div>
-          )}
           {menuOpen && (
             <div className="bm-pop">
               <div className="bm-pop-row">

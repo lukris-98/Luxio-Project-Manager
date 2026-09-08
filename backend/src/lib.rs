@@ -175,6 +175,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/agent/providers/fetch-models", post(ai_providers::fetch_models_route))
         .route("/api/agent/providers/{id}", put(ai_providers::update_provider))
         .route("/api/agent/providers/{id}", delete(ai_providers::delete_provider))
+        // Proxy chat AI (API key asli tetap di server, tak pernah ke browser)
+        .route("/api/agent/chat-proxy", post(ai_providers::proxy_chat))
         // Companies
         .route("/api/companies", post(handlers::create_company))
         .route("/api/companies", get(handlers::get_companies))

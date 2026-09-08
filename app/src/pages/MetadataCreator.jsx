@@ -395,7 +395,12 @@ export default function MetadataCreator() {
       .then((res) => {
         const list = res.providers || []
         setProviders(list)
-        setActiveProvider(list.find((p) => p.is_active) || list[0] || null)
+        const act = list.find((p) => p.is_active) || list[0] || null
+        setActiveProvider(act)
+        // Provider tersimpan (Neon per user) → panggil AI via proxy backend.
+        if (act) {
+          setAiConfig((c) => ({ ...(c || DEFAULT_AI_CONFIG), providerId: act.id }))
+        }
       })
       .catch(() => {})
   }, [])
@@ -476,6 +481,7 @@ export default function MetadataCreator() {
     if (!activeProvider) return
     setAiConfig((c) => ({
       ...c,
+      providerId: activeProvider.id,
       api_type: activeProvider.api_type || c.api_type,
       base_url: activeProvider.base_url || c.base_url,
       model: activeProvider.model || c.model,
@@ -556,7 +562,7 @@ export default function MetadataCreator() {
 
   // ---- Generate metadata ----
   const generateAll = async () => {
-    if (!aiConfig.base_url.trim() || !aiConfig.api_key.trim() || !aiConfig.model.trim()) {
+    if (!aiConfig.providerId && (!aiConfig.base_url.trim() || !aiConfig.api_key.trim() || !aiConfig.model.trim())) {
       setAiConfigOpen(true)
       setAiErr('Lengkapi konfigurasi AI dulu (Base URL, API Key, Model).')
       return

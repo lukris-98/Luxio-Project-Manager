@@ -8,6 +8,8 @@
 const AI_CONFIG_KEY = 'luxio-ai-config'
 const LEGACY_AI_CONFIG_KEY = 'luxio-metadata-ai-config'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 export const DEFAULT_AI_CONFIG = {
   api_type: 'openai-compatible',
   base_url: '',
@@ -88,13 +90,51 @@ export async function fetchModelsDirect(cfg) {
 
 // Kirim chat ke model AI (openai-compatible / openai-responses / anthropic-messages).
 // opts: { maxTokens, temperature } — dipakai generator yang butuh output panjang.
+//
+// Dua mode:
+//  1) cfg.providerId ada  → lewat proxy backend (`/api/agent/chat-proxy`);
+//     API key asli diambil server dari Neon — browser tak pernah memegangnya.
+//  2) cfg lengkap (base_url+api_key+model) → panggilan langsung dari browser
+//     (mode lama, dipakai saat konfigurasi manual/localstorage).
 export async function callAIChat(cfg, messages, opts = {}) {
+  const maxTokens = opts.maxTokens || 2000
+  const temperature = opts.temperature ?? 0.7
+
+  // --- Mode 1: via proxy backend (provider tersimpan per user di Neon) ---
+  if (cfg.providerId) {
+    let res
+    try {
+      res = await fetchWithTimeout(`${API_BASE}/api/agent/chat-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider_id: cfg.providerId,
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+        }),
+      }, 190000)
+    } catch {
+      throw new Error('Tidak bisa menghubungi server Luxio. Periksa koneksi internet.')
+    }
+    if (!res.ok) {
+      let msg = `AI error ${res.status}`
+      try {
+        const body = await res.json()
+        if (body?.error) msg = body.error
+      } catch { /* biarkan pesan default */ }
+      if (res.status === 401) msg = `API key provider salah atau ditolak: ${msg}`
+      throw new Error(msg)
+    }
+    const data = await res.json()
+    return String(data.text || '').trim()
+  }
+
+  // --- Mode 2: panggilan langsung (konfigurasi manual di browser) ---
   const base = normalizeBaseUrl(cfg.base_url)
   const model = cfg.model.trim()
   const key = cfg.api_key.trim()
   if (!base || !key || !model) throw new Error('Konfigurasi AI belum lengkap.')
-  const maxTokens = opts.maxTokens || 2000
-  const temperature = opts.temperature ?? 0.7
 
   let response
   if (cfg.api_type === 'anthropic-messages') {

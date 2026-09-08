@@ -25,6 +25,50 @@ fn app_neon_key() -> String {
     std::env::var("NEON_API_KEY").unwrap_or_default()
 }
 
+/// Client HTTP bersama: hanya connect-timeout ketat, TANPA total timeout
+/// (upload B2 & stream log HF bisa lama; batas waktu diatur per-panggilan).
+fn http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .user_agent("LuxioBackend/1.0 (+storage-proxy)")
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+/// Cetak rantai penyebab error reqwest (DNS/TLS/connect) agar bisa
+/// didiagnosis dari log container HF.
+fn log_reqwest_chain(tag: &str, e: &reqwest::Error) {
+    eprintln!("[{}] request gagal: {}", tag, e);
+    let mut src = std::error::Error::source(e);
+    while let Some(s) = src {
+        eprintln!("[{}]   caused by: {}", tag, s);
+        src = s.source();
+    }
+}
+
+/// Client yang memaksa IPv4 untuk host pada `url` — fallback bila
+/// percobaan normal gagal (container kadang punya rute IPv6 rusak).
+/// SNI/validasi sertifikat tetap memakai hostname aslinya.
+async fn ipv4_client(url: &reqwest::Url) -> Option<reqwest::Client> {
+    let host = url.host_str()?.to_string();
+    let port = url.port_or_known_default().unwrap_or(443);
+    let addrs = tokio::net::lookup_host((host.as_str(), port)).await.ok()?;
+    let mut v4: Option<std::net::IpAddr> = None;
+    for a in addrs {
+        if let std::net::SocketAddr::V4(v) = a {
+            v4 = Some(std::net::IpAddr::V4(*v.ip()));
+            break;
+        }
+    }
+    let ip = v4?;
+    reqwest::Client::builder()
+        .user_agent("LuxioBackend/1.0 (+storage-proxy)")
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .resolve(host.as_str(), std::net::SocketAddr::new(ip, port))
+        .build()
+        .ok()
+}
+
 struct AppB2Session {
     api_url: String,
     token: String,
@@ -53,9 +97,13 @@ async fn app_b2_session() -> Result<(String, String, String), StatusCode> {
     let auth: Value = client
         .get("https://api.backblazeb2.com/b2api/v2/b2_authorize_account")
         .basic_auth(&key_id, Some(&app_key))
+        .timeout(std::time::Duration::from_secs(20))
         .send()
         .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?
+        .map_err(|e| {
+            log_reqwest_chain("B2 SESSION", &e);
+            StatusCode::BAD_GATEWAY
+        })?
         .json()
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
@@ -496,7 +544,7 @@ pub async fn hf_logs(
     let space = std::env::var("HF_SPACE").unwrap_or_else(|_| "lukris/n8n".to_string());
     let lines: usize = q.get("lines").and_then(|l| l.parse().ok()).unwrap_or(200).min(1000);
 
-    let client = reqwest::Client::new();
+    let client = http_client();
     let url = format!("https://huggingface.co/api/spaces/{}/logs/{}", space, stream);
     let resp = client
         .get(&url)
@@ -504,21 +552,59 @@ pub async fn hf_logs(
         .timeout(std::time::Duration::from_secs(10))
         .send()
         .await
-        .map_err(|e| { eprintln!("[HF LOGS] gagal: {}", e); StatusCode::BAD_GATEWAY })?;
+        .map_err(|e| {
+            log_reqwest_chain("HF LOGS", &e);
+            StatusCode::BAD_GATEWAY
+        })?;
     if !resp.status().is_success() {
         return Ok(Json(json!({ "ok": false, "error": format!("HF API status {}", resp.status()) })));
     }
-    let text = resp.text().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
-    // SSE: baris "data: ..." → gabungkan isi log, ambil N baris terakhir.
-    let collected: String = text
-        .lines()
-        .filter_map(|l| l.strip_prefix("data:"))
-        .map(|l| l.trim_start())
-        .collect::<Vec<_>>()
-        .join("\n");
-    let tail: Vec<&str> = collected.lines().collect::<Vec<_>>();
-    let start = tail.len().saturating_sub(lines);
-    let out = tail[start..].join("\n");
+
+    // Endpoint log HF adalah SSE stream yang TIDAK PERNAH berakhir —
+    // `resp.text()` akan menggantung sampai timeout. Baca chunk dengan
+    // anggaran waktu (riwayat log dikirim burst di awal koneksi).
+    let mut resp = resp;
+    let mut raw = String::new();
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(4);
+    loop {
+        if raw.len() >= 512 * 1024 {
+            break;
+        }
+        let chunk = match tokio::time::timeout_at(deadline, resp.chunk()).await {
+            Err(_) => break, // anggaran waktu habis — cukup log sejauh ini
+            Ok(Ok(None)) => break,
+            Ok(Err(e)) => {
+                eprintln!("[HF LOGS] stream terputus: {}", e);
+                break;
+            }
+            Ok(Ok(Some(c))) => c,
+        };
+        raw.push_str(&String::from_utf8_lossy(&chunk));
+    }
+
+    // SSE: baris "data: ..." → tiap event berupa JSON {"data":"..."} →
+    // ekstrak isinya; fallback ke teks mentah bila bukan JSON.
+    let mut collected: Vec<String> = Vec::new();
+    for line in raw.lines() {
+        let Some(data) = line.strip_prefix("data:") else { continue };
+        let data = data.trim();
+        if data.is_empty() || data == "[DONE]" {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(data) {
+            if let Some(s) = v.get("data").and_then(|d| d.as_str()) {
+                collected.push(s.to_string());
+                continue;
+            }
+        }
+        collected.push(data.to_string());
+    }
+    let out = if collected.is_empty() {
+        String::new()
+    } else {
+        let start = collected.len().saturating_sub(lines);
+        collected[start..].join("\n")
+    };
     Ok(Json(json!({ "ok": true, "space": space, "stream": stream, "logs": out })))
 }
 
@@ -911,7 +997,7 @@ pub async fn storage_proxy(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let client = reqwest::Client::new();
+    let client = http_client();
     let mut req = match method.as_str() {
         "GET" => client.get(&url),
         "POST" => client.post(&url),
@@ -963,10 +1049,70 @@ pub async fn storage_proxy(
         req = req.body(bytes);
     }
 
-    let resp = req.send().await.map_err(|e| {
-        eprintln!("[STORAGE PROXY] request gagal: {}", e);
-        StatusCode::BAD_GATEWAY
-    })?;
+    let parsed_url = parsed;
+    let resp = match req.timeout(std::time::Duration::from_secs(90)).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            log_reqwest_chain("STORAGE PROXY", &e);
+            match ipv4_client(&parsed_url).await {
+                Some(c4) => {
+                    // Bangun ulang request dari payload (RequestBuilder
+                    // sudah terkonsumsi oleh .send()).
+                    let mut req2 = match method.as_str() {
+                        "GET" => c4.get(parsed_url.clone()),
+                        "POST" => c4.post(parsed_url.clone()),
+                        "PUT" => c4.put(parsed_url.clone()),
+                        "PATCH" => c4.patch(parsed_url.clone()),
+                        _ => c4.delete(parsed_url.clone()),
+                    };
+                    if let Some(hs) = payload.get("headers").and_then(|v| v.as_object()) {
+                        for (k, v) in hs {
+                            if let Some(sv) = v.as_str() {
+                                if matches!(
+                                    k.to_lowercase().as_str(),
+                                    "host" | "content-length" | "connection" | "transfer-encoding" | "cookie" | "origin" | "referer"
+                                ) {
+                                    continue;
+                                }
+                                req2 = req2.header(k.as_str(), sv);
+                            }
+                        }
+                    }
+                    // Header kredensial asli + body untuk retry.
+                    let auth_value = payload
+                        .get("headers")
+                        .and_then(|v| v.as_object())
+                        .and_then(|o| {
+                            o.get("Authorization")
+                                .or_else(|| o.get("authorization"))
+                        })
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if auth_value.contains("APP_NEON") {
+                        req2 = req2.header("Authorization", format!("Bearer {}", app_neon_key()));
+                    } else if auth_value.contains("APP_B2") {
+                        let (_, token, _) = app_b2_session().await?;
+                        req2 = req2.header("Authorization", format!("Bearer {}", token));
+                    }
+                    if let Some(b64) = payload.get("bodyBase64").and_then(|v| v.as_str()) {
+                        use base64::Engine as _;
+                        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64) {
+                            req2 = req2.body(bytes);
+                        }
+                    }
+                    match req2.timeout(std::time::Duration::from_secs(90)).send().await {
+                        Ok(r) => r,
+                        Err(e2) => {
+                            log_reqwest_chain("STORAGE PROXY (ipv4)", &e2);
+                            return Err(StatusCode::BAD_GATEWAY);
+                        }
+                    }
+                }
+                None => return Err(StatusCode::BAD_GATEWAY),
+            }
+        }
+    };
     let status = resp.status().as_u16();
     let content_type = resp
         .headers()

@@ -297,9 +297,12 @@ export default function Settings() {
     try {
       if (editAiId) {
         const patch = {}
-        for (const k of ['provider_id', 'display_name', 'api_type', 'base_url', 'api_key', 'model', 'enabled', 'is_active']) {
+        for (const k of ['provider_id', 'display_name', 'api_type', 'base_url', 'model', 'enabled', 'is_active']) {
           if (aiForm[k] !== undefined) patch[k] = aiForm[k]
         }
+        // API key hanya dikirim bila diisi ulang — kosong artinya biarkan
+        // key tersimpan di server tidak berubah (field edit memang kosong).
+        if (aiForm.api_key && aiForm.api_key.trim()) patch.api_key = aiForm.api_key
         await api.updateAIProvider(editAiId, patch)
       } else {
         await api.createAIProvider(aiForm)

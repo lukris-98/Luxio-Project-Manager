@@ -385,3 +385,34 @@
 }
 
 .btn.active { background: var(--accent-muted); color: var(--accent); border-color: var(--accent); }
+
+/* Sub-tab log HF: Container / Build */
+.hf-log-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.hf-log-tab {
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.hf-log-tab:hover { color: var(--text-primary); }
+
+.hf-log-tab.active {
+  background: var(--bg-elevated, var(--bg-secondary));
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}

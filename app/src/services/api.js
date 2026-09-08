@@ -331,6 +331,8 @@ export const api = {
   updateAIProvider: (id, data) => put(`/api/agent/providers/${id}`, data),
   deleteAIProvider: (id) => del(`/api/agent/providers/${id}`, {}),
   fetchAIModels: (data) => post('/api/agent/providers/fetch-models', data),
+  // Chat via provider tersimpan — API key asli tetap di server (proxy).
+  aiChat: (data) => post('/api/agent/chat-proxy', data),
 
   // ---- Bang Motion (riwayat prompt di Neon + render MP4) ----
   saveBangMotionPrompt: (data) => post('/api/bang-motion/prompts', data),
