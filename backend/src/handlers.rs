@@ -3443,7 +3443,39 @@ pub async fn seed_owner(db: &PgPool) {
                 .execute(db)
                 .await
                 .ok();
-            tracing::info!(event = "owner_ready", email = %email, "owner account ready");
+            // Sinkronkan password owner dengan env OWNER_PASSWORD — bila
+            // hash tersimpan tidak cocok (env berubah / lupa password),
+            // reset ke nilai env saat startup. Owner selalu bisa masuk.
+            if !password.is_empty() {
+                let stored: Option<String> = sqlx::query("SELECT password_hash FROM users WHERE email = $1")
+                    .bind(&email)
+                    .fetch_optional(db)
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|r| r.try_get("password_hash").ok());
+                if let Some(hash) = stored {
+                    if verify_password(&password, &hash) {
+                        tracing::info!(event = "owner_ready", email = %email, "owner account ready");
+                    } else {
+                        match hash_password(&password) {
+                            Ok(new_hash) => {
+                                let _ = sqlx::query("UPDATE users SET password_hash = $1 WHERE email = $2")
+                                    .bind(&new_hash)
+                                    .bind(&email)
+                                    .execute(db)
+                                    .await;
+                                tracing::info!(event = "owner_password_synced", email = %email, "password owner disinkronkan ke OWNER_PASSWORD env");
+                            }
+                            Err(_) => eprintln!("[ERROR] Gagal hash password owner (sync)"),
+                        }
+                    }
+                } else {
+                    tracing::info!(event = "owner_ready", email = %email, "owner account ready");
+                }
+            } else {
+                tracing::info!(event = "owner_ready", email = %email, "owner account ready");
+            }
         }
         Ok(None) => {
             if password.is_empty() {
