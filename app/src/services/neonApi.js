@@ -21,7 +21,10 @@
 
 import { proxyFetch } from './storageProxy'
 
-const BASE = 'https://api.neon.tech/v2'
+// Neon memakai beberapa host API; api.neon.tech kadang bermasalah DNS,
+// console.neon.tech menyajikan API yang sama (/api/v2). Coba berurutan.
+const BASES = ['https://console.neon.tech/api/v2', 'https://api.neon.tech/v2']
+let activeBase = null
 
 // Marker: dipakai bersama b2Api untuk status autologin di UI.
 export const NEON_APP_KEY = 'APP_NEON'
@@ -32,27 +35,40 @@ export const getNeonKey = () => 'APP_NEON'
 
 /** Fetch generik — kredensial diisi server-side oleh proxy. */
 export const neonFetch = async (path, { method = 'GET', body } = {}) => {
-  const res = await proxyFetch(`${BASE}${path}`, {
-    method,
-    headers: {
-      Authorization: 'Bearer APP_NEON',
-      Accept: 'application/json',
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    ...(body ? { body } : {}),
-  })
-  if (res.status === 401) {
-    const err = new Error('Akses storage tidak valid atau sudah dicabut.')
-    err.code = 'UNAUTHORIZED'
-    throw err
+  const ordered = activeBase ? [activeBase, ...BASES.filter((b) => b !== activeBase)] : [...BASES]
+  let lastErr = null
+  for (const base of ordered) {
+    let res
+    try {
+      res = await proxyFetch(`${base}${path}`, {
+        method,
+        headers: {
+          Authorization: 'Bearer APP_NEON',
+          Accept: 'application/json',
+          ...(body ? { 'Content-Type': 'application/json' } : {}),
+        },
+        ...(body ? { body } : {}),
+      })
+    } catch (e) {
+      // Proxy gagal menghubungi host ini (DNS/502) → coba base berikutnya.
+      lastErr = e
+      continue
+    }
+    activeBase = base
+    if (res.status === 401) {
+      const err = new Error('Akses storage tidak valid atau sudah dicabut.')
+      err.code = 'UNAUTHORIZED'
+      throw err
+    }
+    if (res.status === 503) {
+      throw new Error('Server storage belum siap. Muat ulang halaman nanti.')
+    }
+    if (res.status >= 400) {
+      throw new Error(res.json?.message || res.json?.error?.message || `API error ${res.status}`)
+    }
+    return res.json
   }
-  if (res.status === 503) {
-    throw new Error('Server storage belum siap. Muat ulang halaman nanti.')
-  }
-  if (res.status >= 400) {
-    throw new Error(res.json?.message || res.json?.error?.message || `API error ${res.status}`)
-  }
-  return res.json
+  throw lastErr || new Error('Semua endpoint Neon tidak dapat dihubungi.')
 }
 
 // ---------- Akun ----------

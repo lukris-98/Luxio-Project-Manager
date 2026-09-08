@@ -855,26 +855,63 @@ pub async fn neon_status(
     }
 
     // Panggil Neon API: daftar project + konsumsi.
-    let client = reqwest::Client::new();
-    let base = "https://console.neon.tech/api/v2";
+    // Coba dua host: api.neon.tech (resmi) lalu console.neon.tech —
+    // DNS api.neon.tech pernah kosong total (gangguan sisi Neon).
+    let client = http_client();
+    let bases = ["https://api.neon.tech/v2", "https://console.neon.tech/api/v2"];
 
-    let projects = client
-        .get(format!("{base}/projects"))
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send()
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY) // infra error, biarkan client retry
-        .and_then(|r| r.error_for_status().map_err(|_| StatusCode::BAD_GATEWAY))
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
-    let projects = projects
-        .json::<Value>()
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let mut last_err = String::new();
+    let mut projects: Option<Value> = None;
+    for base in bases {
+        let resp = client
+            .get(format!("{base}/projects"))
+            .header("Authorization", format!("Bearer {api_key}"))
+            .timeout(std::time::Duration::from_secs(15))
+            .send()
+            .await;
+        match resp {
+            Err(e) => {
+                log_reqwest_chain("NEON STATUS", &e);
+                last_err = format!("tidak bisa menghubungi {base}: {e}");
+                continue;
+            }
+            Ok(r) => {
+                let status = r.status();
+                if !status.is_success() {
+                    let body = r.text().await.unwrap_or_default();
+                    last_err = format!("Neon API {base} balas {status}: {}", {
+                        let b = body.trim().to_string();
+                        if b.len() > 160 { b[..160].to_string() } else { b }
+                    });
+                    continue;
+                }
+                match r.json::<Value>().await {
+                    Ok(v) => {
+                        projects = Some(v);
+                        break;
+                    }
+                    Err(e) => {
+                        last_err = format!("respon Neon tidak valid: {e}");
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+    let Some(projects) = projects else {
+        return Ok(Json(json!({
+            "configured": true,
+            "error": format!("Neon API tidak tersedia. {last_err}"),
+            "projects": [],
+            "consumption": null,
+        })));
+    };
 
-    // Konsumsi per project (v2).
+    // Konsumsi per project (v2) — pakai base pertama (pola host sama).
     let consumption_resp = client
-        .get(format!("{base}/consumption_history/v2/projects"))
+        .get(format!("{}/consumption_history/v2/projects", bases[0]))
         .header("Authorization", format!("Bearer {api_key}"))
+        .timeout(std::time::Duration::from_secs(15))
         .send()
         .await;
     let consumption = match consumption_resp {
