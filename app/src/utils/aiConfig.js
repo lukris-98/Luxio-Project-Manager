@@ -102,11 +102,15 @@ export async function callAIChat(cfg, messages, opts = {}) {
 
   // --- Mode 1: via proxy backend (provider tersimpan per user di Neon) ---
   if (cfg.providerId) {
+    const token = localStorage.getItem('luxio-token')
     let res
     try {
       res = await fetchWithTimeout(`${API_BASE}/api/agent/chat-proxy`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           provider_id: cfg.providerId,
           messages,

@@ -52,21 +52,52 @@ fn log_reqwest_chain(tag: &str, e: &reqwest::Error) {
 async fn ipv4_client(url: &reqwest::Url) -> Option<reqwest::Client> {
     let host = url.host_str()?.to_string();
     let port = url.port_or_known_default().unwrap_or(443);
-    let addrs = tokio::net::lookup_host((host.as_str(), port)).await.ok()?;
-    let mut v4: Option<std::net::IpAddr> = None;
-    for a in addrs {
-        if let std::net::SocketAddr::V4(v) = a {
-            v4 = Some(std::net::IpAddr::V4(*v.ip()));
-            break;
+    // 1) DNS resolver biasa.
+    if let Ok(addrs) = tokio::net::lookup_host((host.as_str(), port)).await {
+        for a in addrs {
+            if let std::net::SocketAddr::V4(v) = a {
+                return build_pinned_client(&host, std::net::IpAddr::V4(*v.ip()), port).await;
+            }
         }
     }
-    let ip = v4?;
+    // 2) Resolver rusak → DNS-over-HTTPS via Cloudflare (1.1.1.1).
+    if let Some(ip) = doh_resolve(&host).await {
+        return build_pinned_client(&host, ip, port).await;
+    }
+    None
+}
+
+async fn build_pinned_client(host: &str, ip: std::net::IpAddr, port: u16) -> Option<reqwest::Client> {
     reqwest::Client::builder()
         .user_agent("LuxioBackend/1.0 (+storage-proxy)")
         .connect_timeout(std::time::Duration::from_secs(10))
-        .resolve(host.as_str(), std::net::SocketAddr::new(ip, port))
+        .resolve(host, std::net::SocketAddr::new(ip, port))
         .build()
         .ok()
+}
+
+/// Resolve hostname via DNS-over-HTTPS (Cloudflare). Mengembalikan IPv4
+/// pertama, atau None bila gagal. Tidak tergantung resolver sistem.
+async fn doh_resolve(host: &str) -> Option<std::net::IpAddr> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .build()
+        .ok()?;
+    // Resolve 1.1.1.1 (IP literal → tidak butuh DNS).
+    let resp = client
+        .get("https://1.1.1.1/dns-query")
+        .query(&[("name", host), ("type", "A")])
+        .header("accept", "application/dns-json")
+        .timeout(std::time::Duration::from_secs(6))
+        .send()
+        .await
+        .ok()?;
+    let body: Value = resp.json().await.ok()?;
+    body.get("Answer")?
+        .as_array()?
+        .iter()
+        .filter_map(|a| a.get("data").and_then(|d| d.as_str()))
+        .find_map(|s| s.parse::<std::net::IpAddr>().ok())
 }
 
 struct AppB2Session {
@@ -93,20 +124,37 @@ async fn app_b2_session() -> Result<(String, String, String), StatusCode> {
     if key_id.is_empty() || app_key.is_empty() {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     }
-    let client = reqwest::Client::new();
-    let auth: Value = client
-        .get("https://api.backblazeb2.com/b2api/v2/b2_authorize_account")
-        .basic_auth(&key_id, Some(&app_key))
-        .timeout(std::time::Duration::from_secs(20))
-        .send()
-        .await
-        .map_err(|e| {
-            log_reqwest_chain("B2 SESSION", &e);
-            StatusCode::BAD_GATEWAY
-        })?
-        .json()
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    // DNS di container kadang gagal untuk host tertentu → fallback DoH.
+    let url: reqwest::Url = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account".parse().unwrap();
+    let auth: Value = {
+        let base_req = || async {
+            http_client()
+                .get(url.clone())
+                .basic_auth(&key_id, Some(&app_key))
+                .timeout(std::time::Duration::from_secs(20))
+        };
+        match base_req().await.send().await {
+            Ok(r) => r,
+            Err(e) => {
+                log_reqwest_chain("B2 SESSION", &e);
+                let Some(c4) = ipv4_client(&url).await else {
+                    return Err(StatusCode::BAD_GATEWAY);
+                };
+                c4.get(url.clone())
+                    .basic_auth(&key_id, Some(&app_key))
+                    .timeout(std::time::Duration::from_secs(20))
+                    .send()
+                    .await
+                    .map_err(|e2| {
+                        log_reqwest_chain("B2 SESSION (doh)", &e2);
+                        StatusCode::BAD_GATEWAY
+                    })?
+            }
+        }
+    }
+    .json()
+    .await
+    .map_err(|_| StatusCode::BAD_GATEWAY)?;
     let api_url = auth.get("apiUrl").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let token = auth.get("authorizationToken").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let account_id = auth.get("accountId").and_then(|v| v.as_str()).unwrap_or("").to_string();
