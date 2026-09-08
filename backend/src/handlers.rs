@@ -3460,12 +3460,17 @@ pub async fn seed_owner(db: &PgPool) {
                     } else {
                         match hash_password(&password) {
                             Ok(new_hash) => {
-                                let _ = sqlx::query("UPDATE users SET password_hash = $1 WHERE email = $2")
-                                    .bind(&new_hash)
-                                    .bind(&email)
-                                    .execute(db)
-                                    .await;
-                                tracing::info!(event = "owner_password_synced", email = %email, "password owner disinkronkan ke OWNER_PASSWORD env");
+                                // Password di-reset ke env; PIN lama juga
+                                // dikosongkan supaya owner tidak terkunci di
+                                // tahap PIN (akan diminta atur PIN baru).
+                                let _ = sqlx::query(
+                                    "UPDATE users SET password_hash = $1, pin_hash = '' WHERE email = $2",
+                                )
+                                .bind(&new_hash)
+                                .bind(&email)
+                                .execute(db)
+                                .await;
+                                tracing::info!(event = "owner_password_synced", email = %email, "password owner disinkronkan ke OWNER_PASSWORD env (pin direset)");
                             }
                             Err(_) => eprintln!("[ERROR] Gagal hash password owner (sync)"),
                         }
