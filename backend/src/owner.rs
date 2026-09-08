@@ -76,28 +76,45 @@ async fn build_pinned_client(host: &str, ip: std::net::IpAddr, port: u16) -> Opt
         .ok()
 }
 
-/// Resolve hostname via DNS-over-HTTPS (Cloudflare). Mengembalikan IPv4
-/// pertama, atau None bila gagal. Tidak tergantung resolver sistem.
+/// Resolve hostname via DNS-over-HTTPS (multi-provider fallback).
+/// Resolver sistem di container sering gagal (EAI_NODATA); DoH tidak
+/// tergantung resolver lokal (endpoint memakai IP literal).
 async fn doh_resolve(host: &str) -> Option<std::net::IpAddr> {
     let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(5))
+        .connect_timeout(std::time::Duration::from_secs(4))
+        .timeout(std::time::Duration::from_secs(8))
         .build()
         .ok()?;
-    // Resolve 1.1.1.1 (IP literal → tidak butuh DNS).
-    let resp = client
-        .get("https://1.1.1.1/dns-query")
-        .query(&[("name", host), ("type", "A")])
-        .header("accept", "application/dns-json")
-        .timeout(std::time::Duration::from_secs(6))
-        .send()
-        .await
-        .ok()?;
-    let body: Value = resp.json().await.ok()?;
-    body.get("Answer")?
-        .as_array()?
-        .iter()
-        .filter_map(|a| a.get("data").and_then(|d| d.as_str()))
-        .find_map(|s| s.parse::<std::net::IpAddr>().ok())
+    let providers = [
+        "https://1.1.1.1/dns-query",
+        "https://8.8.8.8/resolve",
+        "https://dns.google/resolve",
+    ];
+    for url in providers {
+        let res = client
+            .get(url)
+            .query(&[("name", host), ("type", "A")])
+            .header("accept", "application/dns-json")
+            .send()
+            .await;
+        let Ok(resp) = res else { continue };
+        let Ok(body) = resp.json::<Value>().await else { continue };
+        if let Some(ip) = body
+            .get("Answer")
+            .and_then(|a| a.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|a| a.get("data").and_then(|d| d.as_str()))
+                    .find_map(|s| s.parse::<std::net::IpAddr>().ok())
+            })
+            .flatten()
+        {
+            eprintln!("[DOH] {} -> {} via {}", host, ip, url);
+            return Some(ip);
+        }
+    }
+    eprintln!("[DOH] semua provider gagal untuk {}", host);
+    None
 }
 
 struct AppB2Session {
@@ -1045,6 +1062,36 @@ pub async fn storage_proxy(
         return Err(StatusCode::BAD_REQUEST);
     }
 
+    // -- Khusus B2 authorize: kredensial asli ada di env (app_b2_session
+    //    sudah authorize server-side) — balas SUKSES langsung tanpa
+    //    meneruskan request ke B2 (endpoint authorize menolak token sesi).
+    let auth_placeholder = payload
+        .get("headers")
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("Authorization").or_else(|| o.get("authorization")))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let is_b2_authorize = parsed.path().contains("b2_authorize_account");
+    if is_b2_authorize && auth_placeholder.contains("APP_B2") {
+        let (api_url, token, account_id) = app_b2_session().await?;
+        let dl = std::env::var("B2_DOWNLOAD_URL").unwrap_or_default();
+        let body = json!({
+            "apiUrl": api_url,
+            "authorizationToken": token,
+            "accountId": account_id,
+            "keyName": "luxio-app",
+            "downloadUrl": dl,
+        });
+        let bytes = serde_json::to_vec(&body).unwrap_or_default();
+        use base64::Engine as _;
+        return Ok(Json(json!({
+            "status": 200,
+            "contentType": "application/json",
+            "bodyBase64": base64::engine::general_purpose::STANDARD.encode(&bytes),
+        })));
+    }
+
     let client = http_client();
     let mut req = match method.as_str() {
         "GET" => client.get(&url),
@@ -1069,7 +1116,8 @@ pub async fn storage_proxy(
             if let Some(sv) = v.as_str() {
                 // Placeholder kredensial aplikasi diganti server-side:
                 //   Authorization: Bearer APP_NEON → Bearer {NEON_API_KEY}
-                //   Authorization: Basic APP_B2  → Bearer {token sesi B2}
+                //   Authorization: Basic APP_B2   → {token sesi B2} (raw,
+                //     API B2 memakai token tanpa prefix "Bearer")
                 if lk == "authorization" && sv.contains("APP_NEON") {
                     let key = app_neon_key();
                     if key.is_empty() {
@@ -1080,7 +1128,7 @@ pub async fn storage_proxy(
                 }
                 if lk == "authorization" && sv.contains("APP_B2") {
                     let (_, token, _) = app_b2_session().await?;
-                    req = req.header(k.as_str(), format!("Bearer {}", token));
+                    req = req.header(k.as_str(), token);
                     continue;
                 }
                 req = req.header(k.as_str(), sv);
@@ -1141,7 +1189,7 @@ pub async fn storage_proxy(
                         req2 = req2.header("Authorization", format!("Bearer {}", app_neon_key()));
                     } else if auth_value.contains("APP_B2") {
                         let (_, token, _) = app_b2_session().await?;
-                        req2 = req2.header("Authorization", format!("Bearer {}", token));
+                        req2 = req2.header("Authorization", token);
                     }
                     if let Some(b64) = payload.get("bodyBase64").and_then(|v| v.as_str()) {
                         use base64::Engine as _;

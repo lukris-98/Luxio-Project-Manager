@@ -3160,7 +3160,7 @@ pub async fn get_public_profile(
     let actor_id = require_auth(&state, &headers).await?;
 
     let row = sqlx::query(
-        "SELECT u.id, u.name, u.email, u.username, u.position, u.role, u.plan,
+        "SELECT u.id, u.name, u.email, u.username, u.position, u.role, u.plan, u.company_id,
                 c.name AS company_name, c.industry AS company_industry
          FROM users u
          LEFT JOIN companies c ON c.id = u.company_id
