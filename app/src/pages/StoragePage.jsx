@@ -2,6 +2,8 @@
 // StoragePage.jsx — Halaman "Penyimpanan": kelola layanan cloud storage.
 // =====================================================================
 // 2 tab dengan behavior sama (gate login → dashboard kelola):
+// Gate halaman: wajib 2 langkah berurutan — kode OTP email owner lalu
+// PIN owner (lihat StorageGate2fa) — sebelum panel apa pun tampil.
 //   1. NEON    — login akun Neon via API key, kelola project, branch,
 //                endpoint, database, role, snapshot, API key, konsumsi,
 //                dan riwayat operasi (sesuai dokumentasi Neon API v2).
@@ -37,11 +39,15 @@ import {
 import { api } from '../services/api'
 import './StoragePage.css'
 
-// Ses pulihkan storage 2FA (30 menit) — per verifikasi email OWNER.
-const STORAGE_2FA_KEY = 'luxio_storage_2fa_ok'
+// Ses unlock storage (30 menit) — per verifikasi email OWNER + PIN owner.
+// Nama key baru: flag lama (OTP-only) tidak lagi bisa membuka halaman.
+const STORAGE_2FA_KEY = 'luxio_storage_2fa_pin_ok'
+// Challenge sekali-pakai dari langkah 1 (OTP) → dipakai di langkah 2 (PIN).
+const STORAGE_PIN_CH_KEY = 'luxio_storage_pin_challenge'
 
 export default function StoragePage() {
-  // Gate 2FA: klik halaman Penyimpanan → wajib kode email sebelum isi.
+  // Gate 2 langkah: klik halaman Penyimpanan → wajib kode email (2FA),
+  // lalu PIN owner, sebelum isi halaman tampil.
   const [verified, setVerified] = useState(() => {
     try {
       const t = Number(sessionStorage.getItem(STORAGE_2FA_KEY) || 0)
@@ -86,20 +92,36 @@ export default function StoragePage() {
 }
 
 /* =====================================================================
-   GATE 2FA — kirim kode ke email owner + verifikasi.
+   GATE KEAMANAN 2 LANGKAH — (1) kode OTP email owner, (2) PIN owner.
+   Keduanya wajib lolos berurutan sebelum halaman terbuka.
    ===================================================================== */
 
+function loadPinChallenge() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_PIN_CH_KEY)
+    if (!raw) return null
+    const c = JSON.parse(raw)
+    if (c?.challenge && Number(c.exp) > Date.now()) return c
+  } catch { /* abaikan */ }
+  return null
+}
+
 function StorageGate2fa({ onVerified }) {
-  const [stage, setStage] = useState('send') // 'send' | 'verify'
+  // 'send' → kirim kode · 'verify' → input kode OTP · 'pin' → input PIN owner
+  const [stage, setStage] = useState(() => (loadPinChallenge() ? 'pin' : 'send'))
   const [busy, setBusy] = useState(false)
   const [code, setCode] = useState('')
+  const [pin, setPin] = useState('')
+  const [challenge, setChallenge] = useState(() => loadPinChallenge()?.challenge || '')
   const [info, setInfo] = useState('')
   const [error, setError] = useState('')
+
+  const stepNo = stage === 'pin' ? 2 : 1
 
   const send = async () => {
     setBusy(true); setError(''); setInfo('')
     try {
-      const res = await api.sendStorage2fa()
+      await api.sendStorage2fa()
       setInfo(`Kode verifikasi sudah dikirim ke email kamu. Berlaku 5 menit.`)
       setStage('verify')
     } catch (e) {
@@ -112,11 +134,48 @@ function StorageGate2fa({ onVerified }) {
     if (!code.trim()) return setError('Masukkan kode verifikasi.')
     setBusy(true); setError('')
     try {
-      await api.verifyStorage2fa(code.trim())
-      try { sessionStorage.setItem(STORAGE_2FA_KEY, String(Date.now() + 30 * 60 * 1000)) } catch { /* abaikan */ }
-      onVerified()
+      const res = await api.verifyStorage2fa(code.trim())
+      if (!res?.ok || !res.pin_challenge) {
+        setError('Kode diterima tapi sesi PIN tidak aktif. Kirim ulang kode email.')
+        return
+      }
+      try {
+        sessionStorage.setItem(STORAGE_PIN_CH_KEY, JSON.stringify({
+          challenge: res.pin_challenge,
+          exp: Date.now() + (res.pin_expires_in || 600) * 1000,
+        }))
+      } catch { /* abaikan */ }
+      setChallenge(res.pin_challenge)
+      setCode('')
+      setInfo('')
+      setStage('pin')
     } catch (e) {
       setError(e.message || 'Kode salah atau kadaluarsa.')
+    } finally { setBusy(false) }
+  }
+
+  const verifyPin = async (e) => {
+    e?.preventDefault?.()
+    if (pin.length < 4) return setError('Masukkan PIN owner (4-6 digit).')
+    setBusy(true); setError(''); setInfo('')
+    try {
+      const res = await api.verifyStoragePin(pin, challenge)
+      if (!res?.ok) {
+        setError(res?.message || 'PIN salah.')
+        if (res?.challenge_invalid) {
+          try { sessionStorage.removeItem(STORAGE_PIN_CH_KEY) } catch { /* abaikan */ }
+          setChallenge('')
+          setStage('send')
+        }
+        return
+      }
+      try {
+        sessionStorage.setItem(STORAGE_2FA_KEY, String(Date.now() + 30 * 60 * 1000))
+        sessionStorage.removeItem(STORAGE_PIN_CH_KEY)
+      } catch { /* abaikan */ }
+      onVerified()
+    } catch (e) {
+      setError(e.message || 'Gagal memverifikasi PIN. Terlalu sering coba? Tunggu sebentar.')
     } finally { setBusy(false) }
   }
 
@@ -126,18 +185,40 @@ function StorageGate2fa({ onVerified }) {
         <div className="storage-gate-logo b2"><ShieldCheck size={30} /></div>
         <h2>Verifikasi Keamanan</h2>
         <p>
-          Halaman ini bersifat privat. Masukkan kode verifikasi yang dikirim
-          ke email kamu untuk melanjutkan.
+          Halaman ini bersifat privat dan memerlukan <strong>2 langkah</strong>:
+          kode verifikasi dari email kamu, lalu PIN owner.
         </p>
-        {stage === 'send' ? (
-          <button className="btn btn-primary storage-login-btn" onClick={send} disabled={busy}>
-            {busy ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-            {busy ? 'Mengirim kode…' : 'Kirim Kode Verifikasi'}
-          </button>
+        {stage === 'pin' ? (
+          <form onSubmit={verifyPin} className="storage-gate-form">
+            <div className="input-group">
+              <label className="input-label" htmlFor="storage-pin-input">Langkah {stepNo}/2 — PIN Owner (4-6 digit)</label>
+              <input
+                id="storage-pin-input" className="input" type="password" inputMode="numeric" maxLength={6}
+                placeholder="••••" value={pin} autoFocus
+                onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setError('') }}
+              />
+            </div>
+            {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
+            <button type="submit" className="btn btn-primary storage-login-btn" disabled={busy || pin.length < 4}>
+              {busy ? <Loader2 size={16} className="spin" /> : <Lock size={16} />} Buka Penyimpanan
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => {
+              try { sessionStorage.removeItem(STORAGE_PIN_CH_KEY) } catch { /* abaikan */ }
+              setChallenge(''); setStage('send'); setError(''); setInfo('')
+            }} disabled={busy}>Ganti kode email</button>
+          </form>
+        ) : stage === 'send' ? (
+          <>
+            <p className="storage-gate-note">Langkah {stepNo}/2 — kirim kode verifikasi email.</p>
+            <button className="btn btn-primary storage-login-btn" onClick={send} disabled={busy}>
+              {busy ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+              {busy ? 'Mengirim kode…' : 'Kirim Kode Verifikasi'}
+            </button>
+          </>
         ) : (
           <form onSubmit={verify} className="storage-gate-form">
             <div className="input-group">
-              <label className="input-label" htmlFor="storage-2fa-code">Kode Verifikasi (6 digit)</label>
+              <label className="input-label" htmlFor="storage-2fa-code">Langkah {stepNo}/2 — Kode Verifikasi (6 digit)</label>
               <input
                 id="storage-2fa-code" className="input" inputMode="numeric" maxLength={6}
                 placeholder="••••••" value={code} autoFocus
@@ -147,11 +228,12 @@ function StorageGate2fa({ onVerified }) {
             {info && <small className="storage-gate-note">{info}</small>}
             {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
             <button type="submit" className="btn btn-primary storage-login-btn" disabled={busy || code.length < 4}>
-              {busy ? <Loader2 size={16} className="spin" /> : <Lock size={16} />} Buka Penyimpanan
+              {busy ? <Loader2 size={16} className="spin" /> : <ShieldCheck size={16} />} Lanjut ke PIN
             </button>
             <button type="button" className="btn btn-ghost" onClick={send} disabled={busy}>Kirim ulang kode</button>
           </form>
         )}
+        {error && stage === 'send' && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
       </div>
     </div>
   )

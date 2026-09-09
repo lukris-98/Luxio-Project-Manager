@@ -162,6 +162,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // Storage 2FA (kirim + verifikasi kode email sebelum buka Penyimpanan)
         .route("/api/storage/2fa/send", post(owner::storage_2fa_send))
         .route("/api/storage/2fa/verify", post(owner::storage_2fa_verify))
+        .route("/api/storage/2fa/pin", post(owner::storage_pin_verify))
         // Log Space HF (run/build) — read-only, token dari env backend
         .route("/api/hf/logs", get(owner::hf_logs))
         // Tes kirim email (owner)

@@ -496,11 +496,60 @@ pub async fn bang_motion_render(
 }
 
 // =====================================================================
-// STORAGE 2FA — buka halaman Penyimpanan wajib verifikasi kode email
-// yang dikirim ke OWNER (master@luxio.web.id).
+// STORAGE 2FA — buka halaman Penyimpanan WAJIB 2 langkah berurutan:
+//   1. Kode OTP yang dikirim ke email OWNER (master@luxio.web.id).
+//   2. PIN owner (hash di users.pin_hash) — hanya setelah OTP lolos,
+//      dibuktikan challenge sekali-pakai dari langkah 1.
 // =====================================================================
 
 const STORAGE_2FA_SECRET: &str = "luxio-storage-2fa-v1";
+
+/// Challenge sekali-pakai dari storage_2fa_verify (OTP lolos) yang wajib
+/// disertakan di storage_pin_verify. Mencegah PIN dipakai membuka
+/// storage tanpa lebih dulu verifikasi kode email.
+/// Key: challenge (UUID); Value: (user_id, kedaluwarsa).
+static STORAGE_PIN_CHALLENGES: std::sync::Mutex<Option<HashMap<String, (String, chrono::DateTime<Utc>)>>> =
+    std::sync::Mutex::new(None);
+
+const STORAGE_PIN_CHALLENGE_TTL_SECS: i64 = 600;
+
+fn issue_storage_pin_challenge(user_id: &str) -> String {
+    let challenge = Uuid::new_v4().to_string();
+    let now = Utc::now();
+    let mut guard = STORAGE_PIN_CHALLENGES
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if guard.is_none() {
+        *guard = Some(HashMap::new());
+    }
+    let map = guard.as_mut().unwrap();
+    map.retain(|_, (_, exp)| *exp > now);
+    map.insert(
+        challenge.clone(),
+        (user_id.to_string(), now + chrono::Duration::seconds(STORAGE_PIN_CHALLENGE_TTL_SECS)),
+    );
+    challenge
+}
+
+/// Validasi & konsumsi challenge untuk `user_id`. `false` bila tidak ada,
+/// kedaluwarsa, user tidak cocok, atau sudah pernah dipakai.
+fn consume_storage_pin_challenge(challenge: &str, user_id: &str) -> bool {
+    let now = Utc::now();
+    let mut guard = STORAGE_PIN_CHALLENGES
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if guard.is_none() {
+        return false;
+    }
+    let map = guard.as_mut().unwrap();
+    match map.get(challenge) {
+        Some((uid, exp)) if *exp > now && uid == user_id => {
+            map.remove(challenge);
+            true
+        }
+        _ => false,
+    }
+}
 
 /// POST /api/storage/2fa/send — kirim kode ke email OWNER.
 pub async fn storage_2fa_send(
@@ -549,7 +598,8 @@ pub async fn storage_2fa_send(
     Ok(Json(json!({ "ok": true, "sent": sent })))
 }
 
-/// POST /api/storage/2fa/verify — verifikasi kode, terima token sesi storage.
+/// POST /api/storage/2fa/verify — langkah 1: verifikasi kode OTP email.
+/// Sukses menghasilkan `pin_challenge` sekali-pakai untuk langkah 2 (PIN).
 pub async fn storage_2fa_verify(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -563,6 +613,9 @@ pub async fn storage_2fa_verify(
     if rate_limited(&format!("storage2fav:{}", user_id), 8, 60) {
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }
+
+    // Hanya kode OTP email yang diterima di sini — PIN owner TIDAK lagi
+    // bisa dipakai melompati verifikasi email (dulu jadi alternatif).
     let code_hash = sha256(&format!("{}{}", code, STORAGE_2FA_SECRET));
     let row = sqlx::query(
         "SELECT id FROM storage_2fa_codes
@@ -574,6 +627,7 @@ pub async fn storage_2fa_verify(
     .fetch_optional(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     match row {
         Some(r) => {
             let rid: String = r.get("id");
@@ -581,10 +635,80 @@ pub async fn storage_2fa_verify(
                 .bind(&rid)
                 .execute(&state.db)
                 .await;
-            Ok(Json(json!({ "ok": true })))
+            let pin_challenge = issue_storage_pin_challenge(&user_id);
+            Ok(Json(json!({
+                "ok": true,
+                "step": "otp",
+                "pin_challenge": pin_challenge,
+                "pin_expires_in": STORAGE_PIN_CHALLENGE_TTL_SECS,
+            })))
         }
         None => Err(StatusCode::UNAUTHORIZED),
     }
+}
+
+/// POST /api/storage/2fa/pin — langkah 2: verifikasi PIN owner dengan
+/// challenge sekali-pakai hasil langkah 1. Dua-duanya wajib lolos
+/// sebelum halaman Penyimpanan terbuka.
+pub async fn storage_pin_verify(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let pin = payload.get("pin").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    let challenge = payload
+        .get("challenge")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if pin.len() < 4 || pin.len() > 6 || !pin.chars().all(|c| c.is_ascii_digit()) {
+        return Ok(Json(json!({ "ok": false, "message": "PIN harus 4-6 digit angka." })));
+    }
+    if rate_limited(&format!("storagepin:{}", user_id), 5, 60) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    // Challenge harus ada, milik user ini, dan sekali pakai (bukti OTP lolos).
+    if challenge.is_empty() || !consume_storage_pin_challenge(&challenge, &user_id) {
+        return Ok(Json(json!({
+            "ok": false,
+            "challenge_invalid": true,
+            "message": "Sesi verifikasi kedaluwarsa. Kirim ulang kode email terlebih dahulu.",
+        })));
+    }
+
+    let row = sqlx::query("SELECT role, pin_hash FROM users WHERE id = $1")
+        .bind(&user_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let row = match row {
+        Some(r) => r,
+        None => return Err(StatusCode::UNAUTHORIZED),
+    };
+    let role: String = row.get("role");
+    if role != "owner" {
+        return Ok(Json(json!({ "ok": false, "message": "Hanya owner yang dapat membuka halaman ini." })));
+    }
+    let pin_hash: String = row.get("pin_hash");
+
+    if pin_hash.is_empty() {
+        // Owner belum punya PIN (harus pernah lewati setup PIN saat login).
+        // Disimpan di sini supaya tetap terkunci untuk percobaan berikutnya.
+        sqlx::query("UPDATE users SET pin_hash = $1 WHERE id = $2")
+            .bind(sha256(&pin))
+            .bind(&user_id)
+            .execute(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    } else if pin_hash != sha256(&pin) {
+        tracing::warn!(event = "storage_pin_failed", user_id = %user_id, "PIN storage salah");
+        return Ok(Json(json!({ "ok": false, "message": "PIN owner salah." })));
+    }
+
+    Ok(Json(json!({ "ok": true, "step": "pin" })))
 }
 
 // =====================================================================

@@ -343,6 +343,7 @@ export const api = {
   // ---- Storage 2FA + HF logs ----
   sendStorage2fa: () => post('/api/storage/2fa/send', {}),
   verifyStorage2fa: (code) => post('/api/storage/2fa/verify', { code }),
+  verifyStoragePin: (pin, challenge) => post('/api/storage/2fa/pin', { pin, challenge }),
   getHfLogs: (stream, lines) => get('/api/hf/logs', { stream: stream || 'run', lines: lines || 200 }),
 
   // ---- Lupa Password ----
