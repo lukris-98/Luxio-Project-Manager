@@ -107,7 +107,7 @@ export const deleteBranch = (projectId, branchId) =>
 // ---------- Endpoints ----------
 
 export const listEndpoints = (projectId) =>
-  neonFetch(`/projects/${projectId}/endpoints`).then((d) => d.endpoints || [])
+  neonFetch(`/projects/${projectId}/endpoints`).then((d) => d.endpoints || []).then((d) => d.endpoints || [])
 export const startEndpoint = (projectId, endpointId) =>
   neonFetch(`/projects/${projectId}/endpoints/${endpointId}/start`, { method: 'POST' })
 export const suspendEndpoint = (projectId, endpointId) =>

@@ -15,6 +15,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { api, setToken } from '../services/api'
 import { track } from '../utils/analytics'
 import { getItem as idbGet, setItem as idbSet, removeItem as idbRemove } from '../services/idb'
+import { clearStorageSession } from '../services/storageSession'
 
 export const APP_THEME_CONFIG = {
   dark: { scheme: 'dark', color: '#0C0C0E' },
@@ -1219,6 +1220,7 @@ export const useStore = create(
     // Cabut sesi di backend (best-effort) lalu bersihkan state lokal.
     try { await api.logout() } catch (e) { /* abaikan bila backend offline */ }
     setToken(null)
+    clearStorageSession() // keluar akun = sesi 2 langkah Penyimpanan ikut terhapus
     set({
       currentUser: null,
       token: null,

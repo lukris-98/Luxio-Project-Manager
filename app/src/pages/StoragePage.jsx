@@ -1,9 +1,10 @@
 // =====================================================================
 // StoragePage.jsx — Halaman "Penyimpanan": kelola layanan cloud storage.
 // =====================================================================
-// 2 tab dengan behavior sama (gate login → dashboard kelola):
-// Gate halaman: wajib 2 langkah berurutan — kode OTP email owner lalu
-// PIN owner (lihat StorageGate2fa) — sebelum panel apa pun tampil.
+// 2 tab dengan behavior sama (gate 2 langkah → dashboard kelola):
+// Gate: kode OTP email owner + PIN owner berurutan (StorageGate2fa).
+// Sesi unlock tersimpan di localStorage terikat user — tahan refresh &
+// pindah halaman; berakhir saat logout / klik "Keluar".
 //   1. NEON    — login akun Neon via API key, kelola project, branch,
 //                endpoint, database, role, snapshot, API key, konsumsi,
 //                dan riwayat operasi (sesuai dokumentasi Neon API v2).
@@ -13,12 +14,12 @@
 // persist store agar tidak ikut backup).
 // =====================================================================
 
-import { useCallback, useEffect, useState } from 'react'
+import { Component, useCallback, useEffect, useState } from 'react'
 import {
   Database, KeyRound, LogOut, RefreshCw, Plus, Trash2, ExternalLink,
   HardDrive, Layers, Server, Boxes, Activity, Loader2, FolderOpen,
   UploadCloud, Download, ChevronDown, Play, PauseCircle, UserRound,
-  AlertTriangle, ShieldCheck, ScrollText, Lock, Send,
+  AlertTriangle, ShieldCheck, ScrollText, Lock, Send, GitBranch,
 } from 'lucide-react'
 import {
   getNeonKey, setNeonKey, isNeonLoggedIn, neonFetch, ensureNeonAppSession,
@@ -37,23 +38,24 @@ import {
   listFileNames, uploadFile, deleteFileVersion, downloadFileViaProxy,
 } from '../services/b2Api'
 import { api } from '../services/api'
+import { useStore } from '../store/useStore'
+import {
+  isStorageUnlocked, setStorageUnlocked, getPinChallenge,
+  setPinChallenge, clearPinChallenge, clearStorageSession,
+} from '../services/storageSession'
 import './StoragePage.css'
-
-// Ses unlock storage (30 menit) — per verifikasi email OWNER + PIN owner.
-// Nama key baru: flag lama (OTP-only) tidak lagi bisa membuka halaman.
-const STORAGE_2FA_KEY = 'luxio_storage_2fa_pin_ok'
-// Challenge sekali-pakai dari langkah 1 (OTP) → dipakai di langkah 2 (PIN).
-const STORAGE_PIN_CH_KEY = 'luxio_storage_pin_challenge'
 
 export default function StoragePage() {
   // Gate 2 langkah: klik halaman Penyimpanan → wajib kode email (2FA),
-  // lalu PIN owner, sebelum isi halaman tampil.
-  const [verified, setVerified] = useState(() => {
-    try {
-      const t = Number(sessionStorage.getItem(STORAGE_2FA_KEY) || 0)
-      return t > Date.now()
-    } catch { return false }
-  })
+  // lalu PIN owner, sebelum isi halaman tampil. Setelah lolos, sesi
+  // bertahan lintas refresh/halaman sampai logout atau klik "Keluar".
+  const { currentUser } = useStore()
+  const uid = currentUser?.id || currentUser?.email || ''
+  const [verified, setVerified] = useState(() => isStorageUnlocked(uid))
+
+  useEffect(() => {
+    setVerified(isStorageUnlocked(uid))
+  }, [uid])
 
   // Autologin Neon & B2 begitu lolos 2FA.
   useEffect(() => {
@@ -63,7 +65,12 @@ export default function StoragePage() {
   }, [verified])
 
   const [tab, setTab] = useState('neon') // 'neon' | 'b2' | 'hf'
-  if (!verified) return <StorageGate2fa onVerified={() => setVerified(true)} />
+  if (!verified) return <StorageGate2fa userId={uid} onVerified={() => setVerified(true)} />
+
+  const handleExit = () => {
+    clearStorageSession()
+    setVerified(false)
+  }
 
   return (
     <div className="storage-page">
@@ -82,13 +89,56 @@ export default function StoragePage() {
           <button className={`storage-tab ${tab === 'hf' ? 'active' : ''}`} onClick={() => setTab('hf')} role="tab">
             <ScrollText size={15} /> Backend
           </button>
+          <button className="storage-tab storage-exit" onClick={handleExit} title="Kunci halaman Penyimpanan (butuh 2 langkah lagi untuk masuk)">
+            <LogOut size={15} /> Keluar
+          </button>
         </div>
       </div>
-      {tab === 'neon' && <NeonPanel />}
-      {tab === 'b2' && <B2Panel />}
-      {tab === 'hf' && <HfLogsPanel />}
+      <StorageBoundary key={tab}>
+        {tab === 'neon' && <NeonPanel />}
+        {tab === 'b2' && <B2Panel />}
+        {tab === 'hf' && <HfLogsPanel />}
+      </StorageBoundary>
     </div>
   )
+}
+
+/* =====================================================================
+   ERROR BOUNDARY — kegagalan data panel tidak boleh membuat website
+   blank; tampilkan kartu error + tombol coba lagi.
+   ===================================================================== */
+
+class StorageBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: '' }
+  }
+
+  static getDerivedStateFromError(err) {
+    return { error: err?.message || 'Terjadi kesalahan tak terduga.' }
+  }
+
+  componentDidCatch(err) {
+    console.error('[StoragePage] panel crash:', err)
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="storage-gate">
+          <div className="storage-gate-card b2">
+            <div className="storage-gate-logo b2"><AlertTriangle size={30} /></div>
+            <h2>Panel gagal dimuat</h2>
+            <p>{this.state.error}</p>
+            <button className="btn btn-primary storage-login-btn" onClick={() => this.setState({ error: '' })}>
+              <RefreshCw size={16} /> Coba Lagi
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 /* =====================================================================
@@ -96,23 +146,13 @@ export default function StoragePage() {
    Keduanya wajib lolos berurutan sebelum halaman terbuka.
    ===================================================================== */
 
-function loadPinChallenge() {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_PIN_CH_KEY)
-    if (!raw) return null
-    const c = JSON.parse(raw)
-    if (c?.challenge && Number(c.exp) > Date.now()) return c
-  } catch { /* abaikan */ }
-  return null
-}
-
-function StorageGate2fa({ onVerified }) {
+function StorageGate2fa({ userId, onVerified }) {
   // 'send' → kirim kode · 'verify' → input kode OTP · 'pin' → input PIN owner
-  const [stage, setStage] = useState(() => (loadPinChallenge() ? 'pin' : 'send'))
+  const [stage, setStage] = useState(() => (getPinChallenge(userId) ? 'pin' : 'send'))
   const [busy, setBusy] = useState(false)
   const [code, setCode] = useState('')
   const [pin, setPin] = useState('')
-  const [challenge, setChallenge] = useState(() => loadPinChallenge()?.challenge || '')
+  const [challenge, setChallenge] = useState(() => getPinChallenge(userId)?.challenge || '')
   const [info, setInfo] = useState('')
   const [error, setError] = useState('')
 
@@ -139,12 +179,7 @@ function StorageGate2fa({ onVerified }) {
         setError('Kode diterima tapi sesi PIN tidak aktif. Kirim ulang kode email.')
         return
       }
-      try {
-        sessionStorage.setItem(STORAGE_PIN_CH_KEY, JSON.stringify({
-          challenge: res.pin_challenge,
-          exp: Date.now() + (res.pin_expires_in || 600) * 1000,
-        }))
-      } catch { /* abaikan */ }
+      setPinChallenge(userId, res.pin_challenge, res.pin_expires_in || 600)
       setChallenge(res.pin_challenge)
       setCode('')
       setInfo('')
@@ -163,16 +198,14 @@ function StorageGate2fa({ onVerified }) {
       if (!res?.ok) {
         setError(res?.message || 'PIN salah.')
         if (res?.challenge_invalid) {
-          try { sessionStorage.removeItem(STORAGE_PIN_CH_KEY) } catch { /* abaikan */ }
+          clearPinChallenge()
           setChallenge('')
           setStage('send')
         }
         return
       }
-      try {
-        sessionStorage.setItem(STORAGE_2FA_KEY, String(Date.now() + 30 * 60 * 1000))
-        sessionStorage.removeItem(STORAGE_PIN_CH_KEY)
-      } catch { /* abaikan */ }
+      setStorageUnlocked(userId)
+      clearPinChallenge()
       onVerified()
     } catch (e) {
       setError(e.message || 'Gagal memverifikasi PIN. Terlalu sering coba? Tunggu sebentar.')
@@ -203,7 +236,7 @@ function StorageGate2fa({ onVerified }) {
               {busy ? <Loader2 size={16} className="spin" /> : <Lock size={16} />} Buka Penyimpanan
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => {
-              try { sessionStorage.removeItem(STORAGE_PIN_CH_KEY) } catch { /* abaikan */ }
+              clearPinChallenge()
               setChallenge(''); setStage('send'); setError(''); setInfo('')
             }} disabled={busy}>Ganti kode email</button>
           </form>
@@ -466,7 +499,8 @@ function NeonDashboard({ onLogout, onChangeKey }) {
         getProjectConsumption(projectId).catch(() => null),
       ])
 
-      const primaryBranch = branches.find((b) => b.primary) || branches[0]
+      const flatBranches = (branches || []).map((b) => (b && b.branch) || b)
+      const primaryBranch = flatBranches.find((b) => b.primary) || flatBranches[0]
       let databases = []
       let roles = []
       let snapshots = []
@@ -729,6 +763,190 @@ function NeonDashboard({ onLogout, onChangeKey }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ---------- normalisasi bentuk respons Neon v2 (ada/tanpa wrapper) ---------- */
+const unwrap = (arr, key) => (Array.isArray(arr) ? arr : []).map((it) => (it && it[key]) || it)
+
+function CreateProjectForm({ onDone, onCancel }) {
+  const [name, setName] = useState('')
+  const [pg, setPg] = useState('17')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!name.trim()) return setErr('Nama project wajib diisi.')
+    setBusy(true); setErr('')
+    try {
+      const p = await createProject(name.trim(), pg)
+      onDone(p)
+    } catch (e2) { setErr(e2.message) }
+    finally { setBusy(false) }
+  }
+  return (
+    <form className="storage-create-form" onSubmit={submit} style={{ marginBottom: 12 }}>
+      <div className="input-group">
+        <label className="input-label">Nama Project</label>
+        <input className="input" value={name} onChange={(e) => { setName(e.target.value); setErr('') }} placeholder="mis. luxio-production" autoFocus />
+      </div>
+      <div className="input-group">
+        <label className="input-label">Versi PostgreSQL</label>
+        <select className="input" value={pg} onChange={(e) => setPg(e.target.value)}>
+          {['17', '16', '15', '14'].map((v) => <option key={v} value={v}>PG {v}</option>)}
+        </select>
+      </div>
+      {err && <div className="gmail-error"><AlertTriangle size={15} /> {err}</div>}
+      <div className="storage-create-actions">
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>Batal</button>
+        <button type="submit" className="btn btn-primary" disabled={busy || !name.trim()}>
+          {busy ? <Loader2 size={15} className="spin" /> : <Plus size={15} />} Buat Project
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function BranchSection({ selected, detail, run, busyId, onRefresh }) {
+  const [name, setName] = useState('')
+  const [parentId, setParentId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const branches = unwrap(detail?.branches, 'branch')
+  const primaryId = selected?.default_branch_id
+    || branches.find((b) => b.primary)?.id
+    || branches[0]?.id
+
+  const addBranch = async (e) => {
+    e.preventDefault()
+    if (!name.trim()) return
+    setBusy(true)
+    try {
+      await createBranch(selected.id, name.trim(), parentId || undefined)
+      setName(''); setParentId('')
+      onRefresh()
+    } catch (e2) {
+      alert(e2.message)
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="storage-rows">
+      <form className="storage-inline-form" onSubmit={addBranch}>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama Branch Baru (kosong = random)" />
+        <select className="input" value={parentId} onChange={(e) => setParentId(e.target.value)} style={{ maxWidth: 220 }}>
+          <option value="">Parent: default (primary)</option>
+          {branches.filter((b) => b.id).map((b) => <option key={b.id} value={b.id}>{b.name || b.id}</option>)}
+        </select>
+        <button className="btn btn-primary" disabled={busy || !name.trim()}>
+          {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Buat Branch
+        </button>
+      </form>
+      {branches.map((b) => (
+        <div key={b.id} className="storage-row">
+          <GitBranch size={14} />
+          <div className="storage-row-main">
+            <strong>{b.name || b.id}</strong>
+            <small>
+              {b.id === primaryId ? 'Primary · ' : ''}
+              State: {b.current_state || b.default_kernel_parameters ? 'ok' : '-'}
+              {b.parent_id ? ` · dari ${b.parent_id}` : ''}
+              {b.created_at ? ` · ${new Date(b.created_at).toLocaleDateString('id-ID')}` : ''}
+            </small>
+          </div>
+          <span className="storage-row-actions">
+            {b.id !== primaryId && !b.protected && (
+              <button
+                className="storage-mini-btn danger"
+                title="Hapus Branch"
+                onClick={() => {
+                  if (window.confirm(`Hapus branch "${b.name || b.id}"? Endpoint & database di branch ini ikut terhapus.`)) {
+                    run(b.id, () => deleteBranch(selected.id, b.id))
+                  }
+                }}
+              >
+                {busyId === b.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
+              </button>
+            )}
+          </span>
+        </div>
+      ))}
+      {!branches.length && <div className="storage-empty">Tidak ada branch. Buat dari database default untuk percobaan yang aman.</div>}
+    </div>
+  )
+}
+
+function EndpointSection({ selected, detail, run, busyId }) {
+  const endpoints = unwrap(detail?.endpoints, 'endpoint')
+  const branchName = (id) => unwrap(detail?.branches, 'branch').find((b) => b.id === id)?.name || id || '-'
+  return (
+    <div className="storage-rows">
+      {endpoints.map((ep) => {
+        const running = (ep.current_state || ep.status) === 'running'
+        const idle = ['idle', 'suspended'].includes(ep.current_state || ep.status)
+        return (
+          <div key={ep.id || ep.compute_endpoint_id} className="storage-row">
+            <Server size={14} />
+            <div className="storage-row-main">
+              <strong>{ep.name || ep.compute_endpoint_id || ep.id}</strong>
+              <small>
+                {ep.type || 'read_write'} · branch {branchName(ep.branch_id)} · state: {ep.current_state || ep.status || '-'}
+              </small>
+            </div>
+            <span className="storage-row-actions">
+              {idle && (
+                <button
+                  className="storage-mini-btn" title="Wake / start endpoint"
+                  disabled={busyId === `start:${ep.id}`}
+                  onClick={() => run(`start:${ep.id}`, () => startEndpoint(selected.id, ep.id))}
+                >
+                  {busyId === `start:${ep.id}` ? <Loader2 size={13} className="spin" /> : <Play size={13} />} Start
+                </button>
+              )}
+              {running && ep.type !== 'read_write' && (
+                <button
+                  className="storage-mini-btn" title="Suspend endpoint"
+                  disabled={busyId === `stop:${ep.id}`}
+                  onClick={() => run(`stop:${ep.id}`, () => suspendEndpoint(selected.id, ep.id))}
+                >
+                  {busyId === `stop:${ep.id}` ? <Loader2 size={13} className="spin" /> : <PauseCircle size={13} />} Suspend
+                </button>
+              )}
+            </span>
+          </div>
+        )
+      })}
+      {!endpoints.length && <div className="storage-empty">Belum ada endpoint (compute) di project ini.</div>}
+    </div>
+  )
+}
+
+function OperationsSection({ detail }) {
+  const ops = unwrap(detail?.operations, 'operation')
+  return (
+    <div className="storage-rows">
+      {ops.map((o) => {
+        const prog = o.progress || {}
+        const total = Number(prog.total_steps) || Number(prog.total_worker_count) || 0
+        const done = Number(prog.completed_steps) || Number(prog.completed_worker_count) || 0
+        const pct = total > 0 ? Math.round((done / total) * 100) : null
+        const state = o.state || o.status || (o.finish_time ? 'finished' : 'running')
+        return (
+          <div key={o.id} className="storage-row">
+            <Activity size={14} />
+            <div className="storage-row-main">
+              <strong>{o.action || o.type || 'Operation'}</strong>
+              <small>
+                {state}{pct != null ? ` · ${pct}%` : ''}
+                {o.created_at ? ` · ${new Date(o.created_at).toLocaleString('id-ID')}` : ''}
+                {o.error ? ` · error: ${JSON.stringify(o.error)}` : ''}
+              </small>
+            </div>
+            <span className={`storage-pill ${state === 'finished' || state === 'completed' ? 'ok' : ''}`}>{state}</span>
+          </div>
+        )
+      })}
+      {!ops.length && <div className="storage-empty">Belum ada riwayat operasi.</div>}
     </div>
   )
 }
