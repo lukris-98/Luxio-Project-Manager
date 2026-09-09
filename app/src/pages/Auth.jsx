@@ -134,7 +134,7 @@ if (result.success) {
       }
     }
 
-    // Popup OAuth token client (jalur utama — selalu membuka jendela Google).
+    // Popup OAuth token client (jalur utama ï¿½ selalu membuka jendela Google).
     let fallbackTimer = null
     let tokenRequested = false
     const startTokenClient = () => {
@@ -166,7 +166,7 @@ if (result.success) {
       }
     }
 
-    // Jalur 1 (opsional): One Tap / FedCM — kalau tidak muncul dalam 1.2s,
+    // Jalur 1 (opsional): One Tap / FedCM ï¿½ kalau tidak muncul dalam 1.2s,
     // popup token client tetap dibuka otomatis.
     try {
       window.google?.accounts?.id?.initialize({
@@ -344,7 +344,7 @@ if (result.success) {
       setLoading(false)
       return
     }
-    // Challenge PIN bersifat sekali-pakai & bisa kedaluwarsa — setelah
+    // Challenge PIN bersifat sekali-pakai & bisa kedaluwarsa ï¿½ setelah
     // kegagalan, ambil challenge BARU dengan login ulang diam-diam lalu
     // ulangi verifikasi sekali (PIN yang benar tetap bisa masuk).
     if (result.requiresPin || /sesi verifikasi|challenge/i.test(result.message || '')) {
@@ -448,7 +448,7 @@ if (result.success) {
             <div className="auth-content">
               <div className="auth-icon-big"><ShieldCheck size={36} /></div>
               <h1>Mengaktifkan Akun</h1>
-              <p className="auth-subtitle">Memverifikasi email kamu…</p>
+              <p className="auth-subtitle">Memverifikasi email kamuï¿½</p>
               {error && <div className="auth-error">{error}</div>}
               {!error && (
                 <div className="auth-loading">
@@ -510,7 +510,7 @@ if (result.success) {
                   </div>
                 </div>
                 <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading}>
-                  {loading ? 'Mengirim…' : 'Kirim Link Reset'}
+                  {loading ? 'Mengirimï¿½' : 'Kirim Link Reset'}
                 </button>
               </form>
 
@@ -593,7 +593,7 @@ if (result.success) {
                   style={{ width: '100%' }}
                   disabled={loading || !passwordMeetsRules(newPassword) || newPassword !== confirmPassword}
                 >
-                  {loading ? 'Menyimpan…' : 'Simpan Password Baru'}
+                  {loading ? 'Menyimpanï¿½' : 'Simpan Password Baru'}
                 </button>
               </form>
 
@@ -640,7 +640,7 @@ if (result.success) {
                   </div>
                 </div>
                 <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading || otp.length !== OTP_LENGTH}>
-                  {loading ? 'Memverifikasi…' : 'Verifikasi & Masuk'}
+                  {loading ? 'Memverifikasiï¿½' : 'Verifikasi & Masuk'}
                 </button>
               </form>
 
@@ -668,10 +668,10 @@ if (result.success) {
               <form onSubmit={handlePinSubmit} className="auth-form">
                 <div className="input-group">
                   <label className="input-label" htmlFor="auth-pin">PIN</label>
-                  <PinInput length={6} value={pin} onChange={(v) => { setPin(v); setError('') }} onComplete={() => { if (!loading) handlePinSubmit(new Event('submit', { cancelable: true })) }} />
+                  <PinInput length={6} value={pin} onChange={(v) => { setPin(v); setError('') }}  />
                 </div>
                 <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading || pin.length < 4}>
-                  {loading ? 'Memproses…' : pinMode === 'setup' ? 'Simpan & Masuk' : 'Verifikasi & Masuk'}
+                  {loading ? 'Memprosesï¿½' : pinMode === 'setup' ? 'Simpan & Masuk' : 'Verifikasi & Masuk'}
                 </button>
               </form>
 
@@ -836,7 +836,7 @@ if (result.success) {
                         <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
                         <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
                       </svg>
-                      {googleLoading ? 'Menghubungkan ke Google…' : 'Lanjut dengan Google'}
+                      {googleLoading ? 'Menghubungkan ke Googleï¿½' : 'Lanjut dengan Google'}
                     </button>
                   </>
                 )}

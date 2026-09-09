@@ -32,6 +32,7 @@ export const ensureNeonAppSession = () => true
 
 export const isNeonLoggedIn = () => true
 export const getNeonKey = () => 'APP_NEON'
+export const setNeonKey = () => {}
 
 /** Fetch generik — kredensial diisi server-side oleh proxy. */
 export const neonFetch = async (path, { method = 'GET', body } = {}) => {
