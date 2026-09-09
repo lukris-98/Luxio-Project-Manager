@@ -449,7 +449,18 @@ function NeonPanel() {
   return <NeonDashboard onLogout={check} onChangeKey={() => setStatus('need_key')} />
 }
 
-function NeonDashboard({ onLogout, onChangeKey }) {
+function NeonDashboard(props) {
+  // DEV-TRACE: tangkap stack asli dari crash render yang tidak terbaca
+  // lewat source map, lalu lempar ulang agar tetap kena StorageBoundary.
+  try {
+    return NeonDashboardInner(props)
+  } catch (e) {
+    console.error('[STORAGE-DEBUG] NeonDashboard render throw:', e?.stack || e)
+    throw e
+  }
+}
+
+function NeonDashboardInner({ onLogout, onChangeKey }) {
   const [me, setMe] = useState(null)
   const [apiKeys, setApiKeys] = useState([])
   const [projects, setProjects] = useState([])
@@ -473,11 +484,12 @@ function NeonDashboard({ onLogout, onChangeKey }) {
         listProjects().catch(() => []),
         listApiKeys().catch(() => []),
       ])
-      setMe(meData)
-      setProjects(projList)
-      setApiKeys(keysList)
-      if (projList.length > 0 && !selected) {
-        setSelected(projList[0])
+      setMe(meData && typeof meData === 'object' ? meData : null)
+      setProjects(Array.isArray(projList) ? projList : [])
+      setApiKeys(Array.isArray(keysList) ? keysList : [])
+      const projs = Array.isArray(projList) ? projList : []
+      if (projs.length > 0 && !selected) {
+        setSelected(projs[0])
       }
     } catch (e) {
       if (e.code === 'UNAUTHORIZED') { onLogout(); return }
@@ -1161,7 +1173,7 @@ function B2Dashboard({ onLogout }) {
   const loadFiles = useCallback(async (bucketId) => {
     if (!bucketId) { setFiles([]); return }
     setLoading(true)
-    try { const d = await listFileNames(bucketId); setFiles(d.files) }
+    try { const d = await listFileNames(bucketId); setFiles(Array.isArray(d?.files) ? d.files : []) }
     catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }, [])

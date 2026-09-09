@@ -4,18 +4,18 @@ import { test, expect } from '@playwright/test'
 const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64')
 
 function mockNeonRoute(url) {
-  if (url.includes('/users/me')) return { id: 'ns1', email: 'owner@luxio.web.id', name: 'Owner Luxio', license: 'free' }
+  if (url.includes('/users/me')) return { user: { id: 'ns1', email: 'owner@luxio.web.id', name: 'Owner Luxio', license_type: 'free' } }
   if (url.includes('/projects?') || url.match(/\/projects(\?|$)/)) {
-    return { projects: [{ id: 'p1', name: 'luxio-production', pg_version: '17', region_id: 'ap-southeast-1', created_at: '2026-01-01T00:00:00Z', default_branch_id: 'br1' }] }
+    return { projects: [{ project: { id: 'p1', name: 'luxio-production', pg_version: '17', region_id: 'ap-southeast-1', created_at: '2026-01-01T00:00:00Z', default_branch_id: 'br1' }, limits: {} }] }
   }
-  if (url.includes('/api_keys')) return { keys: [{ id: 'k1', name: 'CLI', created_at: '2026-01-01T00:00:00Z' }] }
-  if (url.includes('/branches')) return { branches: [{ id: 'br1', name: 'main', primary: true, current_state: 'ready', created_at: '2026-01-01T00:00:00Z' }] }
-  if (url.includes('/endpoints')) return { endpoints: [{ id: 'ep1', branch_id: 'br1', type: 'read_write', current_state: 'running', name: 'ep-green' }] }
+  if (url.includes('/api_keys')) return { keys: [{ key: { id: 'k1', name: 'CLI', created_at: '2026-01-01T00:00:00Z' }, allowed_scopes: ['admin'] }] }
+  if (url.includes('/branches')) return { branches: [{ branch: { id: 'br1', name: 'main', primary: true, current_state: 'ready', created_at: '2026-01-01T00:00:00Z' }, project: { id: 'p1' } }] }
+  if (url.includes('/endpoints')) return { endpoints: [{ endpoint: { id: 'ep1', branch_id: 'br1', type: 'read_write', current_state: 'running', name: 'ep-green' } }] }
   if (url.includes('/operations')) return { operations: [{ id: 'op1', action: 'create_project', state: 'finished', created_at: '2026-01-01T00:00:00Z', progress: { total_steps: 3, completed_steps: 3 } }] }
   if (url.includes('/consumption')) return { total_consumption: 12.5 }
-  if (url.includes('/databases')) return { databases: [] }
-  if (url.includes('/roles')) return { roles: [] }
-  if (url.includes('/snapshots')) return { snapshots: [] }
+  if (url.includes('/databases')) return { databases: [{ database: { name: 'neondb', owner_name: 'neondb_owner' } }] }
+  if (url.includes('/roles')) return { roles: [{ role: { name: 'neondb_owner', protected: true } }] }
+  if (url.includes('/snapshots')) return { snapshots: [{ snapshot: { id: 'snap1', created_at: '2026-01-01T00:00:00Z' } }] }
   return {}
 }
 

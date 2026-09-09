@@ -74,19 +74,29 @@ export const neonFetch = async (path, { method = 'GET', body } = {}) => {
 
 // ---------- Akun ----------
 
-export const getMe = () => neonFetch('/users/me')
+export const getMe = () => neonFetch('/users/me').then((d) => (d && d.user) || d || null)
 
 // ---------- API Keys ----------
+// Neon v2 membungkus tiap item: { keys: [{ key: {...} }] }.
 
-export const listApiKeys = () => neonFetch('/api_keys').then((d) => d.keys || [])
+export const listApiKeys = () =>
+  neonFetch('/api_keys').then((d) => {
+    const k = d && d.keys
+    const arr = Array.isArray(k) ? k : Array.isArray(k && k.data) ? k.data : []
+    if (!Array.isArray(k) && k !== undefined && k !== null) {
+      console.warn('[neonApi] /api_keys bentuk tak dikenal:', k)
+    }
+    return arr.map((it) => (it && it.key) || it)
+  })
 export const createApiKey = (keyName) =>
   neonFetch('/api_keys', { method: 'POST', body: { key_name: keyName } })
 export const revokeApiKey = (id) => neonFetch(`/api_keys/${id}`, { method: 'DELETE' })
 
 // ---------- Projects ----------
 
-export const listProjects = () => neonFetch('/projects?limit=100').then((d) => d.projects || [])
-export const getProject = (id) => neonFetch(`/projects/${id}`).then((d) => d.project)
+export const listProjects = () =>
+  neonFetch('/projects?limit=100').then((d) => ((d && d.projects) || []).map((p) => (p && p.project) || p))
+export const getProject = (id) => neonFetch(`/projects/${id}`).then((d) => d && d.project)
 export const createProject = (name, pgVersion = '17') =>
   neonFetch('/projects', { method: 'POST', body: { project: { name, pg_version: pgVersion } } })
     .then((d) => d.project)
@@ -95,7 +105,7 @@ export const deleteProject = (id) => neonFetch(`/projects/${id}`, { method: 'DEL
 // ---------- Branches ----------
 
 export const listBranches = (projectId) =>
-  neonFetch(`/projects/${projectId}/branches`).then((d) => d.branches || [])
+  neonFetch(`/projects/${projectId}/branches`).then((d) => ((d && d.branches) || []).map((b) => (b && b.branch) || b))
 export const createBranch = (projectId, name, parentId) =>
   neonFetch(`/projects/${projectId}/branches`, {
     method: 'POST',
@@ -107,7 +117,7 @@ export const deleteBranch = (projectId, branchId) =>
 // ---------- Endpoints ----------
 
 export const listEndpoints = (projectId) =>
-  neonFetch(`/projects/${projectId}/endpoints`).then((d) => d.endpoints || []).then((d) => d.endpoints || [])
+  neonFetch(`/projects/${projectId}/endpoints`).then((d) => ((d && d.endpoints) || []).map((e) => (e && (e.endpoint || e.data)) || e))
 export const startEndpoint = (projectId, endpointId) =>
   neonFetch(`/projects/${projectId}/endpoints/${endpointId}/start`, { method: 'POST' })
 export const suspendEndpoint = (projectId, endpointId) =>
@@ -116,7 +126,7 @@ export const suspendEndpoint = (projectId, endpointId) =>
 // ---------- Databases (per branch) ----------
 
 export const listDatabases = (projectId, branchId) =>
-  neonFetch(`/projects/${projectId}/branches/${branchId}/databases`).then((d) => d.databases || [])
+  neonFetch(`/projects/${projectId}/branches/${branchId}/databases`).then((d) => ((d && d.databases) || []).map((x) => (x && x.database) || x))
 export const createDatabase = (projectId, branchId, name, ownerName) =>
   neonFetch(`/projects/${projectId}/branches/${branchId}/databases`, {
     method: 'POST',
@@ -128,7 +138,7 @@ export const deleteDatabase = (projectId, branchId, name) =>
 // ---------- Roles (per branch) ----------
 
 export const listRoles = (projectId, branchId) =>
-  neonFetch(`/projects/${projectId}/branches/${branchId}/roles`).then((d) => d.roles || [])
+  neonFetch(`/projects/${projectId}/branches/${branchId}/roles`).then((d) => ((d && d.roles) || []).map((x) => (x && x.role) || x))
 export const createRole = (projectId, branchId, name) =>
   neonFetch(`/projects/${projectId}/branches/${branchId}/roles`, {
     method: 'POST',
@@ -140,7 +150,7 @@ export const deleteRole = (projectId, branchId, name) =>
 // ---------- Snapshots (per branch) ----------
 
 export const listSnapshots = (projectId, branchId) =>
-  neonFetch(`/projects/${projectId}/branches/${branchId}/snapshots`).then((d) => d.snapshots || [])
+  neonFetch(`/projects/${projectId}/branches/${branchId}/snapshots`).then((d) => ((d && d.snapshots) || []).map((x) => (x && x.snapshot) || x))
 export const createSnapshot = (projectId, branchId) =>
   neonFetch(`/projects/${projectId}/branches/${branchId}/snapshots`, { method: 'POST' })
 
