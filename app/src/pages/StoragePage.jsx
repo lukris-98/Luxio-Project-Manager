@@ -232,13 +232,14 @@ function HfLogsPanel() {
 }
 
 /* =====================================================================
-   PANEL NEON
+   PANEL NEON (Database Cloud Neon.tech)
    ===================================================================== */
 
 function NeonPanel() {
-  // Autologin penuh: kredensial dipegang server (env). Tidak ada form login.
-  const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'fail'
+  const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'fail' | 'need_key'
   const [error, setError] = useState('')
+  const [customKey, setCustomKey] = useState('')
+  const [savingKey, setSavingKey] = useState(false)
 
   const check = useCallback(async () => {
     setStatus('loading'); setError('')
@@ -247,311 +248,547 @@ function NeonPanel() {
       setStatus('ok')
     } catch (e) {
       setError(e.message)
-      setStatus('fail')
+      if (e.message?.includes('503') || e.code === 'UNAUTHORIZED' || e.message?.includes('tidak valid')) {
+        setStatus('need_key')
+      } else {
+        setStatus('fail')
+      }
     }
   }, [])
 
   useEffect(() => { check() }, [check])
 
-  if (status === 'loading') {
-    return <div className="storage-empty"><Loader2 size={16} className="spin" /> Menyambungkan…</div>
+  const handleSaveConfigKey = async (e) => {
+    e.preventDefault()
+    if (!customKey.trim()) return
+    setSavingKey(true); setError('')
+    try {
+      await api.updateOwnerConfig('neon', { api_key: customKey.trim() })
+      setCustomKey('')
+      await check()
+    } catch (err) {
+      setError(err.message || 'Gagal menyimpan API Key.')
+    } finally {
+      setSavingKey(false)
+    }
   }
+
+  if (status === 'loading') {
+    return <div className="storage-empty"><Loader2 size={16} className="spin" /> Menyambungkan ke Neon Cloud API…</div>
+  }
+
+  if (status === 'need_key') {
+    return (
+      <div className="storage-gate">
+        <div className="storage-gate-card neon">
+          <div className="storage-gate-logo neon"><Database size={30} /></div>
+          <h2>Konfigurasi API Key Neon</h2>
+          <p>
+            API Key Neon belum dikonfigurasi di server atau memerlukan pembaharuan.
+            Masukkan Neon Personal Access Token (API Key) dari console.neon.tech.
+          </p>
+          {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
+          <form onSubmit={handleSaveConfigKey} className="storage-gate-form" style={{ marginTop: 15 }}>
+            <div className="input-group">
+              <label className="input-label">Neon API Key (Personal Access Token)</label>
+              <input
+                type="password"
+                className="input"
+                placeholder="npg_xxxxxxxxxxxx"
+                value={customKey}
+                onChange={(e) => setCustomKey(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <button type="submit" className="btn btn-primary storage-login-btn" disabled={savingKey || !customKey.trim()}>
+              {savingKey ? <Loader2 size={16} className="spin" /> : <KeyRound size={16} />}
+              {savingKey ? 'Menyimpan…' : 'Simpan API Key & Hubungkan'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   if (status === 'fail') {
     return (
       <div className="storage-gate">
         <div className="storage-gate-card neon">
           <div className="storage-gate-logo neon"><Database size={30} /></div>
-          <h2>Tidak bisa tersambung</h2>
-          <p>Server storage sedang tidak tersedia. Coba lagi.</p>
+          <h2>Tidak Bisa Tersambung ke Neon</h2>
+          <p>Gagal menghubungi server storage Neon. Silakan periksa koneksi atau coba lagi.</p>
           {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
-          <button className="btn btn-primary storage-login-btn" onClick={check}>
-            <RefreshCw size={16} /> Coba Lagi
-          </button>
+          <div style={{ display: 'flex', gap: 10, marginTop: 15 }}>
+            <button className="btn btn-primary" onClick={check}>
+              <RefreshCw size={16} /> Coba Lagi
+            </button>
+            <button className="btn btn-ghost" onClick={() => setStatus('need_key')}>
+              <KeyRound size={16} /> Ganti API Key
+            </button>
+          </div>
         </div>
       </div>
     )
   }
-  return <NeonDashboard onLogout={check} />
+
+  return <NeonDashboard onLogout={check} onChangeKey={() => setStatus('need_key')} />
 }
 
-function NeonDashboard({ onLogout }) {
+function NeonDashboard({ onLogout, onChangeKey }) {
   const [me, setMe] = useState(null)
+  const [apiKeys, setApiKeys] = useState([])
   const [projects, setProjects] = useState([])
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState(null) // { branches, endpoints, operations, consumption, databases, roles, snapshots }
-  const [section, setSection] = useState('branches')
+  const [activeTab, setActiveTab] = useState('projects') // 'projects' | 'apikeys' | 'operations'
+  const [section, setSection] = useState('branches') // 'branches' | 'endpoints' | 'databases' | 'roles' | 'snapshots'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
-  const [showCreate, setShowCreate] = useState(false)
+  const [showCreateProj, setShowCreateProj] = useState(false)
+  const [showCreateKey, setShowCreateKey] = useState(false)
+  const [newKeyName, setNewKeyName] = useState('')
+  const [createdKeyVal, setCreatedKeyVal] = useState('')
 
   const loadAll = useCallback(async () => {
     setLoading(true); setError('')
     try {
-      const [meData, projList] = await Promise.all([getMe(), listProjects()])
+      const [meData, projList, keysList] = await Promise.all([
+        getMe().catch(() => null),
+        listProjects().catch(() => []),
+        listApiKeys().catch(() => []),
+      ])
       setMe(meData)
       setProjects(projList)
+      setApiKeys(keysList)
+      if (projList.length > 0 && !selected) {
+        setSelected(projList[0])
+      }
     } catch (e) {
       if (e.code === 'UNAUTHORIZED') { onLogout(); return }
       setError(e.message)
     } finally { setLoading(false) }
-  }, [onLogout])
+  }, [onLogout, selected])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => { loadAll() }, [])
 
-  // Muat detail project terpilih (branches, endpoints, operations, dsb.)
+  // Muat detail project terpilih
   const loadDetail = useCallback(async (projectId) => {
     if (!projectId) { setDetail(null); return }
     setLoading(true); setError('')
     try {
       const [branches, endpoints, operations, consumption] = await Promise.all([
-        listBranches(projectId),
+        listBranches(projectId).catch(() => []),
         listEndpoints(projectId).catch(() => []),
-        listOperations(projectId, 10).catch(() => []),
+        listOperations(projectId, 15).catch(() => []),
         getProjectConsumption(projectId).catch(() => null),
       ])
-      setDetail({ branches, endpoints, operations, consumption })
+
+      const primaryBranch = branches.find((b) => b.primary) || branches[0]
+      let databases = []
+      let roles = []
+      let snapshots = []
+
+      if (primaryBranch) {
+        [databases, roles, snapshots] = await Promise.all([
+          listDatabases(projectId, primaryBranch.id).catch(() => []),
+          listRoles(projectId, primaryBranch.id).catch(() => []),
+          listSnapshots(projectId, primaryBranch.id).catch(() => []),
+        ])
+      }
+
+      setDetail({ branches, endpoints, operations, consumption, databases, roles, snapshots, primaryBranch })
     } catch (e) {
       setError(e.message)
     } finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { loadDetail(selected?.id) }, [selected, loadDetail])
+  useEffect(() => {
+    if (selected?.id) loadDetail(selected.id)
+  }, [selected?.id, loadDetail])
 
   const run = async (id, fn) => {
     setBusyId(id); setError('')
-    try { await fn(); await loadAll(); if (selected) await loadDetail(selected.id) }
-    catch (e) { setError(e.message) }
-    finally { setBusyId('') }
+    try {
+      await fn()
+      await loadAll()
+      if (selected) await loadDetail(selected.id)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const handleCreateKey = async (e) => {
+    e.preventDefault()
+    if (!newKeyName.trim()) return
+    setBusyId('create_key'); setError('')
+    try {
+      const res = await createApiKey(newKeyName.trim())
+      setCreatedKeyVal(res.key || res.raw_key || 'Dibuat')
+      setNewKeyName('')
+      await loadAll()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusyId('')
+    }
   }
 
   return (
     <div className="storage-dash">
-      {/* Bar akun */}
+      {/* Bar Akun & Stats */}
       <div className="storage-dash-bar">
         <div className="storage-dash-account">
-          <span className="storage-avatar neon"><UserRound size={17} /></span>
+          <span className="storage-avatar neon"><UserRound size={18} /></span>
           <div>
-            <strong>{me?.name || 'Akun'}</strong>
-            <small>{me?.email || ''} · License: {me?.license || 'free'}</small>
+            <strong>{me?.name || me?.email || 'Akun Owner Neon'}</strong>
+            <small>{me?.email ? `${me.email} · ` : ''}ID: {me?.id || '-'} · Plan: {me?.license || 'free'}</small>
           </div>
         </div>
         <div className="storage-dash-bar-actions">
-          <button className="btn btn-ghost" onClick={() => setShowCreate((s) => !s)} disabled={loading}>
-            <Plus size={15} /> Project Baru
+          <div className="hf-log-tabs">
+            <button className={`hf-log-tab ${activeTab === 'projects' ? 'active' : ''}`} onClick={() => setActiveTab('projects')}>
+              <Database size={13} style={{ marginRight: 4 }} /> Projects (${projects.length})
+            </button>
+            <button className={`hf-log-tab ${activeTab === 'apikeys' ? 'active' : ''}`} onClick={() => setActiveTab('apikeys')}>
+              <KeyRound size={13} style={{ marginRight: 4 }} /> API Keys (${apiKeys.length})
+            </button>
+          </div>
+          <button className="btn btn-ghost" onClick={onChangeKey} title="Ganti API Key">
+            <KeyRound size={15} /> Key
           </button>
           <button className="btn btn-ghost" onClick={loadAll} title="Muat ulang" disabled={loading}>
             <RefreshCw size={15} className={loading ? 'spin' : ''} />
           </button>
-          <button className="btn btn-ghost" onClick={onLogout} title="Keluar"><LogOut size={15} /></button>
         </div>
       </div>
 
       {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
 
-      {/* Form project baru */}
-      {showCreate && (
-        <CreateProjectForm
-          onDone={async (p) => { setShowCreate(false); await loadAll(); setSelected(p) }}
-          onCancel={() => setShowCreate(false)}
-        />
+      {/* VIEW 1: PROJECTS & DATABASES */}
+      {activeTab === 'projects' && (
+        <>
+          {showCreateProj && (
+            <CreateProjectForm
+              onDone={async (p) => { setShowCreateProj(false); await loadAll(); setSelected(p) }}
+              onCancel={() => setShowCreateProj(false)}
+            />
+          )}
+
+          <div className="storage-dash-body">
+            {/* Sidebar Daftar Project */}
+            <aside className="storage-list-col">
+              <div className="storage-col-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span><Layers size={13} /> Projects ({projects.length})</span>
+                <button className="btn btn-ghost btn-sm" style={{ padding: '2px 6px' }} onClick={() => setShowCreateProj((s) => !s)}>
+                  <Plus size={13} /> Baru
+                </button>
+              </div>
+
+              {loading && !projects.length && <div className="storage-empty"><Loader2 size={16} className="spin" /> Memuat…</div>}
+              {!loading && !projects.length && !error && <div className="storage-empty">Belum ada project.</div>}
+              
+              {projects.map((p) => (
+                <button
+                  key={p.id}
+                  className={`storage-list-item ${selected?.id === p.id ? 'active' : ''}`}
+                  onClick={() => setSelected(p)}
+                >
+                  <Database size={14} />
+                  <div className="storage-list-item-main">
+                    <span className="storage-list-item-name">{p.name}</span>
+                    <small>PG {p.pg_version || '17'} · {p.region_id || 'ap-southeast-1'}</small>
+                  </div>
+                  <span
+                    className="storage-item-del"
+                    title="Hapus project"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (window.confirm(`Hapus project "${p.name}"? Semua branch & database akan terhapus.`)) {
+                        run(p.id, () => deleteProject(p.id))
+                      }
+                    }}
+                  >
+                    {busyId === p.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
+                  </span>
+                </button>
+              ))}
+            </aside>
+
+            {/* Content Detail Project */}
+            {selected ? (
+              <section className="storage-detail">
+                <div className="storage-detail-head">
+                  <div>
+                    <h2>{selected.name}</h2>
+                    <small>
+                      ID: {selected.id} · PG {selected.pg_version || '17'} · Region: {selected.region_id || 'ap-southeast-1'} · Dibuat: {selected.created_at ? new Date(selected.created_at).toLocaleDateString('id-ID') : '-'}
+                    </small>
+                  </div>
+                  {detail?.consumption?.total_consumption && (
+                    <span className="storage-pill" title="Konsumsi kompute bulan ini">
+                      <Activity size={12} /> {Number(detail.consumption.total_consumption).toFixed(2)} jam kompute
+                    </span>
+                  )}
+                </div>
+
+                {/* Sub Tab Detail Project */}
+                <div className="storage-section-tabs">
+                  {[
+                    ['branches', `Branches (${detail?.branches?.length || 0})`],
+                    ['endpoints', `Endpoints (${detail?.endpoints?.length || 0})`],
+                    ['databases', `Databases (${detail?.databases?.length || 0})`],
+                    ['roles', `Roles (${detail?.roles?.length || 0})`],
+                    ['snapshots', `Snapshots (${detail?.snapshots?.length || 0})`],
+                    ['operations', `Operations (${detail?.operations?.length || 0})`],
+                  ].map(([id, label]) => (
+                    <button
+                      key={id}
+                      className={`storage-section-tab ${section === id ? 'active' : ''}`}
+                      onClick={() => setSection(id)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {section === 'branches' && (
+                  <BranchSection
+                    selected={selected} detail={detail} run={run} busyId={busyId}
+                    onRefresh={() => loadDetail(selected.id)}
+                  />
+                )}
+                {section === 'endpoints' && (
+                  <EndpointSection selected={selected} detail={detail} run={run} busyId={busyId} />
+                )}
+                {section === 'databases' && (
+                  <DatabaseSection selected={selected} detail={detail} run={run} busyId={busyId} onRefresh={() => loadDetail(selected.id)} />
+                )}
+                {section === 'roles' && (
+                  <RoleSection selected={selected} detail={detail} run={run} busyId={busyId} onRefresh={() => loadDetail(selected.id)} />
+                )}
+                {section === 'snapshots' && (
+                  <SnapshotSection selected={selected} detail={detail} run={run} busyId={busyId} />
+                )}
+                {section === 'operations' && (
+                  <OperationsSection detail={detail} />
+                )}
+              </section>
+            ) : (
+              <div className="storage-detail" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>
+                Pilih project dari daftar di sebelah kiri untuk melihat detail.
+              </div>
+            )}
+          </div>
+        </>
       )}
 
-      <div className="storage-dash-body">
-        {/* Kolom daftar project */}
-        <aside className="storage-list-col">
-          <div className="storage-col-title"><Layers size={13} /> Projects ({projects.length})</div>
-          {loading && !projects.length && <div className="storage-empty"><Loader2 size={16} className="spin" /> Memuat…</div>}
-          {!loading && !projects.length && !error && <div className="storage-empty">Belum ada project.</div>}
-          {projects.map((p) => (
-            <button key={p.id} className={`storage-list-item ${selected?.id === p.id ? 'active' : ''}`} onClick={() => setSelected(p)}>
-              <Database size={14} />
-              <span className="storage-list-item-name">{p.name}</span>
-              <small>{p.region_id || p.pg_version || ''}</small>
-              <span
-                className="storage-item-del" title="Hapus project"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (window.confirm(`Hapus project "${p.name}"? Semua branch & data hilang permanen.`)) {
-                    run(p.id, () => deleteProject(p.id))
-                  }
-                }}
-              >
-                {busyId === p.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
-              </span>
+      {/* VIEW 2: API KEYS */}
+      {activeTab === 'apikeys' && (
+        <div style={{ padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Daftar API Keys (Personal Access Tokens)</h3>
+              <small style={{ color: 'var(--text-tertiary)' }}>API Key yang digunakan untuk mengakses Neon API v2</small>
+            </div>
+            <button className="btn btn-primary" onClick={() => setShowCreateKey((s) => !s)}>
+              <Plus size={15} /> Buat API Key Baru
             </button>
-          ))}
-        </aside>
+          </div>
 
-        {/* Detail project terpilih */}
-        {selected && (
-          <section className="storage-detail">
-            <div className="storage-detail-head">
-              <div>
-                <h2>{selected.name}</h2>
-                <small>
-                  PG {selected.pg_version} · {selected.region_id || '-'} · dibuat {selected.created_at ? new Date(selected.created_at).toLocaleDateString('id-ID') : '-'}
-                </small>
-              </div>
-              {detail?.consumption?.total_consumption && (
-                <span className="storage-pill" title="Konsumsi bulan ini">
-                  <Activity size={12} /> {Number(detail.consumption.total_consumption).toFixed(2)} jam kompute
-                </span>
-              )}
-            </div>
-
-            <div className="storage-section-tabs">
-              {[
-                ['branches', 'Branches'], ['endpoints', 'Endpoints'],
-                ['operations', 'Operations'],
-              ].map(([id, label]) => (
-                <button key={id} className={`storage-section-tab ${section === id ? 'active' : ''}`} onClick={() => setSection(id)}>{label}</button>
-              ))}
-            </div>
-
-            {section === 'branches' && (
-              <BranchSection
-                selected={selected} detail={detail} run={run} busyId={busyId}
-                onRefresh={() => loadDetail(selected.id)}
+          {showCreateKey && (
+            <form onSubmit={handleCreateKey} className="storage-inline-form" style={{ marginBottom: 15, padding: 12, background: 'var(--bg-secondary)', borderRadius: 8 }}>
+              <input
+                className="input"
+                placeholder="Nama Token (mis. CLI Server / Backup)"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                autoFocus
               />
-            )}
-            {section === 'endpoints' && (
-              <EndpointSection selected={selected} detail={detail} run={run} busyId={busyId} />
-            )}
-            {section === 'operations' && (
-              <OperationsSection detail={detail} />
-            )}
-          </section>
-        )}
-      </div>
+              <button className="btn btn-primary" disabled={busyId === 'create_key' || !newKeyName.trim()}>
+                {busyId === 'create_key' ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Buat Token
+              </button>
+            </form>
+          )}
+
+          {createdKeyVal && (
+            <div className="gmail-error" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)', marginBottom: 15 }}>
+              <strong>API Key Berhasil Dibuat!</strong> Simpan key ini sekarang karena tidak akan ditampilkan lagi:
+              <code style={{ display: 'block', marginTop: 6, padding: 8, background: 'rgba(0,0,0,0.2)', borderRadius: 4 }}>{createdKeyVal}</code>
+            </div>
+          )}
+
+          <div className="storage-rows">
+            {apiKeys.map((k) => (
+              <div key={k.id} className="storage-row">
+                <KeyRound size={15} />
+                <div className="storage-row-main">
+                  <strong>{k.name || k.key_name || 'API Key'}</strong>
+                  <small>ID: {k.id} · Dibuat: {k.created_at ? new Date(k.created_at).toLocaleString('id-ID') : '-'}</small>
+                </div>
+                <span className="storage-row-actions">
+                  <button
+                    className="storage-mini-btn danger"
+                    title="Cabut API Key"
+                    onClick={() => {
+                      if (window.confirm(`Cabut API Key "${k.name || k.id}"?`)) {
+                        run(k.id, () => revokeApiKey(k.id))
+                      }
+                    }}
+                  >
+                    {busyId === k.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />} Cabut
+                  </button>
+                </span>
+              </div>
+            ))}
+            {!apiKeys.length && <div className="storage-empty">Tidak ada API Key terdaftar.</div>}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function CreateProjectForm({ onDone, onCancel }) {
+function DatabaseSection({ selected, detail, run, busyId, onRefresh }) {
   const [name, setName] = useState('')
-  const [pg, setPg] = useState('17')
+  const [ownerName, setOwnerName] = useState('neondb_owner')
   const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const submit = async (e) => {
-    e.preventDefault()
-    if (!name.trim()) return setErr('Nama project wajib diisi.')
-    setBusy(true); setErr('')
-    try { const p = await createProject(name.trim(), pg); onDone(p) }
-    catch (e2) { setErr(e2.message) }
-    finally { setBusy(false) }
-  }
-  return (
-    <form className="storage-create-form" onSubmit={submit}>
-      <div className="input-group">
-        <label className="input-label">Nama Project</label>
-        <input className="input" value={name} onChange={(e) => { setName(e.target.value); setErr('') }} placeholder="mis. Production DB" autoFocus />
-      </div>
-      <div className="input-group">
-        <label className="input-label">Versi Database</label>
-        <select className="input" value={pg} onChange={(e) => setPg(e.target.value)}>
-          {['17', '16', '15', '14'].map((v) => <option key={v} value={v}>Versi {v}</option>)}
-        </select>
-      </div>
-      {err && <div className="gmail-error"><AlertTriangle size={15} /> {err}</div>}
-      <div className="storage-create-actions">
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>Batal</button>
-        <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? <Loader2 size={15} className="spin" /> : <Plus size={15} />} Buat Project
-        </button>
-      </div>
-    </form>
-  )
-}
+  const primaryBranch = detail?.primaryBranch
 
-function BranchSection({ selected, detail, run, busyId, onRefresh }) {
-  const [name, setName] = useState('')
-  const [busy, setBusy] = useState(false)
-  const mainBranch = detail?.branches?.find((b) => b.primary) || detail?.branches?.[0]
-
-  const addBranch = async (e) => {
+  const addDb = async (e) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || !primaryBranch) return
     setBusy(true)
-    try { await createBranch(selected.id, name.trim(), mainBranch?.id); setName(''); onRefresh() }
-    catch (e2) { alert(e2.message) }
-    finally { setBusy(false) }
+    try {
+      await createDatabase(selected.id, primaryBranch.id, name.trim(), ownerName.trim() || 'neondb_owner')
+      setName('')
+      onRefresh()
+    } catch (e2) {
+      alert(e2.message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
     <div className="storage-rows">
-      <form className="storage-inline-form" onSubmit={addBranch}>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama branch baru (mis. staging)" />
+      <form className="storage-inline-form" onSubmit={addDb}>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama Database (mis. app_production)" />
+        <input className="input" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Owner Role (default neondb_owner)" style={{ maxWidth: 180 }} />
         <button className="btn btn-primary" disabled={busy || !name.trim()}>
-          {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Buat Branch
+          {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Buat DB
         </button>
       </form>
-      {(detail?.branches || []).map((b) => (
-        <div key={b.id} className="storage-row">
-          <Layers size={14} />
+      {(detail?.databases || []).map((db) => (
+        <div key={db.id || db.name} className="storage-row">
+          <Database size={14} />
           <div className="storage-row-main">
-            <strong>{b.name}{b.primary ? ' (primary)' : ''}</strong>
-            <small>{b.id}</small>
+            <strong>{db.name}</strong>
+            <small>Owner: {db.owner_name} · Branch: {primaryBranch?.name || '-'}</small>
           </div>
           <span className="storage-row-actions">
-            <button className="storage-mini-btn" title="Snapshot sekarang"
-              onClick={() => run(b.id, () => createSnapshot(selected.id, b.id))}>
-              {busyId === b.id ? <Loader2 size={13} className="spin" /> : <Server size={13} />}
+            <button
+              className="storage-mini-btn danger"
+              title="Hapus Database"
+              onClick={() => {
+                if (window.confirm(`Hapus database "${db.name}"?`)) {
+                  run(db.name, () => deleteDatabase(selected.id, primaryBranch.id, db.name))
+                }
+              }}
+            >
+              {busyId === db.name ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
             </button>
-            {!b.primary && (
-              <button className="storage-mini-btn danger" title="Hapus branch"
-                onClick={() => { if (window.confirm(`Hapus branch "${b.name}"?`)) run(b.id, () => deleteBranch(selected.id, b.id)) }}>
-                <Trash2 size={13} />
+          </span>
+        </div>
+      ))}
+      {!detail?.databases?.length && <div className="storage-empty">Tidak ada database tambahan.</div>}
+    </div>
+  )
+}
+
+function RoleSection({ selected, detail, run, busyId, onRefresh }) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const primaryBranch = detail?.primaryBranch
+
+  const addRole = async (e) => {
+    e.preventDefault()
+    if (!name.trim() || !primaryBranch) return
+    setBusy(true)
+    try {
+      await createRole(selected.id, primaryBranch.id, name.trim())
+      setName('')
+      onRefresh()
+    } catch (e2) {
+      alert(e2.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="storage-rows">
+      <form className="storage-inline-form" onSubmit={addRole}>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama Role Baru (mis. app_readonly)" />
+        <button className="btn btn-primary" disabled={busy || !name.trim()}>
+          {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Buat Role
+        </button>
+      </form>
+      {(detail?.roles || []).map((r) => (
+        <div key={r.name} className="storage-row">
+          <UserRound size={14} />
+          <div className="storage-row-main">
+            <strong>{r.name}</strong>
+            <small>Branch: {primaryBranch?.name || '-'} · Protected: {r.protected ? 'Ya' : 'Tidak'}</small>
+          </div>
+          <span className="storage-row-actions">
+            {!r.protected && (
+              <button
+                className="storage-mini-btn danger"
+                title="Hapus Role"
+                onClick={() => {
+                  if (window.confirm(`Hapus role "${r.name}"?`)) {
+                    run(r.name, () => deleteRole(selected.id, primaryBranch.id, r.name))
+                  }
+                }}
+              >
+                {busyId === r.name ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
               </button>
             )}
           </span>
         </div>
       ))}
+      {!detail?.roles?.length && <div className="storage-empty">Tidak ada role tersimpan.</div>}
     </div>
   )
 }
 
-function EndpointSection({ selected, detail, run, busyId }) {
+function SnapshotSection({ selected, detail, run, busyId }) {
+  const primaryBranch = detail?.primaryBranch
   return (
     <div className="storage-rows">
-      {(detail?.endpoints || []).map((ep) => (
-        <div key={ep.id} className="storage-row">
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span>Daftar Point-in-time Snapshots (Branch {primaryBranch?.name || '-'})</span>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={() => run('create_snapshot', () => createSnapshot(selected.id, primaryBranch.id))}
+          disabled={busyId === 'create_snapshot' || !primaryBranch}
+        >
+          {busyId === 'create_snapshot' ? <Loader2 size={13} className="spin" /> : <Server size={13} />} Buat Snapshot Sekarang
+        </button>
+      </div>
+      {(detail?.snapshots || []).map((s) => (
+        <div key={s.id} className="storage-row">
           <Server size={14} />
           <div className="storage-row-main">
-            <strong>{ep.host || ep.id}</strong>
-            <small>{ep.type || 'compute'} · {ep.status || 'idle'} {ep.current_state ? `(${ep.current_state})` : ''}</small>
+            <strong>Snapshot #{s.id}</strong>
+            <small>Dibuat: {s.created_at ? new Date(s.created_at).toLocaleString('id-ID') : '-'}</small>
           </div>
-          <span className="storage-row-actions">
-            <button className="storage-mini-btn" title="Start compute" onClick={() => run(ep.id, () => startEndpoint(selected.id, ep.id))}>
-              {busyId === ep.id ? <Loader2 size={13} className="spin" /> : <Play size={13} />}
-            </button>
-            <button className="storage-mini-btn" title="Suspend compute" onClick={() => run(ep.id, () => suspendEndpoint(selected.id, ep.id))}>
-              <PauseCircle size={13} />
-            </button>
-          </span>
         </div>
       ))}
-      {!detail?.endpoints?.length && <div className="storage-empty">Tidak ada endpoint.</div>}
-    </div>
-  )
-}
-
-function OperationsSection({ detail }) {
-  return (
-    <div className="storage-rows">
-      {(detail?.operations || []).map((op) => (
-        <div key={op.id} className="storage-row">
-          <Activity size={14} />
-          <div className="storage-row-main">
-            <strong>{op.action || op.kind || 'operation'}</strong>
-            <small>
-              {op.status || ''} · {op.created_at ? new Date(op.created_at).toLocaleString('id-ID') : ''}
-            </small>
-          </div>
-          <span className={`storage-op-badge ${op.status || ''}`}>{op.status || '-'}</span>
-        </div>
-      ))}
-      {!detail?.operations?.length && <div className="storage-empty">Belum ada operasi.</div>}
+      {!detail?.snapshots?.length && <div className="storage-empty">Belum ada snapshot tersimpan.</div>}
     </div>
   )
 }

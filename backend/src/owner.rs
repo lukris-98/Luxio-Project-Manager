@@ -1156,7 +1156,7 @@ pub async fn storage_proxy(
                 //   Authorization: Basic APP_B2   → {token sesi B2} (raw,
                 //     API B2 memakai token tanpa prefix "Bearer")
                 if lk == "authorization" && sv.contains("APP_NEON") {
-                    let key = app_neon_key();
+                    let key = neon_api_key(&state).await;
                     if key.is_empty() {
                         return Err(StatusCode::SERVICE_UNAVAILABLE);
                     }
@@ -1223,7 +1223,7 @@ pub async fn storage_proxy(
                         .unwrap_or("")
                         .to_string();
                     if auth_value.contains("APP_NEON") {
-                        req2 = req2.header("Authorization", format!("Bearer {}", app_neon_key()));
+                        req2 = req2.header("Authorization", format!("Bearer {}", neon_api_key(&state).await));
                     } else if auth_value.contains("APP_B2") {
                         let (_, token, _) = app_b2_session().await?;
                         req2 = req2.header("Authorization", token);
