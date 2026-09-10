@@ -31,6 +31,7 @@ import {
   listRoles, createRole, deleteRole,
   listSnapshots, createSnapshot,
   listOperations, getProjectConsumption,
+  getOrganizationStorageConsumption, listOrganizations,
 } from '../services/neonApi'
 import {
   getB2Session, isB2LoggedIn, b2Authorize, b2Logout, B2_APP_CREDENTIALS,
@@ -65,7 +66,8 @@ export default function StoragePage() {
   }, [verified])
 
   const [tab, setTab] = useState('neon') // 'neon' | 'b2' | 'hf'
-  if (!verified) return <StorageGate2fa userId={uid} onVerified={() => setVerified(true)} />
+  const [justUnlocked, setJustUnlocked] = useState(false)
+  if (!verified) return <StorageGate2fa userId={uid} onVerified={() => { setVerified(true); setJustUnlocked(true) }} />
 
   const handleExit = () => {
     clearStorageSession()
@@ -189,6 +191,8 @@ function StorageGate2fa({ userId, onVerified }) {
     } finally { setBusy(false) }
   }
 
+  const [remember, setRemember] = useState(true)
+
   const verifyPin = async (e) => {
     e?.preventDefault?.()
     if (pin.length < 4) return setError('Masukkan PIN owner (4-6 digit).')
@@ -204,7 +208,7 @@ function StorageGate2fa({ userId, onVerified }) {
         }
         return
       }
-      setStorageUnlocked(userId)
+      setStorageUnlocked(userId, remember)
       clearPinChallenge()
       onVerified()
     } catch (e) {
@@ -231,9 +235,14 @@ function StorageGate2fa({ userId, onVerified }) {
                 onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setError('') }}
               />
             </div>
+            <label className="storage-gate-note" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, cursor: 'pointer' }}>
+              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+              Ingat perangkat ini — tidak perlu 2 langkah lagi saat buka halaman ini
+              (berlaku sampai logout atau klik “Keluar”).
+            </label>
             {error && <div className="gmail-error"><AlertTriangle size={15} /> {error}</div>}
             <button type="submit" className="btn btn-primary storage-login-btn" disabled={busy || pin.length < 4}>
-              {busy ? <Loader2 size={16} className="spin" /> : <Lock size={16} />} Buka Penyimpanan
+              {busy ? <Loader2 size={16} className="spin" /> : <Lock size={16} />} Simpan & Buka Penyimpanan
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => {
               clearPinChallenge()
@@ -464,9 +473,11 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
   const [me, setMe] = useState(null)
   const [apiKeys, setApiKeys] = useState([])
   const [projects, setProjects] = useState([])
+  const [organizations, setOrganizations] = useState([])
+  const [orgStorageData, setOrgStorageData] = useState(null)
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState(null) // { branches, endpoints, operations, consumption, databases, roles, snapshots }
-  const [activeTab, setActiveTab] = useState('projects') // 'projects' | 'apikeys' | 'operations'
+  const [activeTab, setActiveTab] = useState('projects') // 'projects' | 'apikeys' | 'storage'
   const [section, setSection] = useState('branches') // 'branches' | 'endpoints' | 'databases' | 'roles' | 'snapshots'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -478,23 +489,24 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
 
   const loadAll = useCallback(async () => {
     setLoading(true); setError('')
-    try {
-      const [meData, projList, keysList] = await Promise.all([
-        getMe().catch(() => null),
-        listProjects().catch(() => []),
-        listApiKeys().catch(() => []),
-      ])
-      setMe(meData && typeof meData === 'object' ? meData : null)
-      setProjects(Array.isArray(projList) ? projList : [])
-      setApiKeys(Array.isArray(keysList) ? keysList : [])
-      const projs = Array.isArray(projList) ? projList : []
-      if (projs.length > 0 && !selected) {
-        setSelected(projs[0])
-      }
-    } catch (e) {
-      if (e.code === 'UNAUTHORIZED') { onLogout(); return }
-      setError(e.message)
-    } finally { setLoading(false) }
+    const [meR, projR, keysR, orgsR] = await Promise.allSettled([getMe(), listProjects(), listApiKeys(), listOrganizations()])
+    if (meR.status === 'fulfilled') setMe(meR.value)
+    const projList = projR.status === 'fulfilled' && Array.isArray(projR.value) ? projR.value : []
+    const keysList = keysR.status === 'fulfilled' && Array.isArray(keysR.value) ? keysR.value : []
+    const orgsList = orgsR.status === 'fulfilled' && Array.isArray(orgsR.value) ? orgsR.value : []
+    setProjects(projList)
+    setApiKeys(keysList)
+    setOrganizations(orgsList)
+    const errs = []
+    if (projR.status === 'rejected') errs.push(projR.reason?.message || 'Gagal memuat daftar project Neon.')
+    if (keysR.status === 'rejected') {
+      if (keysR.reason?.code === 'UNAUTHORIZED') { onLogout(); return }
+      errs.push(keysR.reason?.message || 'Gagal memuat API keys Neon.')
+    }
+    if (projR.status === 'rejected' && projR.reason?.code === 'UNAUTHORIZED') { onLogout(); return }
+    if (errs.length) setError(errs.join(' '))
+    if (projList.length > 0 && !selected) setSelected(projList[0])
+    setLoading(false)
   }, [onLogout, selected])
 
   useEffect(() => { loadAll() }, [])
@@ -534,6 +546,39 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
   useEffect(() => {
     if (selected?.id) loadDetail(selected.id)
   }, [selected?.id, loadDetail])
+
+  // Load organization storage consumption data
+  const loadOrgStorage = useCallback(async () => {
+    // Try to get org ID from env var (hardcoded org-curly-bonus-71722205)
+    const orgId = 'org-curly-bonus-71722205' // From backend/.env NEON_ORG_ID
+    
+    if (!orgId) {
+      setError('Organization ID tidak ditemukan. Periksa konfigurasi NEON_ORG_ID di backend.')
+      return
+    }
+
+    setLoading(true); setError('')
+    try {
+      // Get last 30 days of storage data
+      const now = new Date()
+      const to = now.toISOString().split('T')[0] // YYYY-MM-DD
+      const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      
+      const data = await getOrganizationStorageConsumption(orgId, from, to)
+      setOrgStorageData(data)
+    } catch (e) {
+      setError(e.message || 'Gagal memuat data storage organisasi. Pastikan menggunakan Organization API Key.')
+      setOrgStorageData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'storage') {
+      loadOrgStorage()
+    }
+  }, [activeTab, loadOrgStorage])
 
   const run = async (id, fn) => {
     setBusyId(id); setError('')
@@ -578,10 +623,13 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
         <div className="storage-dash-bar-actions">
           <div className="hf-log-tabs">
             <button className={`hf-log-tab ${activeTab === 'projects' ? 'active' : ''}`} onClick={() => setActiveTab('projects')}>
-              <Database size={13} style={{ marginRight: 4 }} /> Projects (${projects.length})
+              <Database size={13} style={{ marginRight: 4 }} /> Projects ({projects.length})
+            </button>
+            <button className={`hf-log-tab ${activeTab === 'storage' ? 'active' : ''}`} onClick={() => setActiveTab('storage')}>
+              <HardDrive size={13} style={{ marginRight: 4 }} /> Storage Org
             </button>
             <button className={`hf-log-tab ${activeTab === 'apikeys' ? 'active' : ''}`} onClick={() => setActiveTab('apikeys')}>
-              <KeyRound size={13} style={{ marginRight: 4 }} /> API Keys (${apiKeys.length})
+              <KeyRound size={13} style={{ marginRight: 4 }} /> API Keys ({apiKeys.length})
             </button>
           </div>
           <button className="btn btn-ghost" onClick={onChangeKey} title="Ganti API Key">
@@ -616,7 +664,12 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
               </div>
 
               {loading && !projects.length && <div className="storage-empty"><Loader2 size={16} className="spin" /> Memuat…</div>}
-              {!loading && !projects.length && !error && <div className="storage-empty">Belum ada project.</div>}
+              {!loading && !projects.length && !error && (
+                <div className="storage-empty">
+                  Akun Neon ini belum punya project — atau API key tidak punya akses project.
+                  Cek di <a href="https://console.neon.tech/app/projects" target="_blank" rel="noreferrer">console.neon.tech</a>; kalau di sana ADA project, ganti API Key (tombol “Key”) dengan Personal Access Token yang scope-nya “All projects”.
+                </div>
+              )}
               
               {projects.map((p) => (
                 <button
@@ -773,6 +826,162 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
             ))}
             {!apiKeys.length && <div className="storage-empty">Tidak ada API Key terdaftar.</div>}
           </div>
+        </div>
+      )}
+
+      {/* VIEW 3: ORGANIZATION STORAGE */}
+      {activeTab === 'storage' && (
+        <div style={{ padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Storage Consumption Organization</h3>
+              <small style={{ color: 'var(--text-tertiary)' }}>
+                Data penyimpanan untuk organization: org-curly-bonus-71722205 (30 hari terakhir)
+              </small>
+            </div>
+            <button className="btn btn-ghost" onClick={loadOrgStorage} disabled={loading}>
+              <RefreshCw size={15} className={loading ? 'spin' : ''} /> Muat Ulang
+            </button>
+          </div>
+
+          {loading && !orgStorageData && (
+            <div className="storage-empty">
+              <Loader2 size={16} className="spin" /> Memuat data storage organisasi…
+            </div>
+          )}
+
+          {error && !orgStorageData && (
+            <div className="gmail-error">
+              <AlertTriangle size={15} /> {error}
+              <div style={{ marginTop: 10, fontSize: '0.9em' }}>
+                <strong>Catatan:</strong> Data storage organisasi memerlukan Organization API Key. 
+                Personal API Key tidak dapat mengakses endpoint organization-level. 
+                Buat Organization API Key di console.neon.tech → Organization Settings → API Keys.
+              </div>
+            </div>
+          )}
+
+          {!loading && !error && !orgStorageData && (
+            <div className="storage-empty">
+              Tidak ada data storage. Klik "Muat Ulang" untuk mencoba lagi.
+            </div>
+          )}
+
+          {orgStorageData && (
+            <div className="storage-rows">
+              {/* Summary Card */}
+              <div style={{ 
+                padding: 20, 
+                background: 'var(--bg-secondary)', 
+                marginBottom: 20,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: 15
+              }}>
+                <div>
+                  <small style={{ color: 'var(--text-tertiary)', display: 'block', marginBottom: 5 }}>
+                    Total Periods
+                  </small>
+                  <strong style={{ fontSize: '1.5em' }}>
+                    {orgStorageData.periods?.length || 0}
+                  </strong>
+                </div>
+                {orgStorageData.periods && orgStorageData.periods.length > 0 && (
+                  <>
+                    <div>
+                      <small style={{ color: 'var(--text-tertiary)', display: 'block', marginBottom: 5 }}>
+                        Latest Storage
+                      </small>
+                      <strong style={{ fontSize: '1.5em' }}>
+                        {(orgStorageData.periods[orgStorageData.periods.length - 1]?.total_data_storage_bytes_hour / (1024 * 1024 * 1024)).toFixed(2)} GB·h
+                      </strong>
+                    </div>
+                    <div>
+                      <small style={{ color: 'var(--text-tertiary)', display: 'block', marginBottom: 5 }}>
+                        Period Range
+                      </small>
+                      <strong style={{ fontSize: '0.95em' }}>
+                        {orgStorageData.periods[0]?.period_id || '-'}
+                      </strong>
+                      <br />
+                      <small style={{ color: 'var(--text-tertiary)' }}>to</small>
+                      <br />
+                      <strong style={{ fontSize: '0.95em' }}>
+                        {orgStorageData.periods[orgStorageData.periods.length - 1]?.period_id || '-'}
+                      </strong>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Periods Table */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ 
+                  width: '100%', 
+                  borderCollapse: 'collapse',
+                  fontSize: '0.9em'
+                }}>
+                  <thead>
+                    <tr style={{ 
+                      background: 'var(--bg-tertiary)', 
+                      borderBottom: '2px solid var(--border)'
+                    }}>
+                      <th style={{ padding: 10, textAlign: 'left' }}>Period ID</th>
+                      <th style={{ padding: 10, textAlign: 'right' }}>Data Storage (GB·h)</th>
+                      <th style={{ padding: 10, textAlign: 'right' }}>Data Written (MB)</th>
+                      <th style={{ padding: 10, textAlign: 'right' }}>Synthetic Size (GB)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orgStorageData.periods && orgStorageData.periods.length > 0 ? (
+                      orgStorageData.periods.map((period, idx) => (
+                        <tr key={period.period_id || idx} style={{ 
+                          borderBottom: '1px solid var(--border)'
+                        }}>
+                          <td style={{ padding: 10 }}>
+                            <strong>{period.period_id}</strong>
+                          </td>
+                          <td style={{ padding: 10, textAlign: 'right' }}>
+                            {(period.total_data_storage_bytes_hour / (1024 * 1024 * 1024)).toFixed(4)}
+                          </td>
+                          <td style={{ padding: 10, textAlign: 'right' }}>
+                            {(period.total_data_written_bytes / (1024 * 1024)).toFixed(2)}
+                          </td>
+                          <td style={{ padding: 10, textAlign: 'right' }}>
+                            {(period.total_synthetic_storage_size_bytes / (1024 * 1024 * 1024)).toFixed(4)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} style={{ padding: 20, textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                          Tidak ada data periode storage
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Debug Info */}
+              {orgStorageData && (
+                <details style={{ marginTop: 20, padding: 15, background: 'var(--bg-tertiary)' }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: 10 }}>
+                    Raw API Response (Debug)
+                  </summary>
+                  <pre style={{ 
+                    fontSize: '0.85em', 
+                    overflow: 'auto', 
+                    maxHeight: 400,
+                    background: 'var(--bg-secondary)',
+                    padding: 10
+                  }}>
+                    {JSON.stringify(orgStorageData, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

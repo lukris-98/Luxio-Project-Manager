@@ -21,9 +21,11 @@
 
 import { proxyFetch } from './storageProxy'
 
-// Neon memakai beberapa host API; api.neon.tech kadang bermasalah DNS,
-// console.neon.tech menyajikan API yang sama (/api/v2). Coba berurutan.
-const BASES = ['https://console.neon.tech/api/v2', 'https://api.neon.tech/v2']
+// Host API v2 Neon = HANYA console.neon.tech (diuji end-to-end via proxy
+// produksi: console → 200 + daftar project; api.neon.tech/v2 → 502/DNS mati
+// dari kontainer HF, tetapi kadang "berhasil" untuk /users/me saja lalu
+// /projects → 401/org-required, sehingga membuat daftar tampak kosong).
+const BASES = ['https://console.neon.tech/api/v2']
 let activeBase = null
 
 // Marker: dipakai bersama b2Api untuk status autologin di UI.
@@ -72,40 +74,135 @@ export const neonFetch = async (path, { method = 'GET', body } = {}) => {
   throw lastErr || new Error('Semua endpoint Neon tidak dapat dihubungi.')
 }
 
+// Neon v2 membungkus tiap item ({ projects:[{project:…}], branches:[{branch:…}],
+// dst). Beberapa varian juga memakai { data:[…] }. Helper ini menormalkan
+// semuanya; bentuk tak dikenal dicetak ke console (bukan disenyapkan → []
+// tanpa jejak yang bikin panel tampak "kosong" padahal ada error).
+const asList = (v, key, tag) => {
+  let arr = null
+  if (Array.isArray(v)) arr = v
+  else if (v && Array.isArray(v.data)) arr = v.data
+  if (!arr) {
+    if (v !== undefined && v !== null) console.warn(`[neonApi] /${tag}: bentuk respons tak dikenal:`, v)
+    return []
+  }
+  return arr.map((x) => (x && x[key]) || x)
+}
+
 // ---------- Akun ----------
 
 export const getMe = () => neonFetch('/users/me').then((d) => (d && d.user) || d || null)
 
 // ---------- API Keys ----------
-// Neon v2 membungkus tiap item: { keys: [{ key: {...} }] }.
 
 export const listApiKeys = () =>
-  neonFetch('/api_keys').then((d) => {
-    const k = d && d.keys
-    const arr = Array.isArray(k) ? k : Array.isArray(k && k.data) ? k.data : []
-    if (!Array.isArray(k) && k !== undefined && k !== null) {
-      console.warn('[neonApi] /api_keys bentuk tak dikenal:', k)
-    }
-    return arr.map((it) => (it && it.key) || it)
-  })
+  neonFetch('/api_keys').then((d) => asList(d && d.keys, 'key', 'api_keys'))
 export const createApiKey = (keyName) =>
   neonFetch('/api_keys', { method: 'POST', body: { key_name: keyName } })
 export const revokeApiKey = (id) => neonFetch(`/api_keys/${id}`, { method: 'DELETE' })
 
+/** Ambil org_id dari berbagai bentuk respons /orgs & /users/me. */
+const extractOrgIds = (me, orgsRes) => {
+  const ids = new Set()
+  const lists = [orgsRes?.organizations, orgsRes?.orgs, orgsRes?.data, me?.organizations]
+  for (const raw of lists) {
+    const arr = Array.isArray(raw) ? raw : raw && Array.isArray(raw.data) ? raw.data : []
+    for (const o of arr) {
+      const x = (o && o.organization) || o
+      if (x && typeof x.id === 'string') ids.add(x.id)
+    }
+  }
+  if (me && typeof me.org_id === 'string') ids.add(me.org_id)
+  if (me && typeof me.current_org_id === 'string') ids.add(me.current_org_id)
+  return [...ids]
+}
+
+let cachedOrgIds = null
+
+// Neon 2025: GET /projects butuh ?org_id= untuk akun ber-organisasi.
+// Strategi: coba tanpa org dulu; bila error "org_id" → tarik daftar org
+// (via /users/me + /orgs) lalu query per-org dan digabung.
+const withOrg = (path, orgId) => `${path}${path.includes('?') ? '&' : '?'}org_id=${encodeURIComponent(orgId)}`
+
+const orgAwareList = async (path, unwrapKey, tag) => {
+  if (!cachedOrgIds) {
+    try {
+      const d = await neonFetch(path)
+      cachedOrgIds = []
+      return asList(d && d[tag], unwrapKey, tag)
+    } catch (e) {
+      if (!/org_id/i.test(e?.message || '')) throw e
+      let orgsRes = null
+      let me = null
+      try { me = await getMe() } catch { /* opsional */ }
+      try { orgsRes = await neonFetch('/users/me/organizations') } catch { /* host/shape lawas */ }
+      cachedOrgIds = extractOrgIds(me, orgsRes)
+      if (!cachedOrgIds.length) {
+        throw new Error('Akun Neon ini terorganisasi tapi daftar org gagal diambil. Buat API key di level Organization (console.neon.tech → organization settings → API keys) agar org_id otomatis.')
+      }
+    }
+  }
+  if (!cachedOrgIds.length) return []
+  const merged = []
+  const seen = new Set()
+  let firstErr = null
+  for (const orgId of cachedOrgIds) {
+    try {
+      const d = await neonFetch(withOrg(path, orgId))
+      for (const item of asList(d && d[tag], unwrapKey, tag)) {
+        const id = item && (item.id || item[unwrapKey === 'branch' ? 'branch_id' : 'id'])
+        if (id && seen.has(id)) continue
+        if (id) seen.add(id)
+        merged.push(item)
+      }
+    } catch (e) { firstErr = firstErr || e }
+  }
+  if (!merged.length && firstErr) throw firstErr
+  return merged
+}
+
+// Pembuatan project juga wajib org_id pada akun ter-organisasi.
+const ensureOrgIds = async () => {
+  if (cachedOrgIds) return cachedOrgIds
+  try {
+    const me = await getMe()
+    let orgsRes = null
+    try { orgsRes = await neonFetch('/orgs') } catch { /* opsional */ }
+    cachedOrgIds = extractOrgIds(me, orgsRes)
+  } catch { cachedOrgIds = [] }
+  return cachedOrgIds
+}
+
+const orgAwareCreate = async (path, name, pgVersion) => {
+  const body = { project: { name, pg_version: pgVersion } }
+  const ids = await ensureOrgIds()
+  for (const orgId of ids) {
+    try {
+      const d = await neonFetch(`${path}?org_id=${encodeURIComponent(orgId)}`, { method: 'POST', body })
+      return (d && d.project) || d
+    } catch (e) {
+      if (/org_id/i.test(e?.message || '')) continue
+      if (/does not belong|already has|no such/i.test(e?.message || '')) continue
+      throw e
+    }
+  }
+  if (!ids.length) throw new Error('Akun Neon butuh organization id untuk membuat project — daftar org tidak dapat diambil.')
+  const d = await neonFetch(path, { method: 'POST', body })
+  return (d && d.project) || d
+}
+
 // ---------- Projects ----------
 
-export const listProjects = () =>
-  neonFetch('/projects?limit=100').then((d) => ((d && d.projects) || []).map((p) => (p && p.project) || p))
-export const getProject = (id) => neonFetch(`/projects/${id}`).then((d) => d && d.project)
+export const listProjects = () => orgAwareList('/projects?limit=100', 'project', 'projects')
+export const getProject = (id) => neonFetch(`/projects/${id}`).then((d) => d.project || d || null)
 export const createProject = (name, pgVersion = '17') =>
-  neonFetch('/projects', { method: 'POST', body: { project: { name, pg_version: pgVersion } } })
-    .then((d) => d.project)
+  orgAwareCreate('/projects', name, pgVersion)
 export const deleteProject = (id) => neonFetch(`/projects/${id}`, { method: 'DELETE' })
 
 // ---------- Branches ----------
 
 export const listBranches = (projectId) =>
-  neonFetch(`/projects/${projectId}/branches`).then((d) => ((d && d.branches) || []).map((b) => (b && b.branch) || b))
+  neonFetch(`/projects/${projectId}/branches`).then((d) => asList(d && d.branches, 'branch', 'branches'))
 export const createBranch = (projectId, name, parentId) =>
   neonFetch(`/projects/${projectId}/branches`, {
     method: 'POST',
@@ -117,7 +214,7 @@ export const deleteBranch = (projectId, branchId) =>
 // ---------- Endpoints ----------
 
 export const listEndpoints = (projectId) =>
-  neonFetch(`/projects/${projectId}/endpoints`).then((d) => ((d && d.endpoints) || []).map((e) => (e && (e.endpoint || e.data)) || e))
+  neonFetch(`/projects/${projectId}/endpoints`).then((d) => asList(d && d.endpoints, 'endpoint', 'endpoints'))
 export const startEndpoint = (projectId, endpointId) =>
   neonFetch(`/projects/${projectId}/endpoints/${endpointId}/start`, { method: 'POST' })
 export const suspendEndpoint = (projectId, endpointId) =>
@@ -126,7 +223,7 @@ export const suspendEndpoint = (projectId, endpointId) =>
 // ---------- Databases (per branch) ----------
 
 export const listDatabases = (projectId, branchId) =>
-  neonFetch(`/projects/${projectId}/branches/${branchId}/databases`).then((d) => ((d && d.databases) || []).map((x) => (x && x.database) || x))
+  neonFetch(`/projects/${projectId}/branches/${branchId}/databases`).then((d) => asList(d && d.databases, 'database', 'databases'))
 export const createDatabase = (projectId, branchId, name, ownerName) =>
   neonFetch(`/projects/${projectId}/branches/${branchId}/databases`, {
     method: 'POST',
@@ -138,7 +235,7 @@ export const deleteDatabase = (projectId, branchId, name) =>
 // ---------- Roles (per branch) ----------
 
 export const listRoles = (projectId, branchId) =>
-  neonFetch(`/projects/${projectId}/branches/${branchId}/roles`).then((d) => ((d && d.roles) || []).map((x) => (x && x.role) || x))
+  neonFetch(`/projects/${projectId}/branches/${branchId}/roles`).then((d) => asList(d && d.roles, 'role', 'roles'))
 export const createRole = (projectId, branchId, name) =>
   neonFetch(`/projects/${projectId}/branches/${branchId}/roles`, {
     method: 'POST',
@@ -150,13 +247,48 @@ export const deleteRole = (projectId, branchId, name) =>
 // ---------- Snapshots (per branch) ----------
 
 export const listSnapshots = (projectId, branchId) =>
-  neonFetch(`/projects/${projectId}/branches/${branchId}/snapshots`).then((d) => ((d && d.snapshots) || []).map((x) => (x && x.snapshot) || x))
+  neonFetch(`/projects/${projectId}/branches/${branchId}/snapshots`).then((d) => asList(d && d.snapshots, 'snapshot', 'snapshots'))
 export const createSnapshot = (projectId, branchId) =>
   neonFetch(`/projects/${projectId}/branches/${branchId}/snapshots`, { method: 'POST' })
 
 // ---------- Operations & konsumsi ----------
 
 export const listOperations = (projectId, limit = 20) =>
-  neonFetch(`/projects/${projectId}/operations?limit=${limit}`).then((d) => d.operations || [])
+  neonFetch(`/projects/${projectId}/operations?limit=${limit}`).then((d) => asList(d && d.operations, 'operation', 'operations'))
 export const getProjectConsumption = (projectId) =>
   neonFetch(`/projects/${projectId}/consumption`)
+
+// ---------- Organization Storage Consumption ----------
+
+/**
+ * Fetch organization-level storage consumption history.
+ * Requires Organization API Key with org-level permissions.
+ * @param {string} orgId - Organization ID (e.g., "org-curly-bonus-71722205")
+ * @param {string} from - Start date in ISO format (YYYY-MM-DD)
+ * @param {string} to - End date in ISO format (YYYY-MM-DD)
+ * @returns {Promise<Object>} Storage consumption data with periods array
+ */
+export const getOrganizationStorageConsumption = async (orgId, from, to) => {
+  if (!orgId) {
+    throw new Error('Organization ID diperlukan untuk mengambil data storage')
+  }
+  const params = new URLSearchParams()
+  if (from) params.append('from', from)
+  if (to) params.append('to', to)
+  const query = params.toString() ? `?${params.toString()}` : ''
+  return neonFetch(`/organizations/${orgId}/consumption_history/storage${query}`)
+}
+
+/**
+ * Get list of organizations for the current user.
+ * @returns {Promise<Array>} List of organizations
+ */
+export const listOrganizations = async () => {
+  try {
+    const d = await neonFetch('/users/me/organizations')
+    return asList(d?.organizations || d?.orgs || d?.data, 'organization', 'organizations')
+  } catch (e) {
+    console.warn('[neonApi] Failed to fetch organizations:', e.message)
+    return []
+  }
+}
