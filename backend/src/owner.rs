@@ -1053,6 +1053,33 @@ pub async fn neon_status(
     })))
 }
 
+/// GET /api/owner/neon/org-id — ambil Organization ID dari environment variable.
+/// Digunakan oleh frontend untuk mengakses organization-level endpoints.
+pub async fn neon_org_id(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let org_id = std::env::var("NEON_ORG_ID").unwrap_or_default();
+    
+    if org_id.is_empty() {
+        return Ok(Json(json!({
+            "ok": false,
+            "org_id": null,
+            "message": "NEON_ORG_ID tidak dikonfigurasi di backend environment variables"
+        })));
+    }
+
+    Ok(Json(json!({
+        "ok": true,
+        "org_id": org_id
+    })))
+}
+
 /// POST /api/owner/neon/proxy — proxy API Neon (khusus owner).
 ///
 /// Browser tidak bisa memanggil `console.neon.tech` langsung karena API Neon

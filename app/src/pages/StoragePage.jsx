@@ -549,15 +549,24 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
 
   // Load organization storage consumption data
   const loadOrgStorage = useCallback(async () => {
-    // Try to get org ID from env var (hardcoded org-curly-bonus-71722205)
-    const orgId = 'org-curly-bonus-71722205' // From backend/.env NEON_ORG_ID
+    setLoading(true); setError('')
     
+    // Try to get org ID from backend
+    let orgId = null
+    try {
+      const orgIdRes = await api.getNeonOrgId()
+      if (orgIdRes.ok && orgIdRes.org_id) {
+        orgId = orgIdRes.org_id
+      }
+    } catch (e) {
+      console.warn('[StoragePage] Failed to get org ID from backend:', e)
+    }
+    
+    // Fallback to hardcoded if backend doesn't provide
     if (!orgId) {
-      setError('Organization ID tidak ditemukan. Periksa konfigurasi NEON_ORG_ID di backend.')
-      return
+      orgId = 'org-curly-bonus-71722205'
     }
 
-    setLoading(true); setError('')
     try {
       // Get last 30 days of storage data
       const now = new Date()

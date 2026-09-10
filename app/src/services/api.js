@@ -345,6 +345,7 @@ export const api = {
   verifyStorage2fa: (code) => post('/api/storage/2fa/verify', { code }),
   verifyStoragePin: (pin, challenge) => post('/api/storage/2fa/pin', { pin, challenge }),
   getHfLogs: (stream, lines) => get('/api/hf/logs', { stream: stream || 'run', lines: lines || 200 }),
+  getNeonOrgId: () => get('/api/owner/neon/org-id'),
 
   // ---- Lupa Password ----
   forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
