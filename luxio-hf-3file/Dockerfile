@@ -31,8 +31,8 @@ FROM rust:1.88-slim AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev git ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # INCREMENT CACHE_BUST untuk pull kode GitHub terbaru
-# Update terakhir: 2026-09-10 - Fix Neon Organization ID Error
-ARG CACHE_BUST=27
+# Update terakhir: 2026-09-10 - Neon Organization Management CRUD
+ARG CACHE_BUST=35
 
 WORKDIR /build
 RUN git clone --depth 1 --branch master https://github.com/lukris-98/Luxio-Project-Manager.git repo
