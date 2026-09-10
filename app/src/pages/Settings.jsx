@@ -99,6 +99,229 @@ function SyncSettingsPanel() {
   )
 }
 
+// =====================================================================
+// NeonOrgManagement — Kelola Organization ID untuk Neon Storage Tab
+// =====================================================================
+function NeonOrgManagement() {
+  const [orgIds, setOrgIds] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newOrgId, setNewOrgId] = useState('')
+  const [newOrgName, setNewOrgName] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const loadOrgIds = async () => {
+    setLoading(true)
+    try {
+      const res = await api.getNeonOrganizations()
+      setOrgIds(res.organizations || [])
+    } catch (e) {
+      setError(e.message || 'Gagal memuat daftar organization')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadOrgIds()
+  }, [])
+
+  const handleAdd = async () => {
+    if (!newOrgId.trim()) {
+      setError('Organization ID wajib diisi')
+      return
+    }
+    setLoading(true)
+    setError('')
+    setSuccess('')
+    try {
+      await api.addNeonOrganization({
+        org_id: newOrgId.trim(),
+        name: newOrgName.trim() || newOrgId.trim(),
+      })
+      setSuccess('Organization berhasil ditambahkan')
+      setNewOrgId('')
+      setNewOrgName('')
+      setShowAddForm(false)
+      await loadOrgIds()
+    } catch (e) {
+      setError(e.message || 'Gagal menambahkan organization')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Hapus organization ini?')) return
+    setLoading(true)
+    setError('')
+    try {
+      await api.deleteNeonOrganization(id)
+      setSuccess('Organization berhasil dihapus')
+      await loadOrgIds()
+    } catch (e) {
+      setError(e.message || 'Gagal menghapus organization')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSetActive = async (id) => {
+    setLoading(true)
+    setError('')
+    try {
+      await api.setActiveNeonOrganization(id)
+      setSuccess('Organization aktif diubah')
+      await loadOrgIds()
+    } catch (e) {
+      setError(e.message || 'Gagal mengubah organization aktif')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <motion.div className="settings-section" variants={{ hidden: { opacity: 1, y: 15 }, visible: { opacity: 1, y: 0 } }}>
+      <div className="section-header">
+        <Cloud size={18} />
+        <h2>Neon Organization</h2>
+      </div>
+      <div className="settings-card">
+        <div className="settings-item column-item">
+          <div>
+            <span className="item-label">Kelola Organization ID</span>
+            <p className="item-desc">
+              Tambah, hapus, atau ganti organization aktif untuk Storage Tab. 
+              Organization aktif akan digunakan untuk menampilkan data storage.
+            </p>
+          </div>
+          <button 
+            className="btn btn-primary btn-sm" 
+            onClick={() => {
+              setShowAddForm(!showAddForm)
+              setError('')
+              setSuccess('')
+            }}
+          >
+            <Plus size={14} /> Tambah Organization
+          </button>
+        </div>
+
+        {error && (
+          <div className="settings-item">
+            <div className="gmail-error" style={{ marginBottom: 10 }}>
+              <AlertTriangle size={15} /> {error}
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="settings-item">
+            <div style={{ padding: 10, background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', marginBottom: 10 }}>
+              ✅ {success}
+            </div>
+          </div>
+        )}
+
+        {showAddForm && (
+          <div className="settings-item column-item" style={{ background: 'var(--bg-secondary)', padding: 15, marginBottom: 15 }}>
+            <div className="input-group">
+              <label className="input-label">Organization ID <span style={{ color: 'var(--error)' }}>*</span></label>
+              <input
+                className="input"
+                placeholder="mis. org-curly-bonus-71722205"
+                value={newOrgId}
+                onChange={(e) => {
+                  setNewOrgId(e.target.value)
+                  setError('')
+                }}
+              />
+              <p className="field-hint">
+                Format: org-xxxxx-xxxxx-xxxxx. Bisa dilihat di Neon Console → Organization Settings.
+              </p>
+            </div>
+            <div className="input-group">
+              <label className="input-label">Nama Organization (opsional)</label>
+              <input
+                className="input"
+                placeholder="mis. My Company"
+                value={newOrgName}
+                onChange={(e) => setNewOrgName(e.target.value)}
+              />
+            </div>
+            <div className="settings-modal-actions" style={{ justifyContent: 'flex-start', gap: 10 }}>
+              <button 
+                className="btn btn-primary btn-sm" 
+                onClick={handleAdd}
+                disabled={loading || !newOrgId.trim()}
+              >
+                <Plus size={14} /> {loading ? 'Menyimpan…' : 'Simpan'}
+              </button>
+              <button 
+                className="btn btn-secondary btn-sm" 
+                onClick={() => {
+                  setShowAddForm(false)
+                  setNewOrgId('')
+                  setNewOrgName('')
+                  setError('')
+                }}
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loading && orgIds.length === 0 ? (
+          <div className="settings-item">
+            <span className="item-value">Memuat...</span>
+          </div>
+        ) : orgIds.length === 0 ? (
+          <div className="settings-item">
+            <span className="item-value">
+              Belum ada organization. Tambahkan satu untuk menggunakan Storage Tab.
+            </span>
+          </div>
+        ) : (
+          <div className="ai-provider-list">
+            {orgIds.map((org) => (
+              <div key={org.id} className={`ai-provider-item ${org.is_active ? 'active' : ''}`}>
+                <div className="ai-provider-main">
+                  <span className="ai-provider-name">{org.name || org.org_id}</span>
+                  <span className="ai-provider-meta">
+                    {org.org_id}{org.is_active ? ' · aktif' : ''}
+                  </span>
+                </div>
+                <div className="ai-provider-actions">
+                  {!org.is_active && (
+                    <button 
+                      className="btn btn-secondary btn-sm" 
+                      onClick={() => handleSetActive(org.id)}
+                      disabled={loading}
+                      title="Jadikan aktif"
+                    >
+                      Aktifkan
+                    </button>
+                  )}
+                  <button 
+                    className="btn btn-danger btn-sm" 
+                    onClick={() => handleDelete(org.id)}
+                    disabled={loading}
+                    title="Hapus"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
 export default function Settings() {
   const {
     currentUser, setAppState, userPin, setUserPin, changePin,
@@ -829,6 +1052,11 @@ export default function Settings() {
                 )}
               </div>
             </motion.div>
+          )}
+
+          {/* Neon Organization — khusus owner/super_admin */}
+          {(role === 'owner' || role === 'super_admin') && (
+            <NeonOrgManagement />
           )}
 
           {/* Notifications */}

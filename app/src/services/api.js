@@ -346,6 +346,12 @@ export const api = {
   verifyStoragePin: (pin, challenge) => post('/api/storage/2fa/pin', { pin, challenge }),
   getHfLogs: (stream, lines) => get('/api/hf/logs', { stream: stream || 'run', lines: lines || 200 }),
   getNeonOrgId: () => get('/api/owner/neon/org-id'),
+  
+  // ---- Neon Organization Management ----
+  getNeonOrganizations: () => get('/api/owner/neon/organizations'),
+  addNeonOrganization: (data) => post('/api/owner/neon/organizations', data),
+  deleteNeonOrganization: (id) => del(`/api/owner/neon/organizations/${id}`, {}),
+  setActiveNeonOrganization: (id) => post(`/api/owner/neon/organizations/${id}/activate`, {}),
 
   // ---- Lupa Password ----
   forgotPassword: (email) => post('/api/auth/forgot-password', { email }),

@@ -648,5 +648,28 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // Neon Organizations: kelola organization ID untuk Storage Tab.
+    // Setiap user (owner/super_admin) bisa tambah banyak organizations,
+    // tandai satu sebagai aktif (is_active) untuk digunakan di Storage Tab.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS neon_organizations (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            org_id TEXT NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
+            is_active BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Hanya satu organization aktif per user.
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_neon_orgs_one_active ON neon_organizations(user_id) WHERE is_active = TRUE",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }

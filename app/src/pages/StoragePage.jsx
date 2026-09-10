@@ -551,18 +551,28 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
   const loadOrgStorage = useCallback(async () => {
     setLoading(true); setError('')
     
-    // Try to get org ID from backend
+    // Get active organization from database
     let orgId = null
     try {
-      const orgIdRes = await api.getNeonOrgId()
-      if (orgIdRes.ok && orgIdRes.org_id) {
-        orgId = orgIdRes.org_id
+      const orgsRes = await api.getNeonOrganizations()
+      const activeOrg = orgsRes.organizations?.find(o => o.is_active)
+      if (activeOrg) {
+        orgId = activeOrg.org_id
       }
     } catch (e) {
-      console.warn('[StoragePage] Failed to get org ID from backend:', e)
+      console.warn('[StoragePage] Failed to get organizations from database:', e)
+      // Fallback: try backend env var
+      try {
+        const orgIdRes = await api.getNeonOrgId()
+        if (orgIdRes.ok && orgIdRes.org_id) {
+          orgId = orgIdRes.org_id
+        }
+      } catch (e2) {
+        console.warn('[StoragePage] Failed to get org ID from backend:', e2)
+      }
     }
     
-    // Fallback to hardcoded if backend doesn't provide
+    // Final fallback to hardcoded
     if (!orgId) {
       orgId = 'org-curly-bonus-71722205'
     }
@@ -576,7 +586,7 @@ function NeonDashboardInner({ onLogout, onChangeKey }) {
       const data = await getOrganizationStorageConsumption(orgId, from, to)
       setOrgStorageData(data)
     } catch (e) {
-      setError(e.message || 'Gagal memuat data storage organisasi. Pastikan menggunakan Organization API Key.')
+      setError(e.message || 'Gagal memuat data storage organisasi. Pastikan menggunakan Organization API Key dan organization sudah ditambahkan di Settings.')
       setOrgStorageData(null)
     } finally {
       setLoading(false)

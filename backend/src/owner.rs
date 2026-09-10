@@ -1053,7 +1053,7 @@ pub async fn neon_status(
     })))
 }
 
-/// GET /api/owner/neon/org-id — ambil Organization ID dari environment variable.
+/// GET /api/owner/neon/org-id — ambil Organization ID dari environment variable atau database.
 /// Digunakan oleh frontend untuk mengakses organization-level endpoints.
 pub async fn neon_org_id(
     State(state): State<AppState>,
@@ -1064,20 +1064,199 @@ pub async fn neon_org_id(
         return Err(StatusCode::FORBIDDEN);
     }
 
+    // Priority 1: Cek database untuk organization aktif
+    let active_org = sqlx::query(
+        "SELECT org_id FROM neon_organizations WHERE user_id = $1 AND is_active = TRUE LIMIT 1"
+    )
+    .bind(&user_id)
+    .fetch_optional(&state.db)
+    .await;
+
+    if let Ok(Some(row)) = active_org {
+        let org_id: String = row.get("org_id");
+        return Ok(Json(json!({
+            "ok": true,
+            "org_id": org_id,
+            "source": "database"
+        })));
+    }
+
+    // Priority 2: Fallback ke environment variable
     let org_id = std::env::var("NEON_ORG_ID").unwrap_or_default();
     
     if org_id.is_empty() {
         return Ok(Json(json!({
             "ok": false,
             "org_id": null,
-            "message": "NEON_ORG_ID tidak dikonfigurasi di backend environment variables"
+            "message": "NEON_ORG_ID tidak dikonfigurasi di backend environment variables dan tidak ada organization aktif di database"
         })));
     }
 
     Ok(Json(json!({
         "ok": true,
-        "org_id": org_id
+        "org_id": org_id,
+        "source": "env"
     })))
+}
+
+// =====================================================================
+// NEON ORGANIZATION MANAGEMENT — CRUD organizations untuk Storage Tab
+// =====================================================================
+
+/// GET /api/owner/neon/organizations — list semua organizations user
+pub async fn neon_organizations_list(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let rows = sqlx::query(
+        "SELECT id, org_id, name, is_active, created_at 
+         FROM neon_organizations 
+         WHERE user_id = $1 
+         ORDER BY created_at DESC"
+    )
+    .bind(&user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] neon_organizations_list: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let organizations: Vec<Value> = rows
+        .iter()
+        .map(|r| json!({
+            "id": r.get::<String, _>("id"),
+            "org_id": r.get::<String, _>("org_id"),
+            "name": r.get::<String, _>("name"),
+            "is_active": r.get::<bool, _>("is_active"),
+            "created_at": r.get::<chrono::DateTime<Utc>, _>("created_at").timestamp_millis(),
+        }))
+        .collect();
+
+    Ok(Json(json!({ "ok": true, "organizations": organizations })))
+}
+
+/// POST /api/owner/neon/organizations — tambah organization baru
+pub async fn neon_organizations_create(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let org_id = payload
+        .get("org_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    
+    if org_id.is_empty() {
+        return Ok(Json(json!({
+            "ok": false,
+            "message": "org_id wajib diisi"
+        })));
+    }
+
+    let name = payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&org_id)
+        .trim()
+        .to_string();
+
+    let id = Uuid::new_v4().to_string();
+
+    // Insert organization baru
+    sqlx::query(
+        "INSERT INTO neon_organizations (id, user_id, org_id, name, is_active, created_at)
+         VALUES ($1, $2, $3, $4, FALSE, NOW())"
+    )
+    .bind(&id)
+    .bind(&user_id)
+    .bind(&org_id)
+    .bind(&name)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] neon_organizations_create: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(json!({ "ok": true, "id": id })))
+}
+
+/// DELETE /api/owner/neon/organizations/:id — hapus organization
+pub async fn neon_organizations_delete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    sqlx::query(
+        "DELETE FROM neon_organizations WHERE id = $1 AND user_id = $2"
+    )
+    .bind(&id)
+    .bind(&user_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] neon_organizations_delete: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(json!({ "ok": true })))
+}
+
+/// POST /api/owner/neon/organizations/:id/activate — set organization sebagai aktif
+pub async fn neon_organizations_activate(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Nonaktifkan semua organizations user ini dulu
+    sqlx::query(
+        "UPDATE neon_organizations SET is_active = FALSE WHERE user_id = $1"
+    )
+    .bind(&user_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] neon_organizations_activate (deactivate): {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Aktifkan yang dipilih
+    sqlx::query(
+        "UPDATE neon_organizations SET is_active = TRUE WHERE id = $1 AND user_id = $2"
+    )
+    .bind(&id)
+    .bind(&user_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("[DB ERROR] neon_organizations_activate (activate): {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(json!({ "ok": true })))
 }
 
 /// POST /api/owner/neon/proxy — proxy API Neon (khusus owner).
