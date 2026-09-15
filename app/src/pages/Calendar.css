@@ -417,6 +417,19 @@
 }
 
 @media (max-width: 640px) {
-  .cal-cell { min-height: 60px; }
+  .cal-cell { min-height: 62px; padding: 4px 3px; }
+
   .cal-event-pill { display: none; }
+
+  /* Angka tanggal & label hari lebih kecil namun tetap terbaca pada 7 kolom. */
+  .cal-cell-date { font-size: 0.75rem; }
+
+  .cal-grid-head > div { font-size: 0.625rem; letter-spacing: 0.03em; padding: 6px 0; }
+
+  /* Guard: bila layar sangat sempit, grid bulan bisa digeser horizontal
+     alih-alih terpotong. */
+  .cal-main { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .cal-grid,
+  .cal-grid-head { min-width: 322px; }
 }

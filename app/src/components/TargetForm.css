@@ -267,3 +267,41 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Todo items editor (CRUD satu per satu) */
+.todo-items-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.todo-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  padding: var(--space-2);
+  background: var(--bg-tertiary);
+}
+
+.todo-items-list:empty {
+  display: none;
+}
+
+.todo-item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.todo-item-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-item-row .select-wrap {
+  width: 100px;
+  flex-shrink: 0;
+}

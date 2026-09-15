@@ -1,6 +1,7 @@
 ﻿import { useState, useMemo } from 'react'
 import { useStore, useEffectiveRole } from '../store/useStore'
 import TargetForm from '../components/TargetForm'
+import TemplateGallery from '../components/TemplateGallery'
 import ContributorStack from '../components/ContributorStack'
 import AnimatedDropdown from '../components/AnimatedDropdown'
 import { motion } from 'framer-motion'
@@ -9,7 +10,7 @@ import {
 } from 'recharts'
 import {
   Target, Plus, Calendar, CalendarClock, CheckCircle2, TrendingUp, AlertCircle,
-  MoreVertical, Folder, Clock, PauseCircle, Ban, CheckCheck
+  MoreVertical, Folder, Clock, PauseCircle, Ban, CheckCheck, ChevronDown, FileStack
 } from 'lucide-react'
 import { formatDate } from '../utils/date'
 import './Projects.css'
@@ -22,6 +23,7 @@ const STATUS_TABS = [
   { id: 'scheduled', label: 'Terjadwal', icon: CalendarClock },
   { id: 'on_progress', label: 'On Progress', icon: Clock },
   { id: 'pending', label: 'Pending', icon: PauseCircle },
+  { id: 'failed', label: 'Failed', icon: AlertCircle },
   { id: 'cancelled', label: 'Cancelled', icon: Ban },
   { id: 'done', label: 'Done', icon: CheckCheck },
 ]
@@ -33,6 +35,14 @@ const STATUS_META = {
   active: { label: 'On Progress', key: 'in_progress', color: '#0780FA' },
   pending: { label: 'Pending', key: 'pending', color: '#FFB830' },
   cancelled: { label: 'Cancelled', key: 'cancelled', color: '#E94560' },
+  failed: { label: 'Failed', key: 'failed', color: '#E94560' },
+}
+
+// Cek apakah target sudah melewati deadline (dan belum selesai/dibatalkan).
+const isOverdue = (p) => {
+  if (p.status === 'completed' || p.status === 'cancelled') return false
+  if (!p.deadline) return false
+  return new Date(p.deadline) < new Date()
 }
 
 export default function Projects() {
@@ -44,6 +54,9 @@ export default function Projects() {
   const [editingProject, setEditingProject] = useState(null)
   const [selectedMonth] = useState('Agustus 2026')
   const [activeMenuId, setActiveMenuId] = useState(null)
+  const [createDropdownOpen, setCreateDropdownOpen] = useState(false)
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false)
+  const [templateData, setTemplateData] = useState(null)
 
   const canCreate = role === 'owner' || role === 'super_admin' || role === 'admin' || role === 'user'
 
@@ -156,6 +169,8 @@ export default function Projects() {
       list = list.filter(p => p.status === 'pending' || (!p.status || p.status === 'none'))
     } else if (statusFilter === 'cancelled') {
       list = list.filter(p => p.status === 'cancelled')
+    } else if (statusFilter === 'failed') {
+      list = list.filter(p => isOverdue(p))
     } else if (statusFilter === 'done') {
       list = list.filter(p => p.status === 'completed')
     }
@@ -191,9 +206,21 @@ export default function Projects() {
             <Calendar size={16} />
           </div>
           {canCreate && (
-            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-              <Plus size={16} /> Buat Target
-            </button>
+            <div className="create-btn-wrap">
+              <button className="btn btn-primary" onClick={() => setCreateDropdownOpen((v) => !v)}>
+                <Plus size={16} /> Buat Target <ChevronDown size={14} />
+              </button>
+              <AnimatedDropdown show={createDropdownOpen}>
+                <div className="create-dropdown-menu">
+                  <button onClick={() => { setCreateDropdownOpen(false); setTemplateData(null); setShowForm(true) }}>
+                    <Plus size={14} /> Buat Baru
+                  </button>
+                  <button onClick={() => { setCreateDropdownOpen(false); setShowTemplateGallery(true) }}>
+                    <FileStack size={14} /> Dari Template
+                  </button>
+                </div>
+              </AnimatedDropdown>
+            </div>
           )}
         </div>
       </motion.div>
@@ -369,7 +396,8 @@ export default function Projects() {
           ) : (
             filteredProjects.map((p) => {
               const pct = p.progress || 0
-              const statusMeta = STATUS_META[p.status] || STATUS_META.pending
+              const overdue = isOverdue(p)
+              const statusMeta = overdue ? STATUS_META.failed : (STATUS_META[p.status] || STATUS_META.pending)
               const statusKey = statusMeta.key
               const contributors = contributorsOf(p)
               const isDone = p.status === 'completed'
@@ -441,9 +469,19 @@ export default function Projects() {
 
       {showForm && (
         <TargetForm
-          onClose={() => { setShowForm(false); setEditingProject(null) }}
-          initial={editingProject}
-          onCreated={(id) => { setShowForm(false); setEditingProject(null); openProject(id) }}
+          onClose={() => { setShowForm(false); setEditingProject(null); setTemplateData(null) }}
+          initial={editingProject || templateData}
+          onCreated={(id) => { setShowForm(false); setEditingProject(null); setTemplateData(null); openProject(id) }}
+        />
+      )}
+
+      {showTemplateGallery && (
+        <TemplateGallery
+          type="projects"
+          onClose={() => setShowTemplateGallery(false)}
+          onUse={(data) => { setTemplateData(data); setShowForm(true) }}
+          currentData={null}
+          currentName=""
         />
       )}
     </motion.div>

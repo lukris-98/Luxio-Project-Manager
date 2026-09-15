@@ -1448,3 +1448,20 @@
     max-width: 100%;
   }
 }
+/* Tablet & HP: KPI divisi 2 kolom + tabel bisa digeser horizontal. */
+@media (max-width: 720px) {
+  .div-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+  }
+}
+
+@media (max-width: 640px) {
+  .div-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .div-table {
+    min-width: 640px;
+  }
+}

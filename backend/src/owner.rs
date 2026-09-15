@@ -19,11 +19,10 @@ use crate::models::{AttendanceAdminQuery, AttendanceRequest, AttendanceQuery, In
 // Set di Settings Space: NEON_API_KEY, B2_KEY_ID, B2_APP_KEY, HF_TOKEN.
 // Frontend memanggil dengan placeholder "APP_NEON"/"APP_B2" pada header
 // Authorization; proxy menggantinya dengan kredensial asli server-side.
+// NOTE (Req 13): accessor kanonik kredensial Neon adalah `neon_api_key()`
+// dan B2 adalah `b2_credentials()` — prioritas database AKTIF > env >
+// owner_config (Settings → Credentials menyimpan terenkripsi).
 // =====================================================================
-
-fn app_neon_key() -> String {
-    std::env::var("NEON_API_KEY").unwrap_or_default()
-}
 
 /// Client HTTP bersama: hanya connect-timeout ketat, TANPA total timeout
 /// (upload B2 & stream log HF bisa lama; batas waktu diatur per-panggilan).
@@ -121,25 +120,53 @@ struct AppB2Session {
     api_url: String,
     token: String,
     account_id: String,
+    key_id: String,
     fetched_at: std::time::Instant,
 }
 
 static APP_B2_SESSION: std::sync::Mutex<Option<AppB2Session>> = std::sync::Mutex::new(None);
 
-/// Authorize B2 memakai kredensial aplikasi (env), cache ~20 jam.
-async fn app_b2_session() -> Result<(String, String, String), StatusCode> {
-    {
-        let guard = APP_B2_SESSION.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(s) = guard.as_ref() {
-            if s.fetched_at.elapsed() < std::time::Duration::from_secs(20 * 3600) {
-                return Ok((s.api_url.clone(), s.token.clone(), s.account_id.clone()));
+/// Resolusi kredensial aplikasi Backblaze B2 (Req 6.5, 13.2-13.3):
+/// 1) kredensial AKTIF di database (Settings → Credentials),
+/// 2) env `B2_KEY_ID` + `B2_APP_KEY` (backward compat + peringatan deprecation),
+/// 3) fallback lama owner_config "backblaze".
+async fn b2_credentials(state: &AppState) -> (String, String) {
+    if let Some(owner) = crate::credentials::owner_user_id(&state.db).await {
+        if let Some(cred) = crate::credentials::get_active_credential(&state.db, &owner, "backblaze_b2").await {
+            let kid = cred.get("application_key_id").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+            let akey = cred.get("application_key").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+            if !kid.is_empty() && !akey.is_empty() {
+                return (kid, akey);
             }
         }
     }
-    let key_id = std::env::var("B2_KEY_ID").unwrap_or_default();
-    let app_key = std::env::var("B2_APP_KEY").unwrap_or_default();
+    let env_kid = std::env::var("B2_KEY_ID").unwrap_or_default();
+    let env_akey = std::env::var("B2_APP_KEY").unwrap_or_default();
+    if !env_kid.is_empty() && !env_akey.is_empty() {
+        crate::credentials::warn_env_deprecated("backblaze_b2", "B2_KEY_ID");
+        return (env_kid, env_akey);
+    }
+    let cfg = cfg_get_async(&state.db, "backblaze").await.unwrap_or_else(|| json!({}));
+    (
+        cfg.get("key_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        cfg.get("application_key").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+    )
+}
+
+/// Authorize B2 memakai kredensial aplikasi (DB aktif > env > owner config),
+/// cache ~20 jam — cache diinvalidasi bila key_id sumber berganti.
+async fn app_b2_session(state: &AppState) -> Result<(String, String, String), StatusCode> {
+    let (key_id, app_key) = b2_credentials(state).await;
     if key_id.is_empty() || app_key.is_empty() {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
+    }
+    {
+        let guard = APP_B2_SESSION.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(s) = guard.as_ref() {
+            if s.fetched_at.elapsed() < std::time::Duration::from_secs(20 * 3600) && s.key_id == key_id {
+                return Ok((s.api_url.clone(), s.token.clone(), s.account_id.clone()));
+            }
+        }
     }
     // DNS di container kadang gagal untuk host tertentu → fallback DoH.
     let url: reqwest::Url = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account".parse().unwrap();
@@ -184,6 +211,7 @@ async fn app_b2_session() -> Result<(String, String, String), StatusCode> {
             api_url: api_url.clone(),
             token: token.clone(),
             account_id: account_id.clone(),
+            key_id: key_id.clone(),
             fetched_at: std::time::Instant::now(),
         });
     }
@@ -197,8 +225,9 @@ pub async fn storage_app_session(
     headers: HeaderMap,
 ) -> Result<Json<Value>, StatusCode> {
     let _user_id = require_auth(&state, &headers).await?;
-    let neon_ok = !app_neon_key().is_empty();
-    let (b2_ok, account_id, download_url) = match app_b2_session().await {
+    // Neon dianggap tersedia bila kredensial aktif DB ATAU env terisi (Req 13.2-13.3).
+    let neon_ok = !neon_api_key(&state).await.is_empty();
+    let (b2_ok, account_id, download_url) = match app_b2_session(&state).await {
         Ok((_, _, account)) => {
             let dl = std::env::var("B2_DOWNLOAD_URL").unwrap_or_default();
             (true, account, dl)
@@ -384,18 +413,8 @@ pub async fn bang_motion_render(
     let size = mp4.len() as i64;
 
     // -- Upload MP4 ke B2 via b2 API (server-to-server) --
-    // Kredensial: env B2_KEY_ID/B2_APP_KEY (utama) → fallback owner config.
-    let env_kid = std::env::var("B2_KEY_ID").unwrap_or_default();
-    let env_akey = std::env::var("B2_APP_KEY").unwrap_or_default();
-    let (key_id, app_key) = if !env_kid.is_empty() && !env_akey.is_empty() {
-        (env_kid, env_akey)
-    } else {
-        let cfg = cfg_get_async(&state.db, "backblaze").await.unwrap_or_else(|| json!({}));
-        (
-            cfg.get("key_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            cfg.get("application_key").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        )
-    };
+    // Kredensial: DB kredensial aktif > env > owner config (Req 6.5, 13).
+    let (key_id, app_key) = b2_credentials(&state).await;
     if key_id.is_empty() || app_key.is_empty() {
         return Err((StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "error": "Kredensial B2 belum diatur." }))));
     }
@@ -850,14 +869,36 @@ async fn cfg_put(db: &PgPool, key: &str, value: Value) -> Result<(), StatusCode>
     Ok(())
 }
 
-/// Ambil API key Neon: prioritaskan env `NEON_API_KEY`, fallback ke konfigurasi
-/// owner (owner_config key "neon" -> api_key).
+/// Ambil API key Neon (Req 13.1 — accessor kanonik dipertahankan):
+/// 1) kredensial AKTIF di database (Settings → Credentials — Req 5/6),
+/// 2) env `NEON_API_KEY` (backward compat — Req 13.3, di-log deprecation — Req 13.6),
+/// 3) fallback lama `owner_config` key "neon".
 async fn neon_api_key(state: &AppState) -> String {
+    // 1. Database: kredensial aktif milik user owner (Req 6.1-6.2, 6.5).
+    if let Some(owner) = crate::credentials::owner_user_id(&state.db).await {
+        match crate::credentials::get_active_credential(&state.db, &owner, "neon").await {
+            Some(cred) => {
+                let key = cred
+                    .get("api_key")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if !key.is_empty() {
+                    return key;
+                }
+            }
+            None => {} // Req 6.3: tidak ada kredensial aktif di DB
+        }
+    }
+    // 2. Fallback .env (Req 6.4) — dengan peringatan deprecation sekali (Req 13.6).
     if let Ok(k) = std::env::var("NEON_API_KEY") {
         if !k.is_empty() {
+            crate::credentials::warn_env_deprecated("neon", "NEON_API_KEY");
             return k;
         }
     }
+    // 3. Fallback lama: konfigurasi owner via owner_config.
     cfg_get_async(&state.db, "neon")
         .await
         .and_then(|v| v.get("api_key").and_then(|k| k.as_str()).map(|s| s.to_string()))
@@ -1373,6 +1414,142 @@ pub async fn b2_status(
     })))
 }
 
+/// POST /api/owner/b2/upload — upload file apapun ke Backblaze B2.
+/// Menerima multipart/form-data dengan field "file".
+/// Mengembalikan { url, file_id, file_name, size }.
+pub async fn b2_upload_file(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    multipart: axum::extract::Multipart,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = require_auth(&state, &headers).await
+        .map_err(|e| (e, Json(json!({ "error": "Unauthorized" }))))?;
+
+    // Ambil kredensial B2 dari database.
+    let b2 = cfg_get_async(&state.db, "backblaze").await.unwrap_or_else(|| json!({}));
+    let key_id = b2.get("key_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let app_key = b2.get("application_key").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if key_id.is_empty() || app_key.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Kredensial B2 belum diatur." }))));
+    }
+
+    // Baca file dari multipart.
+    let mut file_data: Vec<u8> = Vec::new();
+    let mut file_name = String::new();
+    let mut content_type = String::from("application/octet-stream");
+    let mut field = None;
+
+    let mut mp = multipart;
+    while let Some(f) = mp.next_field().await.map_err(|_| (StatusCode::BAD_REQUEST, Json(json!({ "error": "Gagal membaca file" }))))? {
+        let name = f.name().unwrap_or("").to_string();
+        if name == "file" {
+            file_name = f.file_name().unwrap_or("upload").to_string();
+            content_type = f.content_type().unwrap_or("application/octet-stream").to_string();
+            file_data = f.bytes().await.map_err(|_| (StatusCode::BAD_REQUEST, Json(json!({ "error": "Gagal membaca data file" }))))?.to_vec();
+            field = Some(());
+        }
+    }
+
+    if field.is_none() || file_data.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Tidak ada file yang dikirim" }))));
+    }
+
+    // Maks 50MB.
+    if file_data.len() > 50 * 1024 * 1024 {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "File terlalu besar (maks 50MB)" }))));
+    }
+
+    let client = reqwest::Client::new();
+
+    // 1. Authorize B2.
+    let auth_resp = client
+        .get("https://api.backblazeb2.com/b2api/v3/b2_authorize_account")
+        .basic_auth(&key_id, Some(&app_key))
+        .send().await
+        .and_then(|r| r.error_for_status())
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Autentikasi B2 gagal" }))))?;
+    let auth: Value = auth_resp.json().await.map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Gagal parse auth B2" }))))?;
+    let api_url = auth.get("apiUrl").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let auth_token = auth.get("authorizationToken").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let download_url = auth.get("downloadUrl").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let account_id = auth.get("accountId").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    // 2. Cari atau buat bucket "luxio-files".
+    let buckets_resp = client
+        .post(format!("{}/b2api/v2/b2_list_buckets", api_url))
+        .header("Authorization", &auth_token)
+        .json(&json!({ "accountId": account_id }))
+        .send().await
+        .and_then(|r| r.error_for_status())
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Gagal list bucket" }))))?;
+    let buckets: Value = buckets_resp.json().await.map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Gagal parse bucket" }))))?;
+    let bucket = buckets.get("buckets").and_then(|arr| arr.as_array())
+        .and_then(|arr| arr.iter().find(|b| b.get("bucketName").and_then(|n| n.as_str()) == Some("luxio-files")))
+        .cloned();
+    let bucket_id = if let Some(b) = bucket {
+        b.get("bucketId").and_then(|v| v.as_str()).unwrap_or("").to_string()
+    } else {
+        let created: Value = client
+            .post(format!("{}/b2api/v2/b2_create_bucket", api_url))
+            .header("Authorization", &auth_token)
+            .json(&json!({ "accountId": account_id, "bucketName": "luxio-files", "bucketType": "allPublic" }))
+            .send().await
+            .and_then(|r| r.error_for_status())
+            .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Gagal buat bucket" }))))?
+            .json().await
+            .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Gagal parse bucket baru" }))))?;
+        created.get("bucketId").and_then(|v| v.as_str()).unwrap_or("").to_string()
+    };
+
+    // 3. Get upload URL.
+    let up_resp = client
+        .post(format!("{}/b2api/v2/b2_get_upload_url", api_url))
+        .header("Authorization", &auth_token)
+        .json(&json!({ "bucketId": bucket_id }))
+        .send().await
+        .and_then(|r| r.error_for_status())
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Gagal get upload URL" }))))?;
+    let up: Value = up_resp.json().await.map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Gagal parse upload URL" }))))?;
+    let upload_url = up.get("uploadUrl").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let upload_token = up.get("authorizationToken").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    // 4. SHA1 + upload.
+    use sha1::{Sha1, Digest as _};
+    let mut hasher = Sha1::new();
+    hasher.update(&file_data);
+    let sha1 = format!("{:x}", hasher.finalize());
+
+    let stamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
+    let safe_name = file_name.replace('/', "_").replace('\\', "_").replace("..", "_");
+    let remote_name = format!("todo-files/{}/{}_{}", user_id, stamp, safe_name);
+
+    let uploaded: Value = client
+        .post(&upload_url)
+        .header("Authorization", &upload_token)
+        .header("X-Bz-File-Name", &remote_name)
+        .header("Content-Type", &content_type)
+        .header("X-Bz-Content-Sha1", &sha1)
+        .body(file_data.clone())
+        .send().await
+        .and_then(|r| r.error_for_status())
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Upload B2 gagal" }))))?
+        .json().await
+        .map_err(|_| (StatusCode::BAD_GATEWAY, Json(json!({ "error": "Gagal parse upload response" }))))?;
+
+    let file_id = uploaded.get("fileId").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let url = format!("{}/file/luxio-files/{}", download_url, remote_name);
+
+    Ok(Json(json!({
+        "ok": true,
+        "url": url,
+        "file_id": file_id,
+        "file_name": file_name,
+        "remote_name": remote_name,
+        "size": file_data.len(),
+        "content_type": content_type,
+    })))
+}
+
 /// POST /api/storage/proxy — proxy API eksternal untuk halaman Penyimpanan
 /// (Neon + Backblaze B2). API tersebut tidak mengirim header CORS, jadi
 /// browser tidak bisa memanggilnya langsung; backend meneruskannya
@@ -1429,7 +1606,8 @@ pub async fn storage_proxy(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // -- Khusus B2 authorize: kredensial asli ada di env (app_b2_session
+    // -- Khusus B2 authorize: kredensial asli di-resolve server-side lewat
+    //    app_b2_session (DB kredensial aktif > env > owner config — Req 6/13;
     //    sudah authorize server-side) — balas SUKSES langsung tanpa
     //    meneruskan request ke B2 (endpoint authorize menolak token sesi).
     let auth_placeholder = payload
@@ -1441,7 +1619,7 @@ pub async fn storage_proxy(
         .to_string();
     let is_b2_authorize = parsed.path().contains("b2_authorize_account");
     if is_b2_authorize && auth_placeholder.contains("APP_B2") {
-        let (api_url, token, account_id) = app_b2_session().await?;
+        let (api_url, token, account_id) = app_b2_session(&state).await?;
         let dl = std::env::var("B2_DOWNLOAD_URL").unwrap_or_default();
         let body = json!({
             "apiUrl": api_url,
@@ -1494,7 +1672,7 @@ pub async fn storage_proxy(
                     continue;
                 }
                 if lk == "authorization" && sv.contains("APP_B2") {
-                    let (_, token, _) = app_b2_session().await?;
+                    let (_, token, _) = app_b2_session(&state).await?;
                     req = req.header(k.as_str(), token);
                     continue;
                 }
@@ -1555,7 +1733,7 @@ pub async fn storage_proxy(
                     if auth_value.contains("APP_NEON") {
                         req2 = req2.header("Authorization", format!("Bearer {}", neon_api_key(&state).await));
                     } else if auth_value.contains("APP_B2") {
-                        let (_, token, _) = app_b2_session().await?;
+                        let (_, token, _) = app_b2_session(&state).await?;
                         req2 = req2.header("Authorization", token);
                     }
                     if let Some(b64) = payload.get("bodyBase64").and_then(|v| v.as_str()) {

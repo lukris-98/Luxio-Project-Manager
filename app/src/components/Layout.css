@@ -210,7 +210,7 @@
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 6px 10px;
   background: none;
   border: none;
@@ -227,6 +227,8 @@
 }
 
 .nav-item svg {
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   min-width: 14px;
   min-height: 14px;
@@ -347,16 +349,16 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: 10px var(--space-3);
   background: none;
   border: none;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   cursor: pointer;
   text-align: left;
-  min-height: 46px;
+  min-height: 50px;
   transition: background 0.15s;
 }
 
@@ -400,7 +402,7 @@
 }
 
 .nav-drop-item-sub {
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -463,7 +465,7 @@
 
 .sidebar-footer {
   padding: 8px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid transparent;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -782,7 +784,7 @@
   padding: 0 16px;
   color: var(--text-muted);
   background: var(--bg-tertiary);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
 
@@ -1750,4 +1752,255 @@
 .topbar .notification-dot {
   box-shadow: none;
   -webkit-box-shadow: none;
+}
+
+/* =====================================================================
+   OPTIMASI TABLET & HP (<=900px)
+   =====================================================================
+   1. Drawer sidebar SELALU tampil expanded — satu klik langsung muncul
+      semua label (meng-override mode 'collapsed' yang hanya relevan
+      untuk desktop).
+   2. Bottom navigation (beserta tombol "Buat proyek" / FAB) tampil di
+      SEMUA tema, bukan hanya tema Luxio New.
+   3. Skala z-index chrome mobile:
+        content 0 < bottom-nav 150 < backdrop 155 < overlay 158
+        < drawer 170 < drawer+dropdown 180 < toast/modal 200+ <= modal 300.
+   ===================================================================== */
+@media (max-width: 900px) {
+  /* 1) Drawer selalu penuh isinya (labels ikut terlihat). */
+  .sidebar,
+  .sidebar.collapsed {
+    width: 300px;
+  }
+
+  .sidebar.collapsed {
+    overflow: hidden;
+  }
+
+  .sidebar.collapsed .logo-text,
+  .sidebar.collapsed .nav-item > span,
+  .sidebar.collapsed .user-details,
+  .sidebar.collapsed .sidebar-version {
+    max-width: 260px;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .sidebar.collapsed .nav-item {
+    justify-content: space-between;
+    padding: 8px 10px;
+  }
+
+  .sidebar.collapsed .nav-item svg {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+  }
+
+  .sidebar.collapsed .nav-drop-chevron,
+  .sidebar.collapsed .profile-chevron {
+    display: inline-flex;
+  }
+
+  .sidebar.collapsed .nav-dropdown {
+    position: relative;
+    width: 100%;
+    box-shadow: none;
+    transform-origin: left top;
+  }
+
+  .sidebar.collapsed .sidebar-collapse-btn {
+    display: none;
+  }
+
+  .sidebar.collapsed .nav-item > span {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sidebar.open {
+    z-index: 170;
+  }
+
+  .sidebar.open.nav-dropdown-open {
+    z-index: 180;
+  }
+
+  .nav-dropdown-backdrop {
+    z-index: 155;
+  }
+
+  .sidebar-overlay {
+    z-index: 158;
+  }
+
+  /* 2) Target sentuh minimum 44px untuk chrome utama. */
+  .menu-btn {
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+  }
+
+  .sidebar-close {
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+  }
+
+  /* Ruang bawah konten agar tidak tertutup bottom-nav. */
+  .page-content {
+    padding: var(--space-3) var(--space-3) 112px;
+  }
+
+  /* 3) Bottom-nav untuk SEMUA tema (generic; override tematik tetap menang). */
+  .mobile-bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+    z-index: 150;
+    min-height: 64px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.32);
+  }
+
+  .mobile-bottom-nav button {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 48px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .mobile-bottom-nav button.active {
+    color: var(--accent);
+  }
+
+  /* FAB "Buat proyek" — target utama, tidak boleh tertutup konten. */
+  .mobile-bottom-nav .mobile-bottom-fab {
+    width: 50px;
+    height: 50px;
+    margin: -28px auto 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  }
+
+  .mobile-bottom-nav .mobile-bottom-fab span {
+    display: none;
+  }
+}
+
+/* HP: rapikan topbar generik (semua tema) */
+@media (max-width: 768px) {
+  .topbar-search {
+    display: none;
+  }
+
+  .role-switch-label {
+    display: none;
+  }
+
+  .topbar {
+    padding: 0 var(--space-2);
+    gap: var(--space-1);
+  }
+
+  .notif-toast {
+    top: auto;
+    bottom: 96px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}
+
+/* =====================================================================
+   Sidebar typography scaling
+   =====================================================================
+   • PC/desktop (base)       : lebih kecil 0.5 dari sebelumnya
+   • Tablet   (<=1024px)     : lebih kecil 0.3 dari sebelumnya
+   • HP       (<=900px)      : lebih besar supaya nyaman disentuh
+   ===================================================================== */
+@media (max-width: 1024px) {
+  .nav-item {
+    font-size: 0.825rem;
+    padding: 7px 10px;
+  }
+
+  .nav-item svg {
+    width: 15px;
+    height: 15px;
+    min-width: 15px;
+    min-height: 15px;
+  }
+
+  .nav-dropdown-item {
+    font-size: 0.825rem;
+    min-height: 46px;
+  }
+
+  .nav-dropdown-head {
+    font-size: 0.825rem;
+  }
+
+  .nav-dropdown-all {
+    font-size: 0.825rem;
+  }
+
+  .nav-drop-item-sub {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .nav-item {
+    font-size: 1.05rem;
+    padding: 8px 12px;
+  }
+
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+  }
+
+  .nav-dropdown-item {
+    font-size: 1.05rem;
+    min-height: 48px;
+  }
+
+  .nav-dropdown-head {
+    font-size: 1.05rem;
+  }
+
+  .nav-dropdown-all {
+    font-size: 1.05rem;
+  }
+
+  .nav-drop-item-sub {
+    font-size: 0.875rem;
+  }
 }

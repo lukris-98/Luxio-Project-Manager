@@ -1,4 +1,4 @@
-﻿// =====================================================================
+// =====================================================================
 // useStore.js — State global aplikasi (Zustand).
 // =====================================================================
 // Satu sumber kebenaran untuk state yang dipakai lintas halaman:
@@ -195,6 +195,9 @@ export const useStore = create(
   tasks: [],
   // Board kanban kustom yang dibuat user (MOCK).
   kanbanBoards: [],
+  // Todo Groups: grup tugas dengan sub-items + file.
+  // todoGroups[uid] = [ { id, name, createdAt, items: [{id, text, completed}], files: [{id, name, size, url, uploadedAt}] } ]
+  todoGroups: {},
   // Target yang sedang dibuka di halaman detail.
   selectedProjectId: null,
   // Board kanban yang sedang dibuka (dipilih dari sidebar / tab).
@@ -211,6 +214,16 @@ export const useStore = create(
   // ---------- NOTIFIKASI (in-app + browser) ----------
   // Daftar notifikasi terbaru (deadline, target/task baru, dsb).
   notifications: [],
+
+  // ---------- TEMPLATE (per user) ----------
+  // Template project/kanban/todolist yang disimpan user untuk dipakai ulang.
+  // Struktur: templates[uid] = { projects: [], kanbans: [], todos: [] }
+  // Setiap template: { id, name, data, createdAt }
+  templates: {},
+  // Permintaan share template antar user.
+  // templateShares[uid] = [ { id, fromUserId, fromUserName, type, templateData, templateName, status, createdAt } ]
+  // status: 'pending' | 'accepted' | 'rejected'
+  templateShares: {},
 
   // ---------- CATATAN PRIBADI (per user, bisa dikunci PIN) ----------
   // privateNotes[userId] = [ { id, title, content, pin, locked, createdAt, updatedAt } ]
@@ -448,6 +461,117 @@ export const useStore = create(
       set({ notifications: [...serverNotifs, ...local].slice(0, 50) })
     } catch (e) {
       // Abaikan error jaringan — notifikasi lokal tetap jalan.
+    }
+  },
+
+  // =====================================================================
+  // ACTIONS — TEMPLATE (per user)
+  // =====================================================================
+
+  // Ambil uid untuk template (berdasarkan user login).
+  templateUid: () => {
+    const u = get().currentUser
+    return u?.id != null ? String(u.id) : null
+  },
+
+  // Simpan template baru (type: 'projects' | 'kanbans' | 'todos').
+  saveTemplate: (type, name, data) => {
+    const uid = get().templateUid()
+    if (!uid) return
+    const all = get().templates[uid] || { projects: [], kanbans: [], todos: [] }
+    const list = all[type] || []
+    const tpl = { id: Date.now(), name: name || 'Tanpa Nama', data, createdAt: Date.now() }
+    set({
+      templates: {
+        ...get().templates,
+        [uid]: { ...all, [type]: [...list, tpl] },
+      },
+    })
+  },
+
+  // Hapus template.
+  deleteTemplate: (type, templateId) => {
+    const uid = get().templateUid()
+    if (!uid) return
+    const all = get().templates[uid] || { projects: [], kanbans: [], todos: [] }
+    set({
+      templates: {
+        ...get().templates,
+        [uid]: { ...all, [type]: (all[type] || []).filter((t) => t.id !== templateId) },
+      },
+    })
+  },
+
+  // Kirim template ke user lain (buat share request).
+  shareTemplate: (toUserId, toUserName, type, templateName, templateData) => {
+    const uid = get().templateUid()
+    const currentUser = get().currentUser
+    if (!uid || !currentUser) return
+    const recipientShares = get().templateShares[String(toUserId)] || []
+    set({
+      templateShares: {
+        ...get().templateShares,
+        [String(toUserId)]: [
+          ...recipientShares,
+          {
+            id: Date.now(),
+            fromUserId: uid,
+            fromUserName: currentUser.name || 'User',
+            type,
+            templateName,
+            templateData,
+            status: 'pending',
+            createdAt: Date.now(),
+          },
+        ],
+      },
+    })
+    // Kirim notifikasi ke penerima.
+    get().addNotification({
+      title: 'Template Diterima',
+      body: `${currentUser.name} mengirim template "${templateName}" ke kamu.`,
+      type: 'create',
+      page: 'settings',
+    })
+  },
+
+  // Terima atau tolak share request.
+  respondTemplateShare: (shareId, accept) => {
+    const uid = get().templateUid()
+    if (!uid) return
+    const myShares = get().templateShares[uid] || []
+    const share = myShares.find((s) => s.id === shareId)
+    if (!share || share.status !== 'pending') return
+
+    if (accept) {
+      // Simpan template yang diterima ke daftar template user.
+      const all = get().templates[uid] || { projects: [], kanbans: [], todos: [] }
+      const type = share.type
+      const list = all[type] || []
+      const tpl = {
+        id: Date.now(),
+        name: share.templateName,
+        data: share.templateData,
+        createdAt: Date.now(),
+        sharedFrom: share.fromUserName,
+      }
+      set({
+        templates: {
+          ...get().templates,
+          [uid]: { ...all, [type]: [...list, tpl] },
+        },
+        templateShares: {
+          ...get().templateShares,
+          [uid]: myShares.map((s) => (s.id === shareId ? { ...s, status: 'accepted' } : s)),
+        },
+      })
+    } else {
+      set({
+        templateShares: {
+          ...get().templateShares,
+          [uid]: myShares.map((s) => (s.id === shareId ? { ...s, status: 'rejected' } : s)),
+        },
+      })
     }
   },
 
@@ -1053,7 +1177,7 @@ export const useStore = create(
       setToken(res.token)
       // Akun OWNER langsung masuk app; akun dengan company_id (sudah punya
       // workspace, mis. dibuat admin) juga langsung ke dashboard.
-      const isOwner = res.user.role === 'owner'
+      // const isOwner = res.user.role === 'owner' // removed — dashboard is always landing
       set({
         currentUser: res.user,
         token: res.token || null,
@@ -1061,7 +1185,7 @@ export const useStore = create(
         hasCompletedSetup: true,
         appState: 'app',
         setupStep: 0,
-        currentPage: isOwner ? 'admin-users' : 'dashboard',
+        currentPage: 'dashboard',
         activeRole: res.user.role || 'user',
       })
       track('login', { role: res.user.role, method: '2fa' })
@@ -1087,7 +1211,7 @@ export const useStore = create(
         hasCompletedSetup: true,
         appState: 'app',
         setupStep: 0,
-        currentPage: 'admin-users',
+        currentPage: 'dashboard',
         activeRole: res.user.role,
         userPin: pin,
       })
@@ -1121,7 +1245,7 @@ export const useStore = create(
       const res = await api.verifyEmail(token)
       if (!res.success) throw new Error(res.message)
       setToken(res.token)
-      const isOwner = res.user.role === 'owner'
+      // const isOwner = res.user.role === 'owner' // removed — dashboard is always landing
       set({
         currentUser: res.user,
         token: res.token || null,
@@ -1129,7 +1253,7 @@ export const useStore = create(
         hasCompletedSetup: true,
         appState: 'app',
         setupStep: 0,
-        currentPage: isOwner ? 'admin-users' : 'dashboard',
+        currentPage: 'dashboard',
         activeRole: res.user.role || 'user',
       })
       track('signup_verified', { role: res.user.role })
@@ -1198,7 +1322,7 @@ export const useStore = create(
         }
       }
       setToken(res.token)
-      const isOwner = res.user.role === 'owner'
+      // const isOwner = res.user.role === 'owner' // removed — dashboard is always landing
       set({
         currentUser: res.user,
         token: res.token || null,
@@ -1206,7 +1330,7 @@ export const useStore = create(
         hasCompletedSetup: true,
         appState: 'app',
         setupStep: 0,
-        currentPage: isOwner ? 'admin-users' : 'dashboard',
+        currentPage: 'dashboard',
         activeRole: res.user.role || 'user',
       })
       track('login', { role: res.user.role, method: 'google' })
@@ -1599,6 +1723,7 @@ export const useStore = create(
   // Buat target baru (visi). Untuk cara kelola 'kanban', tahapan (kolom +
   // to-do) dibangun dari input form dan mengalir berurutan: tahap pertama
   // berjalan, sisanya terkunci sampai tahap sebelumnya selesai.
+  // Untuk 'todo', todoItems dari form dibuatkan task otomatis.
   createTarget: (data) => {
     const id = get().addProject(data)
     if (data.viewType === 'kanban') {
@@ -1606,6 +1731,27 @@ export const useStore = create(
       set({
         projects: get().projects.map((p) => (p.id === id ? { ...p, stages } : p)),
       })
+    }
+    // Auto-create tasks from todoItems (when viewType = 'todo').
+    if (data.viewType === 'todo' && Array.isArray(data.todoItems) && data.todoItems.length) {
+      const newTasks = data.todoItems
+        .filter((item) => item.title && item.title.trim())
+        .map((item, i) => ({
+          id: Date.now() + i + 1,
+          createdAt: Date.now(),
+          title: item.title.trim(),
+          priority: item.priority || 'medium',
+          status: 'pending',
+          projectId: id,
+          theme: data.theme || '',
+          assignedTo: data.createdBy,
+        }))
+      if (newTasks.length) {
+        set({
+          tasks: [...get().tasks, ...newTasks],
+          projects: recalcTodoProgress({ ...get(), tasks: [...get().tasks, ...newTasks] }),
+        })
+      }
     }
     track('create_target', { viewType: data.viewType || 'todo' })
     get().addXp(20, 'Membuat project baru')
@@ -1653,6 +1799,13 @@ export const useStore = create(
       projects: recalcTodoProgress(get()),
     }),
 
+  // Update an existing task by id.
+  updateTask: (taskId, data) =>
+    set({
+      tasks: get().tasks.map((t) => (t.id === taskId ? { ...t, ...data } : t)),
+      projects: recalcTodoProgress(get()),
+    }),
+
   // Toggle status task (pending <-> completed).
   toggleTaskStatus: (taskId) => {
     const prev = get().tasks.find((t) => t.id === taskId)
@@ -1675,6 +1828,116 @@ export const useStore = create(
       tasks: get().tasks.filter((t) => t.id !== taskId),
       projects: recalcTodoProgress(get()),
     }),
+
+  // =====================================================================
+  // ACTIONS — TODO GROUPS (grup tugas dengan sub-items + file)
+  // =====================================================================
+
+  todoGroupUid: () => {
+    const u = get().currentUser
+    return u?.id != null ? String(u.id) : null
+  },
+
+  addTodoGroup: (name) => {
+    const uid = get().todoGroupUid()
+    if (!uid) return
+    const list = get().todoGroups[uid] || []
+    set({
+      todoGroups: {
+        ...get().todoGroups,
+        [uid]: [...list, { id: Date.now(), name: name || 'Tanpa Nama', createdAt: Date.now(), items: [], files: [] }],
+      },
+    })
+  },
+
+  deleteTodoGroup: (groupId) => {
+    const uid = get().todoGroupUid()
+    if (!uid) return
+    set({
+      todoGroups: {
+        ...get().todoGroups,
+        [uid]: (get().todoGroups[uid] || []).filter((g) => g.id !== groupId),
+      },
+    })
+  },
+
+  renameTodoGroup: (groupId, name) => {
+    const uid = get().todoGroupUid()
+    if (!uid) return
+    set({
+      todoGroups: {
+        ...get().todoGroups,
+        [uid]: (get().todoGroups[uid] || []).map((g) => (g.id === groupId ? { ...g, name } : g)),
+      },
+    })
+  },
+
+  addTodoGroupItem: (groupId, text) => {
+    const uid = get().todoGroupUid()
+    if (!uid) return
+    set({
+      todoGroups: {
+        ...get().todoGroups,
+        [uid]: (get().todoGroups[uid] || []).map((g) =>
+          g.id === groupId ? { ...g, items: [...g.items, { id: Date.now(), text, completed: false }] } : g
+        ),
+      },
+    })
+  },
+
+  toggleTodoGroupItem: (groupId, itemId) => {
+    const uid = get().todoGroupUid()
+    if (!uid) return
+    set({
+      todoGroups: {
+        ...get().todoGroups,
+        [uid]: (get().todoGroups[uid] || []).map((g) =>
+          g.id === groupId
+            ? { ...g, items: g.items.map((i) => (i.id === itemId ? { ...i, completed: !i.completed } : i)) }
+            : g
+        ),
+      },
+    })
+  },
+
+  removeTodoGroupItem: (groupId, itemId) => {
+    const uid = get().todoGroupUid()
+    if (!uid) return
+    set({
+      todoGroups: {
+        ...get().todoGroups,
+        [uid]: (get().todoGroups[uid] || []).map((g) =>
+          g.id === groupId ? { ...g, items: g.items.filter((i) => i.id !== itemId) } : g
+        ),
+      },
+    })
+  },
+
+  addTodoGroupFile: (groupId, file) => {
+    const uid = get().todoGroupUid()
+    if (!uid) return
+    set({
+      todoGroups: {
+        ...get().todoGroups,
+        [uid]: (get().todoGroups[uid] || []).map((g) =>
+          g.id === groupId ? { ...g, files: [...g.files, { id: Date.now(), ...file }] } : g
+        ),
+      },
+    })
+  },
+
+  removeTodoGroupFile: (groupId, fileId) => {
+    const uid = get().todoGroupUid()
+    if (!uid) return
+    set({
+      todoGroups: {
+        ...get().todoGroups,
+        [uid]: (get().todoGroups[uid] || []).map((g) =>
+          g.id === groupId ? { ...g, files: g.files.filter((f) => f.id !== fileId) } : g
+        ),
+      },
+    })
+  },
 
   // Hapus target + task & board kanban yang terkait dengannya.
   deleteProject: (projectId) =>
@@ -1817,7 +2080,7 @@ export const useStore = create(
       })),
       // Versi state tersimpan. Naikkan versi (dan update `migrate`) jika
       // struktur state berubah di masa depan.
-      version: 5,
+      version: 6,
       // State NAVIGASI tidak ikut di-persist: sejak BrowserRouter, URL adalah
       // sumber kebenaran lokasi (deep-link). Persist IndexedDB bersifat async
       // (selesai setelah mount) — bila appState/currentPage ikut ter-rehydrate
@@ -1916,6 +2179,15 @@ export const useStore = create(
             }
           }
           return s
+        }
+        if (version < 6) {
+          const s = persistedState && typeof persistedState === 'object' ? persistedState : {}
+          return {
+            ...s,
+            templates: s.templates || {},
+            templateShares: s.templateShares || {},
+            todoGroups: s.todoGroups || {},
+          }
         }
         return persistedState
       },

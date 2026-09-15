@@ -16,6 +16,10 @@
   background: linear-gradient(135deg, var(--accent-muted), rgba(234, 88, 12, 0.04) 60%, transparent);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
+  /* Aksi header (termasuk tombol Buat Target) harus selalu paling atas
+     di antara elemen halaman — tidak boleh tertutup overlay apa pun. */
+  position: relative;
+  z-index: 6;
 }
 
 .target-header-left h1 {
@@ -66,7 +70,7 @@
 .target-tab-btn {
   padding: var(--space-2) var(--space-4);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-muted);
   background: none;
   border: none;
@@ -81,7 +85,6 @@
 
 .target-tab-btn.active {
   color: var(--accent);
-  font-weight: 600;
   background: rgba(234, 88, 12, 0.10);
   border-radius: 8px 8px 0 0;
 }
@@ -448,6 +451,7 @@
 .target-row-status-bar.in_progress { background: #0780FA; }
 .target-row-status-bar.pending { background: #FFB830; }
 .target-row-status-bar.cancelled { background: #E94560; }
+.target-row-status-bar.failed { background: #E94560; }
 
 .target-row-main {
   flex: 1;
@@ -557,6 +561,7 @@
 .table-progress-fill.completed { background: #00D9A5; }
 .table-progress-fill.in_progress { background: #0780FA; }
 .table-progress-fill.pending { background: #FFB830; }
+.table-progress-fill.failed { background: #E94560; }
 
 .status-pill {
   display: inline-block;
@@ -588,6 +593,11 @@
   color: #E94560;
 }
 
+.status-pill.status-failed {
+  background: rgba(233, 69, 96, 0.15);
+  color: #E94560;
+}
+
 /* Status tabs di daftar target */
 .target-status-tabs {
   display: flex;
@@ -602,7 +612,7 @@
   gap: 6px;
   padding: 6px 14px;
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-muted);
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
@@ -620,7 +630,6 @@
   background: rgba(234, 88, 12, 0.12);
   border-color: rgba(234, 88, 12, 0.35);
   color: var(--accent);
-  font-weight: 600;
 }
 
 /* Contributor stack */
@@ -954,4 +963,43 @@
     align-items: flex-start;
     gap: var(--space-3);
   }
+}
+
+/* Create button dropdown wrapper */
+.create-btn-wrap {
+  position: relative;
+}
+
+.create-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-dropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.create-dropdown-menu button:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }

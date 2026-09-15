@@ -483,12 +483,12 @@ textarea.input {
 
 .settings-card{
   background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 45%);
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 3px;
 }
 .card{
   background: linear-gradient(160deg, rgba(234, 88, 12, 0.05), var(--bg-secondary) 45%);
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   padding: var(--space-6);
   box-shadow: none;
   border-radius: 3px;
@@ -511,7 +511,7 @@ textarea.input {
 .detail-board,
 .detail-progress,
 .stage-content{
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 3px;
   box-shadow: none !important;
   transition: transform 0.18s, border-color 0.18s;
@@ -784,9 +784,16 @@ img {
 .att-admin-page .page-header:has(h1),
 .admin-users-page .page-header:has(h1),
 .settings-page .page-header:has(h1),
-.team-page .page-header:has(h1) {
+.team-page .page-header:has(h1),
+.page-header,
+.detail-header,
+.target-header,
+.kanban-header-new,
+.todo-header-new {
   border: none !important;
 }
+
+/* Kecualikan wrapper konten utama (harus selalu punya border/frame). */
 
 /* Elemen circular tetap bulat (avatar, status dot, badge) */
 .user-avatar,
@@ -866,5 +873,97 @@ img {
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation: none;
+  }
+}
+
+/* =====================================================================
+   OPTIMASI TABLET & HP (global, semua halaman)
+   =====================================================================
+   1. Cegah auto-zoom iOS saat fokus input (font < 16px memicu zoom).
+   2. Perbesar area sentuh tombol kecil agar nyaman di layar sentuh.
+   3. Modal tidak melebihi viewport & isinya bisa di-scroll.
+   ===================================================================== */
+@media (max-width: 900px) {
+  .app-layout input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  .app-layout textarea,
+  .app-layout select,
+  .auth-page input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  .auth-page textarea,
+  .auth-page select {
+    font-size: 16px;
+  }
+
+  .btn-sm {
+    min-height: 38px;
+  }
+
+  /* Modal generik: tidak lebih lebar dari viewport, isi bisa di-scroll. */
+  .modal-overlay,
+  .settings-modal-overlay,
+  .pin-modal-overlay,
+  .gp-modal-overlay {
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  .modal,
+  .settings-modal,
+  .pin-modal {
+    width: 100%;
+    margin: auto;
+    max-height: 92dvh;
+  }
+
+  .modal {
+    max-width: 480px;
+  }
+
+  .settings-modal {
+    max-width: 420px;
+  }
+
+  .pin-modal {
+    max-width: 380px;
+  }
+
+  .modal-body,
+  .settings-modal-body {
+    overflow-y: auto;
+  }
+
+  /* Toast melayang di bawah: geser ke atas bottom-nav (74px) dan turunkan
+     z-index agar TIDAK menutupi tombol "Buat proyek"/bottom-nav. */
+  .owner-toast,
+  .settings-toast,
+  .connect-toast,
+  .agent-toast,
+  .neon-toast,
+  .gmail-toast,
+  .gp-toast,
+  .note-toast,
+  .notif-toast {
+    bottom: calc(74px + 18px) !important;
+    z-index: 140 !important;
+  }
+}
+
+/* Tablet/HP tanpa hover: aksi yang biasanya muncul saat hover harus
+   SELALU terlihat agar bisa disentuh. */
+@media (hover: none), (pointer: coarse) {
+  .gmail-item-actions,
+  .agent-msg-copy-btn,
+  .note-card-pin-btn,
+  .note-card-delete,
+  .storage-item-del {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal,
+  .settings-modal,
+  .pin-modal {
+    max-width: calc(100vw - 16px);
   }
 }

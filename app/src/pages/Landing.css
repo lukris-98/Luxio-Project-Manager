@@ -68,7 +68,6 @@
 .logo-mark {
   width: 32px;
   height: 32px;
-  background: var(--accent);
   background: linear-gradient(135deg, var(--accent), var(--accent3));
   color: #fff;
   font-weight: 800;
@@ -76,6 +75,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+[data-theme="light"] .logo-mark {
+  color: #000;
 }
 
 .logo-text {
@@ -772,6 +775,10 @@
   border-top: 1px solid var(--border);
   position: relative;
   z-index: 1;
+}
+
+[data-theme="light"] .landing-footer {
+  background: var(--bg-tertiary);
 }
 
 .footer-inner {

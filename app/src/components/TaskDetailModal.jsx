@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import ContributorStack from './ContributorStack'
-import { X, Upload, Download, Trash2, Plus, Check, FileText, StickyNote, Users, Paperclip, ListTodo, Eye } from 'lucide-react'
+import { X, Upload, Download, Trash2, Plus, Check, FileText, StickyNote, Users, Paperclip, ListTodo, Eye, CalendarClock } from 'lucide-react'
 import { deadlineText } from '../utils/deadline'
 import './TaskDetailModal.css'
 

@@ -59,7 +59,7 @@ export default function AdminUsers() {
     setError('')
     try {
       const data = await api.getAdminUsers(currentUser.id)
-      setUsers(data)
+      setUsers(Array.isArray(data) ? data : [])
     } catch (e) {
       setError('Gagal memuat daftar akun. Pastikan backend online.')
     } finally {

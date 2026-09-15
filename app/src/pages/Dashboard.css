@@ -52,6 +52,25 @@
 .dash-hero-art {
   position: relative;
   z-index: 1;
+  /* Murni dekorasi — tidak boleh menghalagi klik tombol aksi. */
+  pointer-events: none;
+}
+
+/* Teks + tombol di atas dekorasi hero (z-index teratas untuk aksi). */
+.dash-hero-copy {
+  position: relative;
+  z-index: 3;
+}
+
+.dash-hero-actions {
+  position: relative;
+  z-index: 4;
+}
+
+.dash-hero-actions .btn {
+  position: relative;
+  z-index: 4;
+  min-height: 44px;
 }
 
 .dash-hero-copy h1 {
@@ -805,9 +824,9 @@
   }
 
   .dash-hero-actions .btn {
-    height: 36px;
-    padding: 0 14px;
-    font-size: 0.72rem;
+    height: 44px;
+    padding: 0 16px;
+    font-size: 0.78rem;
   }
 
   .dash-hero-actions .btn-secondary {

@@ -671,5 +671,49 @@ pub async fn migrate(db: &PgPool) -> Result<(), sqlx::Error> {
     .execute(db)
     .await?;
 
+    // User Credentials: kredensial API terenkripsi AES-256-GCM di database
+    // (pengganti .env). `credential_data` = blob "v1:base64(nonce||ct||tag)".
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS user_credentials (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            provider_type TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            credential_data TEXT NOT NULL,
+            is_active BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(db)
+    .await?;
+
+    // Hanya satu kredensial AKTIF per (user, provider) — Req 1.6 / 5.1.
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_credentials_one_active ON user_credentials(user_id, provider_type) WHERE is_active = TRUE",
+    )
+    .execute(db)
+    .await?;
+
+    // Percepat pencarian kredensial aktif per user+provider (Req 6).
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_user_credentials_lookup ON user_credentials(user_id, provider_type, is_active)",
+    )
+    .execute(db)
+    .await?;
+
+    // Pengingat rotasi kredensial bulanan (Req 16.6) — dedupe per user/bulan.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS credential_rotation_reminders (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            period TEXT NOT NULL,
+            sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(user_id, period)
+        )",
+    )
+    .execute(db)
+    .await?;
+
     Ok(())
 }

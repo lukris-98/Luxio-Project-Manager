@@ -49,17 +49,26 @@ export async function proxyFetch(url, { method = 'GET', headers = {}, body } = {
 
   const token = localStorage.getItem(TOKEN_KEY)
   let res
-  try {
-    res = await fetch(`${API_BASE}/api/storage/proxy`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ url, method, headers, ...(bodyBase64 ? { bodyBase64 } : {}) }),
-    })
-  } catch {
-    throw new Error('Tidak bisa menghubungi server Luxio. Periksa koneksi internet.')
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      res = await fetch(`${API_BASE}/api/storage/proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ url, method, headers, ...(bodyBase64 ? { bodyBase64 } : {}) }),
+      })
+    } catch {
+      if (attempt === 0) { await new Promise((r) => setTimeout(r, 700)); continue }
+      throw new Error('Tidak bisa menghubungi server Luxio. Periksa koneksi internet.')
+    }
+    // 502/429 dari kontainer (DNS/rate transient) → sekali retry otomatis.
+    if ((res.status === 502 || res.status === 429) && attempt === 0) {
+      await new Promise((r) => setTimeout(r, 900))
+      continue
+    }
+    break
   }
 
   if (res.status === 401) {

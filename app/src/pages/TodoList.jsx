@@ -1,31 +1,49 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useStore, useEffectiveRole } from '../store/useStore'
 import AnimatedDropdown from '../components/AnimatedDropdown'
+import TemplateGallery from '../components/TemplateGallery'
+import { api } from '../services/api'
 import { motion } from 'framer-motion'
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip
 } from 'recharts'
 import {
   Plus, CheckSquare, Clock, AlertCircle, Calendar, Play, CheckCircle2,
-  MoreVertical, FileText, ChevronRight, ListTodo
+  MoreVertical, ListTodo, ChevronDown, FileStack, X, Trash2, Upload,
+  Download, Check, Folder, FileText, Pencil
 } from 'lucide-react'
 import { formatDate } from '../utils/date'
 import './TodoList.css'
 
-const PRIORITY_COLORS = ['#E94560', '#FFB830', '#00D9A5', '#8B8BA7'] // Tinggi, Sedang, Rendah, Tidak ada
+const PRIORITY_COLORS = ['#E94560', '#FFB830', '#00D9A5', '#8B8BA7']
 
 export default function TodoList() {
-  const { tasks, projects, addTask, updateTask, deleteTask, labelFilter } = useStore()
+  const {
+    tasks, projects, addTask, updateTask, deleteTask, labelFilter,
+    currentUser, todoGroups, addTodoGroup, deleteTodoGroup, renameTodoGroup,
+    addTodoGroupItem, toggleTodoGroupItem, removeTodoGroupItem,
+    addTodoGroupFile, removeTodoGroupFile,
+  } = useStore()
   const role = useEffectiveRole()
-  const [activeFilter, setActiveFilter] = useState('Semua') // Semua, Hari Ini, Minggu Ini, Overdue
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [newTaskPriority, setNewTaskPriority] = useState('medium')
+  const [activeFilter, setActiveFilter] = useState('Semua')
+  const [showAddGroup, setShowAddGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
   const [activeMenuId, setActiveMenuId] = useState(null)
+  const [createDropdownOpen, setCreateDropdownOpen] = useState(false)
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false)
+  const [expandedGroup, setExpandedGroup] = useState(null)
+  const [newItemText, setNewItemText] = useState('')
+  const [editingGroup, setEditingGroup] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [uploadingGroup, setUploadingGroup] = useState(null)
+  const fileInputRef = useRef(null)
 
   const canCreate = role === 'owner' || role === 'super_admin' || role === 'admin'
 
-  // Tasks filtered by label (from sidebar dropdown / filter bar)
+  const uid = currentUser?.id != null ? String(currentUser.id) : null
+  const groups = uid ? (todoGroups[uid] || []) : []
+
+  // Legacy tasks filtered by label
   const visibleTasks = useMemo(() => {
     if (labelFilter === null) return tasks
     return tasks.filter(t => {
@@ -34,104 +52,110 @@ export default function TodoList() {
     })
   }, [tasks, labelFilter])
 
-  // Toggle task completion
   const handleToggleComplete = (task) => {
     const newStatus = task.status === 'completed' ? 'pending' : 'completed'
     updateTask(task.id, { status: newStatus })
   }
 
-  // Calculate statistics
+  // Stats from legacy tasks
   const stats = useMemo(() => {
     const total = visibleTasks.length
     const completed = visibleTasks.filter(t => t.status === 'completed').length
     const inProgress = visibleTasks.filter(t => t.status === 'in_progress').length
     const pending = visibleTasks.filter(t => !t.status || t.status === 'pending').length
     const overdue = visibleTasks.filter(t => t.status !== 'completed' && t.deadline && new Date(t.deadline) < new Date()).length
-
     const pctCompleted = total > 0 ? Math.round((completed / total) * 100) : 0
     const pctInProgress = total > 0 ? Math.round((inProgress / total) * 100) : 0
     const pctPending = total > 0 ? Math.round((pending / total) * 100) : 0
-
     return { total, completed, inProgress, pending, overdue, pctCompleted, pctInProgress, pctPending }
   }, [visibleTasks])
 
-  // Donut chart priority data
+  // Group stats
+  const groupStats = useMemo(() => {
+    let totalItems = 0, completedItems = 0, totalFiles = 0
+    groups.forEach(g => {
+      totalItems += g.items.length
+      completedItems += g.items.filter(i => i.completed).length
+      totalFiles += g.files.length
+    })
+    return { totalGroups: groups.length, totalItems, completedItems, totalFiles }
+  }, [groups])
+
   const priorityChartData = useMemo(() => {
     const high = visibleTasks.filter(t => t.priority === 'high').length
     const medium = visibleTasks.filter(t => t.priority === 'medium').length
     const low = visibleTasks.filter(t => t.priority === 'low').length
     const none = visibleTasks.filter(t => !t.priority || t.priority === 'normal').length
-
     return [
-      { name: 'Tinggi', value: high },
-      { name: 'Sedang', value: medium },
-      { name: 'Rendah', value: low },
-      { name: 'Tidak ada', value: none }
+      { name: 'Tinggi', value: high }, { name: 'Sedang', value: medium },
+      { name: 'Rendah', value: low }, { name: 'Tidak ada', value: none },
     ].filter(d => d.value > 0)
   }, [visibleTasks])
 
-  // Group tasks by period
-  const groupedTasks = useMemo(() => {
+  const filteredTasks = useMemo(() => {
     const today = new Date()
     const todayStr = today.toDateString()
-
-    const groups = {
-      'Hari ini': [],
-      'Besok': [],
-      'Minggu Ini': [],
-      'Lainnya': []
-    }
-
-    visibleTasks.forEach(task => {
-      if (!task.deadline) {
-        groups['Lainnya'].push(task)
-        return
-      }
-
-      const dl = new Date(task.deadline)
-      const dlStr = dl.toDateString()
-
-      if (dlStr === todayStr) {
-        groups['Hari ini'].push(task)
-      } else {
-        const tomorrow = new Date()
-        tomorrow.setDate(today.getDate() + 1)
-        if (dlStr === tomorrow.toDateString()) {
-          groups['Besok'].push(task)
-        } else {
-          const diffTime = dl.getTime() - today.getTime()
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-          if (diffDays > 1 && diffDays <= 7) {
-            groups['Minggu Ini'].push(task)
-          } else {
-            groups['Lainnya'].push(task)
-          }
-        }
-      }
-    })
-
-    return groups
-  }, [tasks])
-
-  const handleAddTask = () => {
-    if (newTaskTitle.trim()) {
-      addTask({
-        title: newTaskTitle.trim(),
-        priority: newTaskPriority,
-        status: 'pending',
+    if (activeFilter === 'Hari Ini') {
+      return visibleTasks.filter(t => t.deadline && new Date(t.deadline).toDateString() === todayStr)
+    } else if (activeFilter === 'Minggu Ini') {
+      return visibleTasks.filter(t => {
+        if (!t.deadline) return false
+        const diff = Math.ceil((new Date(t.deadline).getTime() - today.getTime()) / 864e5)
+        return diff >= 0 && diff <= 7
       })
-      setNewTaskTitle('')
-      setShowAddForm(false)
+    } else if (activeFilter === 'Overdue' || activeFilter === 'Failed') {
+      return visibleTasks.filter(t => t.status !== 'completed' && t.deadline && new Date(t.deadline) < today)
+    }
+    return visibleTasks
+  }, [visibleTasks, activeFilter])
+
+  const handleCreateGroup = () => {
+    if (newGroupName.trim()) {
+      addTodoGroup(newGroupName.trim())
+      setNewGroupName('')
+      setShowAddGroup(false)
     }
   }
 
+  const handleAddItem = (groupId) => {
+    if (newItemText.trim()) {
+      addTodoGroupItem(groupId, newItemText.trim())
+      setNewItemText('')
+    }
+  }
+
+  const handleFileUpload = async (e, groupId) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingGroup(groupId)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api.b2Upload(formData)
+      addTodoGroupFile(groupId, {
+        name: res.file_name || file.name,
+        size: res.size || file.size,
+        url: res.url || '',
+        uploadedAt: Date.now(),
+      })
+    } catch (err) {
+      // Fallback: simpan metadata lokal saja (tanpa URL B2).
+      addTodoGroupFile(groupId, {
+        name: file.name,
+        size: file.size,
+        url: '',
+        uploadedAt: Date.now(),
+      })
+    } finally {
+      setUploadingGroup(null)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  const fmtSize = (b) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`)
+
   return (
-    <motion.div
-      className="todo-page-new"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
+    <motion.div className="todo-page-new" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* Header */}
       <div className="todo-header-new">
         <div className="todo-header-left">
@@ -140,280 +164,271 @@ export default function TodoList() {
         </div>
         <div className="todo-header-right">
           {canCreate && (
-            <button className="btn btn-primary" onClick={() => setShowAddForm(true)}>
-              <Plus size={16} /> Tambah Todo
-            </button>
+            <div className="create-btn-wrap">
+              <button className="btn btn-primary" onClick={() => setCreateDropdownOpen((v) => !v)}>
+                <Plus size={16} /> Tambah <ChevronDown size={14} />
+              </button>
+              <AnimatedDropdown show={createDropdownOpen}>
+                <div className="create-dropdown-menu">
+                  <button onClick={() => { setCreateDropdownOpen(false); setShowAddGroup(true) }}>
+                    <Folder size={14} /> Grup Todo
+                  </button>
+                  <button onClick={() => { setCreateDropdownOpen(false); setShowTemplateGallery(true) }}>
+                    <FileStack size={14} /> Dari Template
+                  </button>
+                </div>
+              </AnimatedDropdown>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Sub Header Filters */}
-      <div className="todo-filters-bar">
-        {['Semua', 'Hari Ini', 'Minggu Ini', 'Overdue'].map((filter) => (
-          <button
-            key={filter}
-            className={`filter-tab-btn ${activeFilter === filter ? 'active' : ''}`}
-            onClick={() => setActiveFilter(filter)}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
-
-      {/* KPI summary tiles */}
+      {/* KPI */}
       <div className="todo-kpi-grid">
         <div className="todo-kpi-card total">
-          <div className="kpi-icon"><CheckSquare size={20} /></div>
-          <div className="kpi-info">
-            <span className="label">Semua Tugas</span>
-            <strong>{stats.total}</strong>
-            <small>Total tugas</small>
-          </div>
+          <div className="kpi-icon"><Folder size={20} /></div>
+          <div className="kpi-info"><span className="label">Grup</span><strong>{groupStats.totalGroups}</strong><small>total grup</small></div>
         </div>
         <div className="todo-kpi-card selesai">
           <div className="kpi-icon"><CheckCircle2 size={20} /></div>
-          <div className="kpi-info">
-            <span className="label">Selesai</span>
-            <strong>{stats.completed}</strong>
-            <small>{stats.pctCompleted}% dari total</small>
-          </div>
+          <div className="kpi-info"><span className="label">Selesai</span><strong>{groupStats.completedItems}</strong><small>{groupStats.totalItems > 0 ? Math.round((groupStats.completedItems / groupStats.totalItems) * 100) : 0}% item</small></div>
         </div>
         <div className="todo-kpi-card proses">
-          <div className="kpi-icon"><Play size={20} /></div>
-          <div className="kpi-info">
-            <span className="label">Dalam Proses</span>
-            <strong>{stats.inProgress}</strong>
-            <small>{stats.pctInProgress}% dari total</small>
-          </div>
+          <div className="kpi-icon"><ListTodo size={20} /></div>
+          <div className="kpi-info"><span className="label">Total Item</span><strong>{groupStats.totalItems}</strong><small>di semua grup</small></div>
         </div>
         <div className="todo-kpi-card belum">
-          <div className="kpi-icon"><Clock size={20} /></div>
-          <div className="kpi-info">
-            <span className="label">Belum Dimulai</span>
-            <strong>{stats.pending}</strong>
-            <small>{stats.pctPending}% dari total</small>
-          </div>
-        </div>
-        <div className="todo-kpi-card overdue">
-          <div className="kpi-icon"><AlertCircle size={20} /></div>
-          <div className="kpi-info">
-            <span className="label">Overdue</span>
-            <strong>{stats.overdue}</strong>
-            <small className="danger-text">Perlu perhatian</small>
-          </div>
+          <div className="kpi-icon"><FileText size={20} /></div>
+          <div className="kpi-info"><span className="label">File</span><strong>{groupStats.totalFiles}</strong><small>terupload</small></div>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="todo-main-grid-new">
-        {/* Left Column: Task lists grouped */}
-        <div className="todo-list-section">
-          <h3>Daftar Tugas</h3>
-          <div className="todo-groups-container">
-            {Object.entries(groupedTasks).every(([, t]) => t.length === 0) ? (
-              <div className="target-list-empty">
-                <ListTodo size={40} />
-                <p>Tidak ada tugas untuk periode ini.</p>
-              </div>
-            ) : (
-              Object.entries(groupedTasks).map(([groupName, groupTasks]) => {
-                if (groupTasks.length === 0) return null
-                return (
-                <div key={groupName} className="todo-group-panel">
-                  <div className="group-header">
-                    <h4>{groupName} • {groupTasks.length}</h4>
+      {/* Todo Groups */}
+      <div className="todo-groups-section">
+        <div className="panel-header">
+          <h2>Grup Todo</h2>
+          <span className="target-list-count">{groups.length} grup</span>
+        </div>
+
+        {groups.length === 0 ? (
+          <div className="target-list-empty">
+            <Folder size={40} />
+            <p>Belum ada grup todo.</p>
+            <small>Buat grup untuk mengelompokkan tugas, misal "Pekerjaan Rumah".</small>
+            {canCreate && (
+              <button className="btn btn-primary" onClick={() => setShowAddGroup(true)}>
+                <Plus size={14} /> Buat Grup
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="todo-groups-list">
+            {groups.map((group) => {
+              const isExpanded = expandedGroup === group.id
+              const done = group.items.filter(i => i.completed).length
+              const total = group.items.length
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0
+
+              return (
+                <div key={group.id} className={`todo-group-card ${isExpanded ? 'expanded' : ''}`}>
+                  {/* Group header */}
+                  <div className="todo-group-header" onClick={() => setExpandedGroup(isExpanded ? null : group.id)}>
+                    <div className="todo-group-info">
+                      <Folder size={16} />
+                      {editingGroup === group.id ? (
+                        <input
+                          className="input todo-group-rename"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onBlur={() => { renameTodoGroup(group.id, editName.trim() || group.name); setEditingGroup(null) }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { renameTodoGroup(group.id, editName.trim() || group.name); setEditingGroup(null) } }}
+                          onClick={(e) => e.stopPropagation()}
+                          autoFocus
+                        />
+                      ) : (
+                        <strong>{group.name}</strong>
+                      )}
+                      <span className="todo-group-count">{done}/{total} selesai</span>
+                      {group.files.length > 0 && <span className="todo-group-file-count">{group.files.length} file</span>}
+                    </div>
+                    <div className="todo-group-actions" onClick={(e) => e.stopPropagation()}>
+                      <div className="todo-group-progress-mini">
+                        <div className="todo-group-progress-bar" style={{ width: `${pct}%` }} />
+                      </div>
+                      <button className="icon-btn-sm" title="Ganti nama" onClick={() => { setEditingGroup(group.id); setEditName(group.name) }}>
+                        <Pencil size={13} />
+                      </button>
+                      <button className="icon-btn-sm danger" title="Hapus grup" onClick={() => deleteTodoGroup(group.id)}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="group-tasks-list">
-                    {groupTasks.map((task) => {
-                      const project = projects.find(p => p.id === task.projectId)
-                      return (
-                        <div key={task.id} className={`todo-task-row ${task.status === 'completed' ? 'completed' : ''}`}>
-                          <input
-                            type="checkbox"
-                            checked={task.status === 'completed'}
-                            onChange={() => handleToggleComplete(task)}
-                          />
-                          <div className="task-body">
-                            <span className="task-title">{task.title}</span>
-                            <div className="task-tags-row">
-                              <span className="badge project-badge">{project ? project.name : 'Personal'}</span>
-                              <span className={`badge priority-badge ${task.priority || 'medium'}`}>
-                                {task.priority === 'high' ? 'Tinggi' : task.priority === 'low' ? 'Rendah' : 'Sedang'}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="task-deadline-text">
-                            {task.deadline ? formatDate(task.deadline) : 'Hari ini, 17:00'}
-                          </span>
-                          <span className={`task-status-pill ${task.status || 'pending'}`}>
-                            {task.status === 'completed' ? 'Selesai' : task.status === 'in_progress' ? 'Proses' : 'Belum Mulai'}
-                          </span>
-                          <div className="actions-cell">
+
+                  {/* Expanded: items + files */}
+                  {isExpanded && (
+                    <div className="todo-group-body">
+                      {/* Items */}
+                      <div className="todo-group-items">
+                        {group.items.map((item) => (
+                          <div key={item.id} className={`todo-group-item ${item.completed ? 'completed' : ''}`}>
                             <button
-                              className="action-dots-btn"
-                              onClick={() => setActiveMenuId(activeMenuId === task.id ? null : task.id)}
+                              className={`kanban-check ${item.completed ? 'on' : ''}`}
+                              onClick={() => toggleTodoGroupItem(group.id, item.id)}
                             >
-                              <MoreVertical size={14} />
+                              {item.completed && <Check size={12} />}
                             </button>
-                            <AnimatedDropdown show={activeMenuId === task.id}>
-                              <div className="todo-dropdown-menu">
-                                <button onClick={() => { handleToggleComplete(task); setActiveMenuId(null); }}>Selesai</button>
-                                <button onClick={() => { deleteTask(task.id); setActiveMenuId(null); }} className="danger">Hapus</button>
-                              </div>
-                            </AnimatedDropdown>
+                            <span className="todo-group-item-text">{item.text}</span>
+                            <button className="icon-btn-sm danger" onClick={() => removeTodoGroupItem(group.id, item.id)}>
+                              <X size={12} />
+                            </button>
                           </div>
+                        ))}
+                        {/* Add item */}
+                        <div className="todo-group-add-item">
+                          <input
+                            className="input"
+                            placeholder="Tambah item..."
+                            value={newItemText}
+                            onChange={(e) => setNewItemText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddItem(group.id) }}
+                          />
+                          <button className="btn btn-primary btn-sm" onClick={() => handleAddItem(group.id)}>
+                            <Plus size={14} />
+                          </button>
                         </div>
-                      )
-                    })}
+                      </div>
+
+                      {/* Files */}
+                      <div className="todo-group-files">
+                        <div className="todo-group-files-header">
+                          <span><FileText size={13} /> File ({group.files.length})</span>
+                          <label className={`btn btn-secondary btn-sm ${uploadingGroup === group.id ? 'disabled' : ''}`}>
+                            <Upload size={13} /> {uploadingGroup === group.id ? 'Upload...' : 'Upload File'}
+                            <input
+                              type="file"
+                              hidden
+                              onChange={(e) => handleFileUpload(e, group.id)}
+                              disabled={uploadingGroup === group.id}
+                            />
+                          </label>
+                        </div>
+                        {group.files.length > 0 && (
+                          <div className="todo-group-file-list">
+                            {group.files.map((f) => (
+                              <div key={f.id} className="todo-group-file-row">
+                                <FileText size={14} />
+                                <span className="todo-group-file-name">{f.name}</span>
+                                <span className="todo-group-file-size">{fmtSize(f.size)}</span>
+                                {f.url && (
+                                  <a className="icon-btn-sm" href={f.url} target="_blank" rel="noopener" title="Unduh">
+                                    <Download size={13} />
+                                  </a>
+                                )}
+                                <button className="icon-btn-sm danger" onClick={() => removeTodoGroupFile(group.id, f.id)}>
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Legacy tasks list */}
+      <div className="todo-list-section">
+        <div className="panel-header">
+          <h2>Daftar Tugas</h2>
+          <span className="target-list-count">{filteredTasks.length} tugas</span>
+        </div>
+        <div className="todo-filters-bar">
+          {['Semua', 'Hari Ini', 'Minggu Ini', 'Overdue', 'Failed'].map((filter) => (
+            <button key={filter} className={`filter-tab-btn ${activeFilter === filter ? 'active' : ''}`} onClick={() => setActiveFilter(filter)}>
+              {filter}
+            </button>
+          ))}
+        </div>
+        <div className="todo-groups-container">
+          {filteredTasks.length === 0 ? (
+            <div className="target-list-empty"><ListTodo size={40} /><p>Tidak ada tugas.</p></div>
+          ) : (
+            filteredTasks.map((task) => {
+              const project = projects.find(p => p.id === task.projectId)
+              return (
+                <div key={task.id} className={`todo-task-row ${task.status === 'completed' ? 'completed' : ''}`}>
+                  <input type="checkbox" checked={task.status === 'completed'} onChange={() => handleToggleComplete(task)} />
+                  <div className="task-body">
+                    <span className="task-title">{task.title}</span>
+                    <div className="task-tags-row">
+                      <span className="badge project-badge">{project ? project.name : 'Personal'}</span>
+                      <span className={`badge priority-badge ${task.priority || 'medium'}`}>
+                        {task.priority === 'high' ? 'Tinggi' : task.priority === 'low' ? 'Rendah' : 'Sedang'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="task-deadline-text">{task.deadline ? formatDate(task.deadline) : ''}</span>
+                  <span className={`task-status-pill ${task.status || 'pending'} ${task.deadline && task.status !== 'completed' && new Date(task.deadline) < new Date() ? 'failed' : ''}`}>
+                    {task.deadline && task.status !== 'completed' && new Date(task.deadline) < new Date() ? 'Gagal' : task.status === 'completed' ? 'Selesai' : task.status === 'in_progress' ? 'Proses' : 'Belum Mulai'}
+                  </span>
+                  <div className="actions-cell">
+                    <button className="action-dots-btn" onClick={() => setActiveMenuId(activeMenuId === task.id ? null : task.id)}><MoreVertical size={14} /></button>
+                    <AnimatedDropdown show={activeMenuId === task.id}>
+                      <div className="todo-dropdown-menu">
+                        <button onClick={() => { handleToggleComplete(task); setActiveMenuId(null) }}>Selesai</button>
+                        <button onClick={() => { deleteTask(task.id); setActiveMenuId(null) }} className="danger">Hapus</button>
+                      </div>
+                    </AnimatedDropdown>
                   </div>
                 </div>
               )
             })
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Dashboard Stats */}
-        <div className="todo-dashboard-sidebar">
-          {/* Prioritas Donut Chart */}
-          <div className="sidebar-panel priorities-panel">
-            <h3>Prioritas</h3>
-            <div className="donut-chart-container">
-              <ResponsiveContainer width="100%" height={150}>
-                <PieChart>
-                  <Pie
-                    data={priorityChartData.length ? priorityChartData : [{ name: 'Sedang', value: 1 }]}
-                    dataKey="value"
-                    innerRadius={45}
-                    outerRadius={65}
-                    paddingAngle={2}
-                    stroke="none"
-                  >
-                    {(priorityChartData.length ? priorityChartData : [{ name: 'Sedang', value: 1 }]).map((entry, idx) => (
-                      <Cell key={entry.name} fill={PRIORITY_COLORS[idx % PRIORITY_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="donut-center-label">
-                <strong>{stats.total}</strong>
-                <span>Total</span>
-              </div>
-            </div>
-            <div className="chart-legend-list">
-              <div className="legend-row">
-                <span className="dot red" />
-                <span>Tinggi</span>
-                <strong>{visibleTasks.filter(t => t.priority === 'high').length}</strong>
-              </div>
-              <div className="legend-row">
-                <span className="dot orange" />
-                <span>Sedang</span>
-                <strong>{visibleTasks.filter(t => t.priority === 'medium').length}</strong>
-              </div>
-              <div className="legend-row">
-                <span className="dot green" />
-                <span>Rendah</span>
-                <strong>{visibleTasks.filter(t => t.priority === 'low').length}</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Status Breakdown Panel */}
-          <div className="sidebar-panel status-breakdown-panel">
-            <h3>Status</h3>
-            <div className="status-bars-list">
-              <div className="status-bar-item">
-                <div className="status-bar-info">
-                  <span>Selesai</span>
-                  <strong>{stats.completed} ({stats.pctCompleted}%)</strong>
-                </div>
-                <div className="status-progress-track">
-                  <div className="status-progress-fill green" style={{ width: `${stats.pctCompleted}%` }} />
-                </div>
-              </div>
-              <div className="status-bar-item">
-                <div className="status-bar-info">
-                  <span>Dalam Proses</span>
-                  <strong>{stats.inProgress} ({stats.pctInProgress}%)</strong>
-                </div>
-                <div className="status-progress-track">
-                  <div className="status-progress-fill blue" style={{ width: `${stats.pctInProgress}%` }} />
-                </div>
-              </div>
-              <div className="status-bar-item">
-                <div className="status-bar-info">
-                  <span>Belum Dimulai</span>
-                  <strong>{stats.pending} ({stats.pctPending}%)</strong>
-                </div>
-                <div className="status-progress-track">
-                  <div className="status-progress-fill gray" style={{ width: `${stats.pctPending}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tugas Mendatang panel */}
-          <div className="sidebar-panel upcoming-deadlines-panel">
-            <h3>Tugas Mendatang</h3>
-            <div className="upcoming-list">
-              {tasks.slice(0, 3).map((task) => (
-                <div key={task.id} className="upcoming-item">
-                  <div className="upcoming-date">
-                    <Calendar size={14} />
-                    <span>{task.deadline ? formatDate(task.deadline) : '22 Agu 2026'}</span>
-                  </div>
-                  <p>{task.title}</p>
-                </div>
-              ))}
-            </div>
-            <button className="btn btn-secondary btn-full">Lihat Kalender</button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Add Task Modal/Form Overlay */}
-      {showAddForm && (
-        <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
+      {/* Add Group Modal */}
+      {showAddGroup && (
+        <div className="modal-overlay" onClick={() => setShowAddGroup(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Todo Baru</h2>
-              <button className="close-btn" onClick={() => setShowAddForm(false)}>
-                <X size={18} />
-              </button>
+              <h2>Grup Todo Baru</h2>
+              <button className="close-btn" onClick={() => setShowAddGroup(false)}><X size={18} /></button>
             </div>
             <div className="modal-body">
               <div className="input-group">
-                <label className="input-label">Judul Tugas</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Ketik tugas baru..."
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Prioritas</label>
-                <select
-                  className="input"
-                  value={newTaskPriority}
-                  onChange={(e) => setNewTaskPriority(e.target.value)}
-                >
-                  <option value="high">Tinggi</option>
-                  <option value="medium">Sedang</option>
-                  <option value="low">Rendah</option>
-                </select>
+                <label className="input-label">Nama Grup</label>
+                <input type="text" className="input" placeholder="cth: Pekerjaan Rumah" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} autoFocus />
+                <p className="field-hint">Buat grup untuk mengelompokkan tugas, misal "Pekerjaan Rumah", "Project Website", dll.</p>
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowAddForm(false)}>Batal</button>
-              <button className="btn btn-primary" onClick={handleAddTask}>Simpan</button>
+              <button className="btn btn-secondary" onClick={() => setShowAddGroup(false)}>Batal</button>
+              <button className="btn btn-primary" onClick={handleCreateGroup}>Buat Grup</button>
             </div>
           </div>
         </div>
+      )}
+
+      {showTemplateGallery && (
+        <TemplateGallery type="todos" onClose={() => setShowTemplateGallery(false)}
+          onUse={(data) => {
+            if (data && Array.isArray(data.items)) {
+              data.items.forEach((item) => {
+                if (item.title && item.title.trim()) {
+                  addTask({ title: item.title.trim(), priority: item.priority || 'medium', status: 'pending' })
+                }
+              })
+            }
+          }}
+          currentData={{ items: visibleTasks.map((t) => ({ title: t.title, priority: t.priority })) }}
+          currentName="Template Todo"
+        />
       )}
     </motion.div>
   )

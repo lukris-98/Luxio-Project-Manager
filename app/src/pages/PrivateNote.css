@@ -730,3 +730,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Tablet & HP: modal catatan tidak melebihi viewport & isinya bisa di-scroll. */
+@media (max-width: 640px) {
+  .note-modal {
+    max-height: 92dvh;
+    overflow-y: auto;
+  }
+}

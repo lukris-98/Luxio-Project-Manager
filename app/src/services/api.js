@@ -285,6 +285,18 @@ export const api = {
   neonProxy: (method, path, body, apiKey) =>
     post('/api/owner/neon/proxy', { method, path, body, api_key: apiKey || '' }),
   b2Status: () => get('/api/owner/b2/status'),
+  // Upload file ke B2 (generic — untuk todo group files).
+  b2Upload: (formData) => {
+    const token = getToken()
+    return fetch(`${API_BASE}/api/owner/b2/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(await res.text())
+      return res.json()
+    })
+  },
   // Konfigurasi Neon aktif (dari .env, owner).
   neonActiveConfig: () => get('/api/owner/neon/active'),
   // Tes kirim email (owner).
@@ -352,6 +364,19 @@ export const api = {
   addNeonOrganization: (data) => post('/api/owner/neon/organizations', data),
   deleteNeonOrganization: (id) => del(`/api/owner/neon/organizations/${id}`, {}),
   setActiveNeonOrganization: (id) => post(`/api/owner/neon/organizations/${id}/activate`, {}),
+
+  // ---- User Credentials Management (terenkripsi AES-256-GCM di DB) ----
+  listCredentials: () => get('/api/credentials'),
+  createCredential: (data) => post('/api/credentials', data),
+  updateCredential: (id, data) => put(`/api/credentials/${id}`, data),
+  deleteCredential: (id) => del(`/api/credentials/${id}`, {}),
+  activateCredential: (id) => post(`/api/credentials/${id}/activate`, {}),
+  revealCredential: (id) => post(`/api/credentials/${id}/reveal`, {}),
+  testCredential: (data) => post('/api/credentials/test', data),
+  getCredentialsRotationDue: () => get('/api/credentials/rotation-due'),
+  importEnvCredentials: () => post('/api/credentials/import-env', {}),
+  exportCredentials: (password) => post('/api/credentials/export', { password }),
+  importCredentials: (password, bundle) => post('/api/credentials/import', { password, bundle }),
 
   // ---- Lupa Password ----
   forgotPassword: (email) => post('/api/auth/forgot-password', { email }),

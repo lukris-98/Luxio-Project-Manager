@@ -4,7 +4,7 @@ import Select from './Select'
 import ThemeSelect from './ThemeSelect'
 import StageEditor from './StageEditor'
 import DeadlinePicker from './DeadlinePicker'
-import { X, KanbanSquare, ListTodo, Target, Users, Filter } from 'lucide-react'
+import { X, KanbanSquare, ListTodo, Target, Users, Filter, Plus, Trash2 } from 'lucide-react'
 import './TargetForm.css'
 
 // =====================================================================
@@ -64,6 +64,7 @@ export default function TargetForm({ onClose, onCreated, initial }) {
     deadlineLabel: initial?.deadlineLabel || '',
     collaboratorIds: initial?.collaboratorIds || [],
     stages: stagesToEditor(initial?.stages),
+    todoItems: initial?.todoItems || [],
   })
   const [divisionFilter, setDivisionFilter] = useState('')
 
@@ -95,6 +96,8 @@ export default function TargetForm({ onClose, onCreated, initial }) {
       collaboratorIds: form.collaboratorIds,
       // Alur kanban dibawa ke store (kolom = tahap, task = to-do).
       ...(form.viewType === 'kanban' ? { stages: form.stages } : {}),
+      // Todo items dibawa ke store untuk otomatis membuat task.
+      ...(form.viewType === 'todo' ? { todoItems: form.todoItems } : {}),
     }
     let id = initial?.id
     if (isEditing && id != null) {
@@ -239,6 +242,71 @@ export default function TargetForm({ onClose, onCreated, initial }) {
                 stageLabel="Tahap"
                 addLabel="Tambah Tahap"
               />
+            </div>
+          )}
+
+          {/* Editor to-do list — CRUD satu per satu */}
+          {form.viewType === 'todo' && (
+            <div className="input-group todo-items-editor">
+              <label className="input-label">Daftar To-do</label>
+              <p className="field-hint">
+                Tambahkan tugas satu per satu. To-do ini akan otomatis dibuat sebagai task saat project selesai dibuat.
+              </p>
+
+              <div className="todo-items-list">
+                {form.todoItems.map((item, i) => (
+                  <div key={i} className="todo-item-row">
+                    <input
+                      type="text"
+                      className="input todo-item-input"
+                      placeholder={`Tugas ${i + 1}...`}
+                      value={item.title}
+                      onChange={(e) => {
+                        const newItems = [...form.todoItems]
+                        newItems[i] = { ...newItems[i], title: e.target.value }
+                        setForm((f) => ({ ...f, todoItems: newItems }))
+                      }}
+                    />
+                    <Select
+                      allowReset={false}
+                      value={item.priority || 'medium'}
+                      onChange={(v) => {
+                        const newItems = [...form.todoItems]
+                        newItems[i] = { ...newItems[i], priority: v }
+                        setForm((f) => ({ ...f, todoItems: newItems }))
+                      }}
+                      options={[
+                        { value: 'high', label: 'Tinggi' },
+                        { value: 'medium', label: 'Sedang' },
+                        { value: 'low', label: 'Rendah' },
+                      ]}
+                    />
+                    <button
+                      className="icon-btn"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, todoItems: f.todoItems.filter((_, j) => j !== i) }))
+                      }}
+                      aria-label="Hapus tugas"
+                      title="Hapus tugas"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  setForm((f) => ({
+                    ...f,
+                    todoItems: [...f.todoItems, { title: '', priority: 'medium' }],
+                  }))
+                }}
+              >
+                <Plus size={14} /> Tambah Tugas
+              </button>
             </div>
           )}
 

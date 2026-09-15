@@ -3,7 +3,7 @@ import { getAppThemeFamily, getAppThemeMode, makeAppTheme, useStore } from '../s
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import PinInput from '../components/PinInput'
 import { motion } from 'framer-motion'
-import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, Palette, Trash2, Plus, Cloud, CloudOff, RefreshCw, Database } from 'lucide-react'
+import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, EyeOff, Download, Upload, Zap, Palette, Trash2, Plus, Cloud, CloudOff, RefreshCw, Database } from 'lucide-react'
 import { api } from '../services/api'
 import useSyncStatus, { STORAGE_SOFT_LIMIT_BYTES } from '../hooks/useSyncStatus'
 import './Settings.css'
@@ -318,6 +318,707 @@ function NeonOrgManagement() {
           </div>
         )}
       </div>
+    </motion.div>
+  )
+}
+
+// =====================================================================
+// CredentialManagement — kredensial API terenkripsi di database
+// (Requirements Document: user-credentials-management).
+// Hanya owner/super_admin. Nilai SELALU masked dari server (Req 14.7);
+// ikon mata memanggil endpoint /reveal yang diaudit + auto re-mask
+// setelah 30 detik tanpa aktivitas (Req 14.3-14.6).
+// =====================================================================
+const CRED_PROVIDERS = ['neon', 'smtp', 'backblaze_b2', 'openai', 'anthropic', 'custom']
+const CRED_PROVIDER_LABELS = {
+  neon: 'Neon',
+  smtp: 'SMTP',
+  backblaze_b2: 'Backblaze B2',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  custom: 'Custom',
+}
+// Field per provider (Req 2.2-2.7). `secret: 'password'` -> dots,
+// `secret: 'key'` -> mask parsial "abc...xyz" (server-side yang otoritatif).
+const CRED_FIELD_DEFS = {
+  neon: [
+    { key: 'api_key', label: 'API Key', required: true, secret: 'key', hint: 'Organization / Personal API key dari Neon Console' },
+    { key: 'org_id', label: 'Organization ID (opsional)', hint: 'org-xxxxx-xxxxx-xxxxx' },
+  ],
+  smtp: [
+    { key: 'host', label: 'Host', required: true, placeholder: 'smtp.gmail.com' },
+    { key: 'port', label: 'Port', required: true, type: 'number', placeholder: '587' },
+    { key: 'username', label: 'Username', required: true },
+    { key: 'password', label: 'Password / App Password', required: true, secret: 'password' },
+    { key: 'from_address', label: 'From Address', required: true, placeholder: 'noreply@domain.com' },
+  ],
+  backblaze_b2: [
+    { key: 'application_key_id', label: 'Application Key ID', required: true, secret: 'key' },
+    { key: 'application_key', label: 'Application Key', required: true, secret: 'key' },
+    { key: 'bucket_name', label: 'Bucket Name (opsional)' },
+  ],
+  openai: [
+    { key: 'api_key', label: 'API Key', required: true, secret: 'key', hint: 'Dimulai dengan "sk-"' },
+    { key: 'organization_id', label: 'Organization ID (opsional)' },
+    { key: 'base_url', label: 'Base URL (opsional)', hint: 'default https://api.openai.com/v1' },
+  ],
+  anthropic: [
+    { key: 'api_key', label: 'API Key', required: true, secret: 'key', hint: 'Dimulai dengan "sk-ant-"' },
+  ],
+  custom: [],
+}
+
+function credApiMsg(e, fallback) {
+  // Pesan error server selalu generik / tanpa plaintext (Req 3.10-3.11).
+  try {
+    const j = JSON.parse(e.message)
+    if (j && j.message) return j.message
+  } catch { /* bukan JSON — pakai teks mentah */ }
+  return e.message || fallback || 'Operasi gagal'
+}
+
+function customSecretKind(key) {
+  const k = String(key).toLowerCase()
+  if (k.includes('password')) return 'password'
+  if (k.includes('key') || k.includes('secret') || k.includes('token')) return 'key'
+  return null
+}
+
+function CredentialManagement({ isOwner }) {
+  const [creds, setCreds] = useState([])
+  const [envProviders, setEnvProviders] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [form, setForm] = useState(null)
+  const [revealed, setRevealed] = useState({})
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [ioModal, setIoModal] = useState(null)
+  const lastActivity = useRef(Date.now())
+  const revealedRef = useRef(revealed)
+  revealedRef.current = revealed
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const res = await api.listCredentials()
+      setCreds(res.credentials || [])
+      setEnvProviders(res.env_providers || [])
+    } catch (e) {
+      setError(credApiMsg(e, 'Gagal memuat daftar kredensial'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  // Req 14.6 — auto re-mask setelah 30 detik tanpa aktivitas di Settings.
+  useEffect(() => {
+    const bump = () => { lastActivity.current = Date.now() }
+    window.addEventListener('mousemove', bump)
+    window.addEventListener('keydown', bump)
+    const timer = setInterval(() => {
+      if (Object.keys(revealedRef.current).length && Date.now() - lastActivity.current > 30000) {
+        setRevealed({})
+      }
+    }, 5000)
+    return () => {
+      window.removeEventListener('mousemove', bump)
+      window.removeEventListener('keydown', bump)
+      clearInterval(timer)
+    }
+  }, [])
+
+  const openForm = (provider, cred) => {
+    const values = {}
+    ;(CRED_FIELD_DEFS[provider] || []).forEach((f) => {
+      values[f.key] = cred && cred.data ? (cred.data[f.key] ?? '') : ''
+    })
+    setForm({
+      mode: cred ? 'edit' : 'add',
+      id: cred?.id,
+      provider,
+      displayName: cred?.display_name || '',
+      values,
+      customPairs: cred && provider === 'custom'
+        ? Object.entries(cred.data || {}).map(([k, v]) => ({ k, v: String(v ?? '') }))
+        : [{ k: '', v: '' }],
+      show: {},
+      test: null,
+      busy: false,
+    })
+    setError('')
+    setSuccess('')
+  }
+
+  const buildData = () => {
+    if (form.provider === 'custom') {
+      const out = {}
+      form.customPairs.forEach(({ k, v }) => {
+        const key = k.trim()
+        if (key) out[key] = v
+      })
+      return out
+    }
+    const out = {}
+    CRED_FIELD_DEFS[form.provider].forEach((f) => {
+      const raw = String(form.values[f.key] ?? '').trim()
+      if (raw !== '') out[f.key] = f.type === 'number' ? Number(raw) : raw
+    })
+    return out
+  }
+
+  const submitForm = async () => {
+    setForm({ ...form, busy: true })
+    setError('')
+    setSuccess('')
+    try {
+      const payload = {
+        provider_type: form.provider,
+        display_name: form.displayName.trim(),
+        data: buildData(),
+      }
+      if (form.mode === 'add') {
+        const res = await api.createCredential(payload)
+        setSuccess(`Kredensial ${CRED_PROVIDER_LABELS[form.provider]} berhasil disimpan` + (res.warning ? ` — ${res.warning}` : ''))
+      } else {
+        const res = await api.updateCredential(form.id, payload)
+        setSuccess('Kredensial berhasil diperbarui' + (res.warning ? ` — ${res.warning}` : ''))
+      }
+      setForm(null)
+      await load() // Req 3.5 — refresh daftar setelah submit
+    } catch (e) {
+      setError(credApiMsg(e, 'Gagal menyimpan kredensial'))
+      setForm({ ...form, busy: false })
+    }
+  }
+
+  // Req 12 — uji koneksi, read-only (tidak menyimpan apa pun).
+  const testConnection = async () => {
+    const target = form.mode === 'edit'
+      ? { id: form.id }
+      : { provider_type: form.provider, data: buildData() }
+    setForm({ ...form, test: { busy: true } })
+    try {
+      const res = await api.testCredential(target)
+      setForm({ ...form, test: { ok: true, text: res.message || 'Connection successful' } })
+    } catch (e) {
+      setForm({ ...form, test: { ok: false, text: credApiMsg(e, 'Uji koneksi gagal') } })
+    }
+  }
+
+  const activate = async (id) => {
+    setError('')
+    setSuccess('')
+    try {
+      const res = await api.activateCredential(id)
+      setSuccess('Kredensial diaktifkan' + (res.warning ? ` — ${res.warning}` : ''))
+      await load()
+    } catch (e) {
+      setError(credApiMsg(e, 'Gagal mengaktifkan kredensial'))
+    }
+  }
+
+  const confirmDelete = async () => {
+    const t = deleteTarget
+    if (!t) return
+    setError('')
+    try {
+      await api.deleteCredential(t.id)
+      setSuccess('Kredensial berhasil dihapus') // Req 15.7
+      setDeleteTarget(null)
+      setDeleteConfirm('')
+      await load()
+    } catch (e) {
+      setDeleteTarget(null)
+      setError(credApiMsg(e, 'Gagal menghapus kredensial')) // Req 15.8
+    }
+  }
+
+  const toggleReveal = async (c) => {
+    if (revealed[c.id]) {
+      const next = { ...revealed }
+      delete next[c.id]
+      setRevealed(next) // Req 14.5 — klik lagi -> masked lagi
+      return
+    }
+    try {
+      const res = await api.revealCredential(c.id)
+      setRevealed({ ...revealed, [c.id]: res.data || {} }) // Req 14.4
+    } catch (e) {
+      setError(credApiMsg(e, 'Gagal membuka kredensial'))
+    }
+  }
+
+  const doExport = async () => {
+    setIoModal({ ...ioModal, busy: true, error: '' })
+    try {
+      const res = await api.exportCredentials(ioModal.password)
+      // Req 17.1 — unduh berkas JSON terenkripsi password.
+      const url = URL.createObjectURL(new Blob([JSON.stringify(res.bundle, null, 2)], { type: 'application/json' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = res.file_name || 'luxio-credentials-export.json'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setIoModal(null)
+      setSuccess(`Ekspor ${res.count} kredensial ke berkas terenkripsi`)
+    } catch (e) {
+      setIoModal({ ...ioModal, busy: false, error: credApiMsg(e, 'Ekspor gagal') })
+    }
+  }
+
+  const onImportFile = async (file) => {
+    if (!file) return
+    try {
+      const bundle = JSON.parse(await file.text())
+      setIoModal({ ...ioModal, bundle, fileName: file.name, error: '', summary: '', errors: [] })
+    } catch {
+      setIoModal({ ...ioModal, bundle: null, fileName: '', error: 'Berkas bukan JSON ekspor yang valid' })
+    }
+  }
+
+  const doImport = async () => {
+    setIoModal({ ...ioModal, busy: true, error: '' })
+    try {
+      const res = await api.importCredentials(ioModal.password, ioModal.bundle)
+      setIoModal({
+        ...ioModal,
+        busy: false,
+        errors: res.errors || [],
+        summary: res.summary_text || `${res.imported} credentials imported, ${res.skipped} skipped`, // Req 17.8
+      })
+      await load() // Req 3.5
+    } catch (e) {
+      setIoModal({ ...ioModal, busy: false, error: credApiMsg(e, 'Impor gagal') })
+    }
+  }
+
+  // Req 8 — migrasi kredensial .env ke database (khusus owner).
+  const importEnv = async () => {
+    if (!window.confirm('Impor kredensial dari variabel .env backend ke database terenkripsi?')) return
+    setError('')
+    setSuccess('')
+    setLoading(true)
+    try {
+      const res = await api.importEnvCredentials()
+      const parts = []
+      if (res.imported?.length) parts.push(`${res.imported.length} diimpor`)
+      if (res.skipped?.length) parts.push(`${res.skipped.length} dilewati`)
+      if (res.errors?.length) parts.push(`${res.errors.length} error`)
+      setSuccess(`Impor dari .env selesai: ${parts.join(', ') || 'tidak ada perubahan'}. ${res.note || ''}`)
+      await load()
+    } catch (e) {
+      setError(credApiMsg(e, 'Impor dari .env gagal'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fieldLabel = (f) => `${f.label}${f.required ? ' *' : ''}`
+
+  return (
+    <motion.div className="settings-section" variants={{ hidden: { opacity: 1, y: 15 }, visible: { opacity: 1, y: 0 } }}>
+      <div className="section-header">
+        <KeyRound size={18} />
+        <h2>Credentials Management</h2>
+      </div>
+      <div className="settings-card">
+        <div className="settings-item column-item">
+          <div>
+            <span className="item-label">Kredensial API (terenkripsi AES-256-GCM di database)</span>
+            <p className="item-desc">
+              Simpan API key Neon, SMTP, Backblaze B2, OpenAI, Anthropic, atau custom di sini —
+              bukan di file .env, sehingga tidak akan pernah ter-commit ke Git.
+              Nilai sensitif selalu ditampilkan ter-mask; klik ikon mata untuk membuka sementara
+              (tertutup sendiri setelah 30 detik tidak aktif).
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setIoModal({ mode: 'export', password: '', busy: false, error: '' })}>
+              <Download size={13} /> Export Credentials
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setIoModal({ mode: 'import', password: '', bundle: null, fileName: '', busy: false, error: '', summary: '', errors: [] })}>
+              <Upload size={13} /> Import Credentials
+            </button>
+          </div>
+        </div>
+
+        {envProviders.length > 0 && (
+          <div className="settings-item column-item">
+            <div className="cred-env-banner">
+              <AlertTriangle size={15} />
+              <div style={{ flex: 1 }}>
+                Provider yang juga masih terisi di .env: <strong>{envProviders.map((p) => CRED_PROVIDER_LABELS[p] || p).join(', ')}</strong>.
+                {' '}Kredensial database diprioritaskan saat keduanya ada.
+                {isOwner && (
+                  <button className="btn btn-secondary btn-sm" style={{ marginLeft: 10 }} onClick={importEnv} disabled={loading}>
+                    Import dari .env
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="settings-item">
+            <div className="gmail-error" style={{ marginBottom: 10 }}>
+              <AlertTriangle size={15} /> {error}
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="settings-item">
+            <div className="cred-success" style={{ marginBottom: 10 }}>
+              ✅ {success}
+            </div>
+          </div>
+        )}
+
+        {loading && creds.length === 0 ? (
+          <div className="settings-item">
+            <span className="item-value">Memuat kredensial…</span>
+          </div>
+        ) : (
+          CRED_PROVIDERS
+            .filter((provider) => {
+              // Neon & B2 khusus owner saja (akses halaman Penyimpanan).
+              if ((provider === 'neon' || provider === 'backblaze_b2') && !isOwner) return false
+              return true
+            })
+            .map((provider) => {
+            const list = creds.filter((c) => c.provider_type === provider)
+            const label = CRED_PROVIDER_LABELS[provider] || provider
+            return (
+              <div key={provider} className="settings-item column-item cred-group">
+                <div className="cred-group-head">
+                  <span className="item-label">
+                    {label}
+                    <span className="cred-count"> · {list.length > 0 ? `${list.length} tersimpan` : 'belum ada'}</span>
+                  </span>
+                  <button className="btn btn-primary btn-sm" onClick={() => openForm(provider, null)}>
+                    <Plus size={14} /> Add Credential
+                  </button>
+                </div>
+
+                {list.length === 0 ? (
+                  <p className="item-desc">Belum ada kredensial {label}. Klik “Add Credential” untuk menambah.</p>
+                ) : (
+                  <div className="ai-provider-list" style={{ width: '100%' }}>
+                    {list.map((c) => {
+                      const isRevealed = !!revealed[c.id]
+                      const plain = revealed[c.id] || {}
+                      return (
+                        <div key={c.id} className={`ai-provider-item ${c.is_active ? 'active' : ''}`}>
+                          <div className="ai-provider-main">
+                            <span className="ai-provider-name">
+                              {c.display_name}
+                              {c.is_active && <span className="cred-badge cred-badge-active">Active</span>}
+                              {c.needs_rotation && (
+                                <span className="cred-badge" role="note">
+                                  <AlertTriangle size={11} /> Consider rotating this credential
+                                  <span className="cred-tooltip">
+                                    This credential is {c.age_days} days old. Rotate credentials regularly for better security.
+                                  </span>
+                                </span>
+                              )}
+                            </span>
+                            <span className="ai-provider-meta">
+                              {label}
+                              {c.decrypt_error && ' · data tidak terbaca (kunci enkripsi berubah?)'}
+                              {' · '}{isRevealed ? 'tertampil' : 'masked'}
+                            </span>
+                            <div className="cred-fields">
+                              {Object.entries(c.data || {}).map(([k, v]) => (
+                                <code key={k} className="cred-field-pair">
+                                  {k}: {isRevealed && plain[k] !== undefined ? String(plain[k]) : String(v ?? '')}
+                                </code>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="ai-provider-actions">
+                            {/* Req 14.3-14.5 — ikon mata buka/tutup plaintext */}
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => toggleReveal(c)}
+                              title={isRevealed ? 'Tutup nilai kredensial' : 'Tampilkan nilai lengkap'}
+                              disabled={!c.data}
+                            >
+                              {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+                            </button>
+                            {!c.is_active && (
+                              <button className="btn btn-secondary btn-sm" onClick={() => activate(c.id)} title="Jadikan aktif">
+                                Activate
+                              </button>
+                            )}
+                            <button className="btn btn-secondary btn-sm" onClick={() => openForm(c.provider_type, c)} title="Edit">
+                              <Pencil size={13} /> Edit
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => { setDeleteTarget(c); setDeleteConfirm(''); setError('') }}
+                              title="Hapus"
+                            >
+                              <Trash2 size={13} /> Delete
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* ---- Form tambah/edit (+ Test Connection) ---- */}
+      {form && (
+        <div className="settings-modal-overlay" onClick={() => setForm(null)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-head">
+              <KeyRound size={16} />
+              <h3>{form.mode === 'add' ? `+ Add Credential — ${CRED_PROVIDER_LABELS[form.provider]}` : `Edit — ${CRED_PROVIDER_LABELS[form.provider]}`}</h3>
+            </div>
+            <p className="settings-modal-desc">
+              Data dikirim ke backend dan disimpan terenkripsi (AES-256-GCM).
+              {' '}Field bertanda * wajib diisi. Saat edit, nilai berformat “abc…xyz” berarti tidak diubah.
+            </p>
+
+            <div className="input-group">
+              <label className="input-label">Nama Tampilan *</label>
+              <input
+                className="input"
+                maxLength={100}
+                placeholder='mis. "Neon Produksi"'
+                value={form.displayName}
+                onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+              />
+              <p className="field-hint">Maksimal 100 karakter. Tag HTML dibersihkan otomatis.</p>
+            </div>
+
+            {CRED_FIELD_DEFS[form.provider].map((f) => (
+              <div className="input-group" key={f.key}>
+                <label className="input-label">{fieldLabel(f)}</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    className="input"
+                    type={f.secret && !form.show[f.key] ? 'password' : f.type === 'number' ? 'number' : 'text'}
+                    placeholder={f.placeholder || (form.mode === 'add' ? (f.hint || '') : '')}
+                    value={form.values[f.key] ?? ''}
+                    onChange={(e) => setForm({ ...form, values: { ...form.values, [f.key]: e.target.value }, test: null })}
+                  />
+                  {f.secret && (
+                    <button
+                      type="button"
+                      className="cred-eye"
+                      onClick={() => setForm({ ...form, show: { ...form.show, [f.key]: !form.show[f.key] } })}
+                      title="Toggle visibilitas"
+                    >
+                      {form.show[f.key] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  )}
+                </div>
+                {f.hint && <p className="field-hint">{f.hint}</p>}
+              </div>
+            ))}
+
+            {form.provider === 'custom' && (
+              <div className="input-group">
+                <label className="input-label">Key-value pairs *</label>
+                {form.customPairs.map((pair, i) => {
+                  const kind = customSecretKind(pair.k)
+                  return (
+                    <div className="cred-pair-row" key={i}>
+                      <input
+                        className="input"
+                        placeholder="mis. client_id"
+                        value={pair.k}
+                        onChange={(e) => {
+                          const next = [...form.customPairs]
+                          next[i] = { ...next[i], k: e.target.value }
+                          setForm({ ...form, customPairs: next })
+                        }}
+                      />
+                      <input
+                        className="input"
+                        type={kind && !form.show[`pair${i}`] ? 'password' : 'text'}
+                        placeholder="value"
+                        value={pair.v}
+                        onChange={(e) => {
+                          const next = [...form.customPairs]
+                          next[i] = { ...next[i], v: e.target.value }
+                          setForm({ ...form, customPairs: next })
+                        }}
+                      />
+                      {kind && (
+                        <button
+                          type="button"
+                          className="cred-eye"
+                          onClick={() => setForm({ ...form, show: { ...form.show, [`pair${i}`]: !form.show[`pair${i}`] } })}
+                        >
+                          {form.show[`pair${i}`] ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={() => setForm({ ...form, customPairs: form.customPairs.filter((_, j) => j !== i) })}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )
+                })}
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ alignSelf: 'flex-start' }}
+                  onClick={() => setForm({ ...form, customPairs: [...form.customPairs, { k: '', v: '' }] })}
+                >
+                  <Plus size={13} /> Tambah pasangan
+                </button>
+                <p className="field-hint">Key yang mengandung “key/secret/token/password” otomatis di-mask di daftar.</p>
+              </div>
+            )}
+
+            {form.test && (
+              <div className={form.test.ok ? 'settings-modal-success' : 'settings-modal-error'}>
+                {form.test.busy ? 'Menguji koneksi…' : form.test.text}
+              </div>
+            )}
+            {error && <div className="settings-modal-error">{error}</div>}
+
+            <div className="settings-modal-actions">
+              {form.provider !== 'custom' && (
+                <button className="btn btn-secondary" onClick={testConnection} disabled={form.test?.busy || form.busy}>
+                  <Zap size={14} /> Test Connection
+                </button>
+              )}
+              <button className="btn btn-secondary" onClick={() => setForm(null)}>Batal</button>
+              <button className="btn btn-primary" onClick={submitForm} disabled={form.busy}>
+                <Save size={14} /> {form.busy ? 'Menyimpan…' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Konfirmasi hapus (Req 15) ---- */}
+      {deleteTarget && (
+        <div className="settings-modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-head">
+              <Trash2 size={16} />
+              <h3>Hapus kredensial?</h3>
+            </div>
+            <p className="settings-modal-desc">
+              <strong>{deleteTarget.display_name}</strong> provider <strong>{CRED_PROVIDER_LABELS[deleteTarget.provider_type] || deleteTarget.provider_type}</strong>
+            </p>
+            {deleteTarget.is_active && (
+              <>
+                <div className="settings-modal-error" style={{ marginBottom: 4 }}>
+                  This is your active credential for {CRED_PROVIDER_LABELS[deleteTarget.provider_type] || deleteTarget.provider_type}.
+                  {' '}Deleting it will disable {CRED_PROVIDER_LABELS[deleteTarget.provider_type] || deleteTarget.provider_type} integration.
+                </div>
+                <div className="input-group">
+                  <label className="input-label">
+                    Ketik <strong>{deleteTarget.display_name}</strong> untuk konfirmasi penghapusan
+                  </label>
+                  <input className="input" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} />
+                </div>
+              </>
+            )}
+            <div className="settings-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setDeleteTarget(null)}>Batal</button>
+              <button
+                className="btn btn-danger"
+                disabled={deleteTarget.is_active && deleteConfirm.trim() !== deleteTarget.display_name}
+                onClick={confirmDelete}
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Export / Import (Req 17) ---- */}
+      {ioModal && (
+        <div className="settings-modal-overlay" onClick={() => setIoModal(null)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-head">
+              {ioModal.mode === 'export' ? <Download size={16} /> : <Upload size={16} />}
+              <h3>{ioModal.mode === 'export' ? 'Export Credentials' : 'Import Credentials'}</h3>
+            </div>
+            <p className="settings-modal-desc">
+              {ioModal.mode === 'export'
+                ? 'Semua kredensial diekspor sebagai satu berkas JSON terenkripsi AES-256-GCM dengan password yang kamu tentukan. Simpan password di tempat aman — tanpa password, berkas tidak dapat dipulihkan.'
+                : 'Pilih berkas ekspor (.json) lalu masukkan password pembuka Berkas. Kredensial dengan provider + nama yang sudah ada akan dilewati.'}
+            </p>
+
+            {ioModal.mode === 'import' && (
+              <div className="input-group">
+                <label className="input-label">Berkas ekspor *</label>
+                <input
+                  className="input"
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={(e) => onImportFile(e.target.files?.[0])}
+                />
+                {ioModal.fileName && <p className="field-hint">Dipilih: {ioModal.fileName}</p>}
+              </div>
+            )}
+
+            <div className="input-group">
+              <label className="input-label">{ioModal.mode === 'export' ? 'Password ekspor *' : 'Password berkas *'}</label>
+              <input
+                className="input"
+                type="password"
+                placeholder="minimal 8 karakter"
+                value={ioModal.password}
+                onChange={(e) => setIoModal({ ...ioModal, password: e.target.value, error: '' })}
+              />
+              {ioModal.mode === 'export' && <p className="field-hint">Kunci diturunkan dengan Argon2id — tidak disimpan server.</p>}
+            </div>
+
+            {ioModal.error && <div className="settings-modal-error">{ioModal.error}</div>}
+            {ioModal.summary && (
+              <div className="settings-modal-success">
+                {ioModal.summary}
+                {ioModal.errors?.length > 0 && (
+                  <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                    {ioModal.errors.map((err, i) => (
+                      <li key={i}>
+                        {err.display_name} ({err.provider_type}): {typeof err.error === 'string' ? err.error : 'tidak valid'}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <div className="settings-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setIoModal(null)}>{ioModal.summary ? 'Tutup' : 'Batal'}</button>
+              <button
+                className="btn btn-primary"
+                disabled={ioModal.busy || ioModal.password.length < 8 || (ioModal.mode === 'import' && !ioModal.bundle)}
+                onClick={ioModal.mode === 'export' ? doExport : doImport}
+              >
+                {ioModal.busy ? 'Memproses…' : ioModal.mode === 'export' ? 'Export & Unduh' : 'Impor'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   )
 }
@@ -1054,9 +1755,15 @@ export default function Settings() {
             </motion.div>
           )}
 
-          {/* Neon Organization — khusus owner/super_admin */}
-          {(role === 'owner' || role === 'super_admin') && (
+          {/* Neon Organization — khusus owner saja (akses halaman Penyimpanan) */}
+          {role === 'owner' && (
             <NeonOrgManagement />
+          )}
+
+          {/* Credentials Management — setelah bagian Neon Organization
+              (Req 3.1); owner/super_admin saja (Req 3.11). */}
+          {(role === 'owner' || role === 'super_admin') && (
+            <CredentialManagement isOwner={role === 'owner'} />
           )}
 
           {/* Notifications */}

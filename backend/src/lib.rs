@@ -1,4 +1,6 @@
 pub mod ai_providers;
+pub mod credentials;
+pub mod crypto;
 pub mod db;
 pub mod handlers;
 pub mod mail;
@@ -81,6 +83,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // -- 4. Rakit state & router --
     let state = Arc::new(AppStateInner { db });
 
+    // -- 4b. Job latar: pengingat rotasi kredensial bulanan (Req 16.6) --
+    credentials::spawn_rotation_reminders((*state).db.clone());
+
     // CORS: hanya izinkan origin yang diizinkan (lihat `ALLOWED_ORIGIN`).
     let cors = {
         let origins: Vec<HeaderValue> = allowed_origin
@@ -141,7 +146,19 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/owner/neon/organizations/:id", delete(owner::neon_organizations_delete))
         .route("/api/owner/neon/organizations/:id/activate", post(owner::neon_organizations_activate))
         .route("/api/owner/neon/proxy", post(owner::neon_proxy))
+        // ---- User Credentials Management (terenkripsi AES-256-GCM di DB) ----
+        // owner/super_admin saja; semua operasi diaudit ke `audit_logs`.
+        .route("/api/credentials", get(credentials::list_credentials).post(credentials::create_credential))
+        .route("/api/credentials/:id", put(credentials::update_credential).delete(credentials::delete_credential))
+        .route("/api/credentials/:id/activate", post(credentials::activate_credential))
+        .route("/api/credentials/:id/reveal", post(credentials::reveal_credential))
+        .route("/api/credentials/test", post(credentials::test_connection))
+        .route("/api/credentials/rotation-due", get(credentials::rotation_due))
+        .route("/api/credentials/import-env", post(credentials::import_env_credentials))
+        .route("/api/credentials/export", post(credentials::export_credentials))
+        .route("/api/credentials/import", post(credentials::import_credentials))
         .route("/api/owner/b2/status", get(owner::b2_status))
+        .route("/api/owner/b2/upload", post(owner::b2_upload_file))
         // Profil views (TikTok-style)
         .route("/api/profile/:id/view", post(owner::record_profile_view))
         .route("/api/profile/:id/views", get(owner::profile_views))

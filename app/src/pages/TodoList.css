@@ -44,7 +44,7 @@
 .filter-tab-btn {
   padding: var(--space-2) var(--space-4);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-muted);
   background: none;
   border: none;
@@ -59,7 +59,6 @@
 
 .filter-tab-btn.active {
   color: var(--accent);
-  font-weight: 600;
 }
 
 .filter-tab-btn.active::after {
@@ -158,10 +157,10 @@
   font-weight: 500;
 }
 
-/* Main Grid Layout */
+/* Main Grid Layout — now full width */
 .todo-main-grid-new {
   display: grid;
-  grid-template-columns: 3fr 1.3fr;
+  grid-template-columns: 1fr;
   gap: var(--space-5);
   margin-bottom: var(--space-6);
 }
@@ -186,8 +185,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  min-height: 372px;
-  max-height: 372px;
+  min-height: 200px;
+  max-height: 600px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -340,6 +339,11 @@
 .task-status-pill.pending {
   background: rgba(139, 139, 167, 0.1);
   color: var(--text-muted);
+}
+
+.task-status-pill.failed {
+  background: rgba(233, 69, 96, 0.1);
+  color: #E94560;
 }
 
 .actions-cell {
@@ -605,7 +609,7 @@
 .filter-tab {
   padding: 5px 12px;
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-muted);
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
@@ -623,7 +627,6 @@
   background: rgba(234, 88, 12, 0.12);
   border-color: rgba(234, 88, 12, 0.35);
   color: var(--accent);
-  font-weight: 600;
 }
 
 .todo-list {
@@ -803,4 +806,490 @@
 
 .todo-list .empty-state p {
   font-size: 0.8125rem;
+}
+
+/* HP: form tambah todo satu kolom penuh. */
+@media (max-width: 640px) {
+  .add-todo-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .todo-filters-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .todo-filters-bar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .todo-header-new {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .todo-header-right {
+    width: 100%;
+  }
+
+  .create-btn-wrap {
+    width: 100%;
+  }
+
+  .create-btn-wrap .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .todo-task-row {
+    flex-wrap: wrap;
+  }
+
+  .task-deadline-text {
+    order: 10;
+    width: 100%;
+    margin-top: var(--space-1);
+  }
+
+  .task-status-pill {
+    order: 5;
+  }
+}
+
+/* Create button dropdown wrapper */
+.create-btn-wrap {
+  position: relative;
+}
+
+.create-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-dropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.create-dropdown-menu button:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Charts row (reused from Projects layout) */
+.target-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.chart-panel {
+  background: linear-gradient(160deg, rgba(234, 88, 12, 0.06), var(--bg-secondary) 45%);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.panel-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.donut-chart-container {
+  position: relative;
+}
+
+.donut-center-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.donut-center-label strong {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.donut-center-label span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.chart-legends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-name {
+  color: var(--text-muted);
+}
+
+.legend-val {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+/* Status bars */
+.status-bars-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.status-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-bar-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.status-bar-info strong {
+  color: var(--text-primary);
+}
+
+.status-progress-track {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.status-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.status-progress-fill.green { background: #00D9A5; }
+.status-progress-fill.blue { background: #0780FA; }
+.status-progress-fill.gray { background: var(--text-muted); }
+
+/* Panel header count */
+.target-list-count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .target-charts-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Todo Groups
+   ============================================================ */
+.todo-groups-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.todo-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.todo-group-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.todo-group-card.expanded {
+  border-color: var(--accent);
+}
+
+.todo-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.todo-group-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.todo-group-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.todo-group-info strong {
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.todo-group-info svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.todo-group-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.todo-group-file-count {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.todo-group-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.todo-group-progress-mini {
+  width: 60px;
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.todo-group-progress-bar {
+  height: 100%;
+  background: #00D9A5;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.todo-group-rename {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  max-width: 200px;
+}
+
+/* Group body (expanded) */
+.todo-group-body {
+  border-top: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Items */
+.todo-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.todo-group-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.todo-group-item.completed .todo-group-item-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.todo-group-item-text {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.todo-group-add-item {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.todo-group-add-item .input {
+  flex: 1;
+  font-size: 0.8125rem;
+  padding: 6px 10px;
+}
+
+/* Files */
+.todo-group-files {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.todo-group-files-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.todo-group-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.todo-group-file-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.todo-group-file-row svg:first-child {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.todo-group-file-name {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.todo-group-file-size {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.icon-btn-sm {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.icon-btn-sm:hover {
+  color: var(--accent);
+  background: var(--bg-tertiary);
+}
+
+.icon-btn-sm.danger:hover {
+  color: #E94560;
+}
+
+/* Kanban check (used in groups) */
+.kanban-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--border-hover);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+  padding: 0;
+  transition: all 0.15s;
+}
+
+.kanban-check.on {
+  background: var(--accent);
+  border-color: var(--accent);
 }

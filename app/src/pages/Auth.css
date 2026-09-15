@@ -346,3 +346,26 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* =====================================================================
+   Responsif HP (<=640px) — formulir login/daftar full-width & nyaman.
+   ===================================================================== */
+@media (max-width: 640px) {
+  .auth-page {
+    padding: var(--space-3);
+    align-items: flex-start;
+  }
+
+  .auth-container {
+    max-width: 100%;
+  }
+
+  .auth-header {
+    margin-bottom: var(--space-4);
+  }
+
+  .auth-tab {
+    font-size: 0.875rem;
+    padding: var(--space-3) var(--space-2);
+  }
+}

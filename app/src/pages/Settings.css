@@ -43,7 +43,7 @@
 
 .settings-card {
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
 }
 
 .settings-item {
@@ -468,4 +468,162 @@
   color: var(--text-muted);
   margin-top: 6px;
   line-height: 1.5;
+}
+
+/* ---- Credential Management (Settings → Credentials) ---- */
+
+.cred-group {
+  border-bottom: 1px solid var(--border);
+}
+
+.cred-group:last-child {
+  border-bottom: none;
+}
+
+.cred-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.cred-count {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+/* Label status + peringatan rotasi dengan tooltip (Req 16.2-16.4) */
+.cred-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  vertical-align: middle;
+  cursor: help;
+  position: relative;
+  border: 1px solid #d97706;
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.08);
+}
+
+.cred-badge-active {
+  color: var(--success);
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.08);
+  cursor: default;
+}
+
+.cred-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: 260px;
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.cred-badge:hover .cred-tooltip,
+.cred-badge:focus .cred-tooltip {
+  display: block;
+}
+
+/* Daftar pasangan nilai masked/plaintext (Req 3.6, 14.1-14.2) */
+.cred-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 6px;
+}
+
+.cred-field-pair {
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 2px 7px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border);
+  word-break: break-all;
+}
+
+/* Tombol ikon mata kecil */
+.cred-eye {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cred-eye:hover {
+  color: var(--text-primary);
+}
+
+/* Banner benturan .env vs database (Req 8.7) */
+.cred-env-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.08);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+}
+
+.cred-env-banner svg {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.cred-success {
+  padding: 10px;
+  font-size: 0.8125rem;
+  color: var(--success, #10b981);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Baris pasangan key-value provider custom */
+.cred-pair-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  width: 100%;
+}
+/* HP: pasangan key-value kredensial custom tampil satu kolom. */
+@media (max-width: 640px) {
+  .cred-pair-row {
+    grid-template-columns: 1fr;
+  }
+
+  .cred-pair-row .btn,
+  .cred-pair-row .cred-eye {
+    justify-self: start;
+  }
 }

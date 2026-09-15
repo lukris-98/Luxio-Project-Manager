@@ -246,3 +246,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Guard: track grid tidak boleh lebih lebar dari kontainer pada HP. */
+@media (max-width: 480px) {
+  .research-grid {
+    grid-template-columns: 1fr;
+  }
+}

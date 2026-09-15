@@ -232,6 +232,9 @@ export default function Layout({ children }) {
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true) // default mengecil
   const [sidebarHover, setSidebarHover] = useState(false)
+  const [isMobileView, setIsMobileView] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches,
+  )
   const [profileOpen, setProfileOpen] = useState(false)
   const [roleOpen, setRoleOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -240,9 +243,36 @@ export default function Layout({ children }) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const topbarHidden = useAutoHideNav()
 
+  // Tablet/HP: drawer SELALU tampil expanded (sekali klik = semua item terlihat).
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)')
+    const apply = () => setIsMobileView(mq.matches)
+    apply()
+    if (mq.addEventListener) mq.addEventListener('change', apply)
+    else mq.addListener(apply) // Safari lama
+    return () => { if (mq.removeEventListener) mq.removeEventListener('change', apply); else mq.removeListener(apply) }
+  }, [])
+
   // Sidebar terlipat EFEKTIF: saat mode "perkecil", hover melebarkan sementara
   // dan keluar hover mengecilkan lagi. Mode "perbesar" mengunci tetap lebar.
-  const isCollapsed = sidebarCollapsed && !sidebarHover
+  // Di tablet/HP (<=900px) SELALU expanded: sekali klik langsung muncul semua
+  // (drawer tanpa label justru membuat menu tak terbaca).
+  const isCollapsed = sidebarCollapsed && !sidebarHover && !isMobileView
+
+  // Tutup dropdown otomatis ketika sidebar mengecil (hover keluar di desktop,
+  // atau sidebar ditutup di mobile/tablet).
+  useEffect(() => {
+    if (isCollapsed && openDropdown) {
+      setOpenDropdown(null)
+    }
+  }, [isCollapsed])
+
+  // Di mobile/tablet: tutup dropdown ketika sidebar drawer ditutup.
+  useEffect(() => {
+    if (isMobileView && !sidebarOpen && openDropdown) {
+      setOpenDropdown(null)
+    }
+  }, [isMobileView, sidebarOpen])
 
   // Role efektif: untuk OWNER bisa act-as (owner/super_admin/admin/user),
   // untuk akun lain = role aslinya.
@@ -484,7 +514,7 @@ export default function Layout({ children }) {
                 }
                 title={isCollapsed ? item.label : undefined}
               >
-                <item.icon size={14} style={{ color: NAV_COLORS[item.id] || 'var(--accent)' }} />
+                <item.icon size={14} />
                 <span>{item.label}</span>
                 {hasDropdown && (
                   <ChevronRight
@@ -522,7 +552,7 @@ export default function Layout({ children }) {
                         className={`nav-dropdown-item ${currentPage === entry.page ? 'active' : ''}`}
                         onClick={() => handleDropdownItem(entry)}
                       >
-                        <span className="nav-drop-item-icon" style={{ color: NAV_COLORS[entry.id] || NAV_COLORS[item.id] }}>
+                        <span className="nav-drop-item-icon">
                           {entry.icon
                             ? (React.isValidElement(entry.icon) ? entry.icon : <entry.icon size={16} />)
                             : <item.icon size={16} />}
@@ -571,7 +601,7 @@ export default function Layout({ children }) {
       </aside>
       
       {/* Mobile overlay */}
-      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => { setSidebarOpen(false); setOpenDropdown(null) }} />}
 
       {/* Backdrop penutup dropdown sidebar */}
       {openDropdown && <div className="nav-dropdown-backdrop" onClick={() => setOpenDropdown(null)} />}

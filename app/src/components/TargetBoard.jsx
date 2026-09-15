@@ -239,47 +239,58 @@ export default function TargetBoard({ board }) {
                             )}
                           </div>
                         )}
+
+                        {!isStatic && (
+                          <ContributorStack
+                            contributors={contributorsOf(task)}
+                            contributionOf={contributionOf}
+                            onRemove={(memberId) => toggleBoardCollaborator(board.id, memberId)}
+                            label="Contributors"
+                          />
+                        )}
                       </div>
 
-                      {/* Icon mata — buka popup detail pekerjaan */}
-                      <button
-                        className="task-eye-btn"
-                        title="Lihat detail pekerjaan"
-                        onClick={(e) => { e.stopPropagation(); setDetailTask(task) }}
-                      >
-                        <Eye size={13} />
-                      </button>
+                      {/* Bottom-right actions: eye icon + arrows (dynamic) or checkbox (static) */}
+                      <div className="kanban-task-actions">
+                        <button
+                          className="task-eye-btn"
+                          title="Lihat detail pekerjaan"
+                          onClick={(e) => { e.stopPropagation(); setDetailTask(task) }}
+                        >
+                          <Eye size={13} />
+                        </button>
 
-                      {/* Tombol geser kiri/kanan — hanya board dinamis */}
-                      {!isStatic && (
-                        <div className="task-shift">
-                          <button
-                            className="shift-btn"
-                            disabled={fromIdx === 0}
-                            title="Kembali ke kolom sebelumnya"
-                            onClick={() => shiftTask(taskWithCol, -1)}
-                          >
-                            <ChevronLeft size={13} />
-                          </button>
-                          <button
-                            className="shift-btn"
-                            disabled={fromIdx === columns.length - 1}
-                            title="Pindah ke kolom berikutnya"
-                            onClick={() => shiftTask(taskWithCol, 1)}
-                          >
-                            <ChevronRight size={13} />
-                          </button>
-                        </div>
-                      )}
+                        {!isStatic && (
+                          <div className="task-shift">
+                            <button
+                              className="shift-btn"
+                              disabled={fromIdx === 0}
+                              title="Kembali ke kolom sebelumnya"
+                              onClick={() => shiftTask(taskWithCol, -1)}
+                            >
+                              <ChevronLeft size={13} />
+                            </button>
+                            <button
+                              className="shift-btn"
+                              disabled={fromIdx === columns.length - 1}
+                              title="Pindah ke kolom berikutnya"
+                              onClick={() => shiftTask(taskWithCol, 1)}
+                            >
+                              <ChevronRight size={13} />
+                            </button>
+                          </div>
+                        )}
 
-                      {!isStatic && (
-                        <ContributorStack
-                          contributors={contributorsOf(task)}
-                          contributionOf={contributionOf}
-                          onRemove={(memberId) => toggleBoardCollaborator(board.id, memberId)}
-                          label="Contributors"
-                        />
-                      )}
+                        {isStatic && (
+                          <button
+                            className={`kanban-check-bottom ${checked[task.id] ? 'on' : ''}`}
+                            onClick={() => setChecked((c) => ({ ...c, [task.id]: !c[task.id] }))}
+                            title="Tandai selesai"
+                          >
+                            {checked[task.id] && <Check size={12} />}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}

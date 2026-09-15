@@ -14,13 +14,22 @@ const PIN_CH_KEY = 'luxio_storage_pin_challenge'
 export function isStorageUnlocked(userId) {
   if (!userId) return false
   try {
-    const v = JSON.parse(localStorage.getItem(UNLOCKED_KEY) || 'null')
-    return Boolean(v && v.uid === userId)
-  } catch { return false }
+    for (const store of [localStorage, sessionStorage]) {
+      const v = JSON.parse(store.getItem(UNLOCKED_KEY) || 'null')
+      if (v && v.uid === userId) return true
+    }
+  } catch { /* abaikan */ }
+  return false
 }
 
-export function setStorageUnlocked(userId) {
-  try { localStorage.setItem(UNLOCKED_KEY, JSON.stringify({ uid: userId })) } catch { /* penuh/privacy */ }
+// remember=true  -> tersimpan permanen di perangkat (localStorage; tahan
+//                    tutup browser, sampai "Keluar"/logout).
+// remember=false -> hanya sesi tab ini (sessionStorage; hilang saat tab tutup).
+export function setStorageUnlocked(userId, remember = true) {
+  try {
+    const target = remember ? localStorage : sessionStorage
+    target.setItem(UNLOCKED_KEY, JSON.stringify({ uid: userId }))
+  } catch { /* penuh/privacy */ }
 }
 
 /** Challenge langkah-2 (PIN) dari verifikasi OTP — sekali pakai, ada TTL. */
