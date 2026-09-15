@@ -2100,7 +2100,20 @@ export const useStore = create(
           appState, currentPage, selectedProjectId, selectedBoardId,
           ...rest
         } = persistedState || {}
-        return { ...currentState, ...rest }
+        const merged = { ...currentState, ...rest }
+        // Kalau user ter-autentikasi dari persist, pastikan appState = 'app'.
+        if (merged.isAuthenticated && merged.currentUser) {
+          merged.appState = 'app'
+        }
+        // Fallback: kalau persist kosong tapi token ada di localStorage,
+        // coba restore session (auto-restore di App.jsx akan lengkapi).
+        if (!merged.isAuthenticated) {
+          try {
+            const token = localStorage.getItem('luxio-token')
+            if (token) merged.token = token
+          } catch (_) {}
+        }
+        return merged
       },
       // Bersihkan state lama dari build sebelumnya yang sempat rusak:
       // data v0 bisa punya appState 'landing' walau isAuthenticated true,
