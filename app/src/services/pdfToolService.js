@@ -6,7 +6,7 @@
  * melalui tool registry.
  */
 
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument, degrees } from 'pdf-lib'
 import { saveAs } from 'file-saver'
 
 // =====================================================================
@@ -110,7 +110,7 @@ export async function splitPdf(file, ranges, onProgress) {
 /**
  * Rotate PDF — putar halaman.
  */
-export async function rotatePdf(file, degrees, pages, onProgress) {
+export async function rotatePdf(file, deg, pages, onProgress) {
   const src = await loadPdf(file)
   const total = src.getPageCount()
   const indices = pages ? parseRanges(pages, total) : Array.from({ length: total }, (_, i) => i)
@@ -118,7 +118,7 @@ export async function rotatePdf(file, degrees, pages, onProgress) {
   for (const idx of indices) {
     const page = src.getPage(idx)
     const current = page.getRotation().angle
-    page.setRotation({ angle: (current + degrees) % 360 })
+    page.setRotation(degrees((current + deg) % 360))
   }
 
   onProgress?.(80)
@@ -381,7 +381,7 @@ export async function executeTool(toolName, params, onProgress) {
     case 'split_pdf':
       return splitPdf(params.file, params.ranges, onProgress)
     case 'rotate_pdf':
-      return rotatePdf(params.file, params.degrees, params.pages, onProgress)
+      return rotatePdf(params.file, Number(params.degrees), params.pages, onProgress)
     case 'extract_pdf_pages':
       return extractPages(params.file, params.pages, onProgress)
     case 'remove_pdf_pages':
