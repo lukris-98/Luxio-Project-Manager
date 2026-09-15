@@ -288,8 +288,8 @@ export default function Layout({ children }) {
     { id: 'todo-list', icon: ListTodo, label: 'Todo' },
     { id: 'private-note', icon: StickyNote, label: 'Catatan' },
     { id: 'vault', icon: KeyRound, label: 'Brankas' },
-    // Penyimpanan cloud (Neon + Backblaze B2) — semua role.
-    { id: 'storage', icon: HardDrive, label: 'Penyimpanan' },
+    // Penyimpanan cloud (Neon + Backblaze B2) — khusus owner.
+    ...(effRole === 'owner' ? [{ id: 'storage', icon: HardDrive, label: 'Penyimpanan' }] : []),
     { id: 'calendar', icon: Calendar, label: 'Kalender' },
     { id: 'my-tasks', icon: CheckSquare, label: 'Task Saya' },
     // Super Admin / Owner => Divisi (CRUD divisi+tim), Admin/User => Tim.
@@ -312,8 +312,8 @@ export default function Layout({ children }) {
     { id: 'research', icon: Search, label: 'Riset Konten' },
     // Aplikasi (hub launcher) — semua role.
     { id: 'apps', icon: AppWindow, label: 'Aplikasi' },
-    // Connect (integrasi eksternal) — semua role.
-    { id: 'connect', icon: Plug2, label: 'Connect' },
+    // Connect (integrasi eksternal) — khusus owner.
+    ...(effRole === 'owner' ? [{ id: 'connect', icon: Plug2, label: 'Connect' }] : []),
     // Google — dropdown berisi semua halaman layanan API Google
     // (Gmail, Blogger, Drive, Calendar, YouTube). Bukan halaman sendiri.
     { id: 'google', icon: Chrome, label: 'Google' },

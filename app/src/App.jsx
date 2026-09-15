@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { flushSync } from 'react-dom'
-import { getAppThemeConfig, normalizeAppTheme, useStore } from './store/useStore'
+import { getAppThemeConfig, normalizeAppTheme, useStore, useEffectiveRole } from './store/useStore'
 import { initModalFocus } from './utils/modalFocus'
 import UrlSync from './components/UrlSync'
 import Layout from './components/Layout'
@@ -63,6 +63,7 @@ function PageLoader() {
 
 function App() {
   const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
+  const effRole = useEffectiveRole()
 
   // Preload semua chunk halaman lazy DI AWAL, agar saat berpindah halaman
   // tidak muncul fallback Suspense (spinner) yang membuat layar berkedip.
@@ -154,7 +155,7 @@ function App() {
       case 'vault':
         return <Vault />
       case 'storage':
-        return <StoragePage />
+        return effRole === 'owner' ? <StoragePage /> : <Dashboard />
       case 'calendar':
         return <Calendar />
       case 'team':
@@ -162,13 +163,13 @@ function App() {
       case 'settings':
         return <Settings />
       case 'admin-users':
-        return <AdminUsers />
+        return effRole === 'owner' ? <AdminUsers /> : <Dashboard />
       case 'upgrade':
         return <UpgradeAkun />
       case 'agent':
         return <AgentChat />
       case 'owner-dashboard':
-        return <OwnerDashboard />
+        return effRole === 'owner' ? <OwnerDashboard /> : <Dashboard />
       case 'attendance':
         return <AttendancePage />
       case 'attendance-admin':
@@ -178,7 +179,7 @@ function App() {
       case 'apps':
         return <Apps />
       case 'connect':
-        return <Connect />
+        return effRole === 'owner' ? <Connect /> : <Dashboard />
       case 'metadata-creator':
         return <MetadataCreator />
       case 'bang-motion':
