@@ -120,6 +120,30 @@ function App() {
     if (meta) meta.setAttribute('content', themeConfig.color)
   }, [theme])
 
+  // Auto-restore session dari token di localStorage jika IndexedDB hilang
+  // (misalnya browser clear data, migration error, atau version bump).
+  useEffect(() => {
+    if (isAuthenticated) return // sudah login
+    const token = localStorage.getItem('luxio-token')
+    if (!token) return
+    // Token ada tapi state bilang belum login → coba restore.
+    import('./services/api').then(({ api }) => {
+      api.me().then((res) => {
+        if (res && res.user) {
+          useStore.setState({
+            currentUser: res.user,
+            token,
+            isAuthenticated: true,
+            appState: 'app',
+          })
+        }
+      }).catch(() => {
+        // Token expired/invalid — hapus.
+        localStorage.removeItem('luxio-token')
+      })
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Bila dibuka dari link konfirmasi email (?token=...), arahkan ke halaman
   // Auth yang akan memproses token (aktivasi akun).
   useEffect(() => {
