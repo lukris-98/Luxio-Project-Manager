@@ -353,9 +353,9 @@ const CRED_FIELD_DEFS = {
     { key: 'from_address', label: 'From Address', required: true, placeholder: 'noreply@domain.com' },
   ],
   backblaze_b2: [
-    { key: 'application_key_id', label: 'Application Key ID', required: true, secret: 'key' },
-    { key: 'application_key', label: 'Application Key', required: true, secret: 'key' },
-    { key: 'bucket_name', label: 'Bucket Name (opsional)' },
+    { key: 'application_key_id', label: 'Application Key ID', required: true, secret: 'key', hint: 'Contoh: 005xxxxxxx (12 digit, dari B2 → App Keys → Key ID)' },
+    { key: 'application_key', label: 'Application Key', required: true, secret: 'key', hint: 'Di-generate dari B2 → App Keys → Generate New (bukan Master Key)' },
+    { key: 'bucket_name', label: 'Bucket Name (opsional)', hint: 'Jika kosong, otomatis pakai bucket "luxio-files"' },
   ],
   openai: [
     { key: 'api_key', label: 'API Key', required: true, secret: 'key', hint: 'Dimulai dengan "sk-"' },
