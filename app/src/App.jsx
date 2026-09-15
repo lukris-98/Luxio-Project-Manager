@@ -45,6 +45,7 @@ const Apps = lazy(() => import('./pages/Apps'))
 const Connect = lazy(() => import('./pages/Connect'))
 const MetadataCreator = lazy(() => import('./pages/MetadataCreator'))
 const BangMotion = lazy(() => import('./pages/BangMotion'))
+const PdfTools = lazy(() => import('./pages/PdfTools'))
 const GmailPage = lazy(() => import('./pages/GmailPage'))
 const BloggerPage = lazy(() => import('./pages/BloggerPage'))
 // Grup "Google" di sidebar — satu halaman per layanan API Google.
@@ -97,6 +98,7 @@ function App() {
       import('./pages/Connect'),
       import('./pages/MetadataCreator'),
       import('./pages/BangMotion'),
+      import('./pages/PdfTools'),
       import('./pages/GmailPage'),
       import('./pages/BloggerPage'),
       import('./pages/DrivePage'),
@@ -184,6 +186,8 @@ function App() {
         return <MetadataCreator />
       case 'bang-motion':
         return <BangMotion />
+      case 'pdf-tools':
+        return <PdfTools />
       case 'gmail':
         return <GmailPage />
       case 'blogger':

@@ -23,6 +23,7 @@ import {
   Smartphone,
   Plug,
   Zap,
+  FileText,
 } from 'lucide-react'
 import './Apps.css'
 
@@ -42,6 +43,7 @@ const INTERNAL_APPS = [
   { id: 'drive', name: 'Drive', icon: HardDrive, color: '#1A73E8', desc: 'Unggah & bagikan file via Google Drive' },
   { id: 'google-calendar', name: 'Google Calendar', icon: CalendarDays, color: '#4285F4', desc: 'Acara, rapat berulang & Meet' },
   { id: 'youtube', name: 'YouTube', icon: Youtube, color: '#FF0000', desc: 'Channel, Analytics & Reporting API' },
+  { id: 'pdf-tools', name: 'PDF Tools', icon: FileText, color: '#E94560', desc: 'Merge, split, compress, convert & edit PDF' },
 ]
 
 const EXTERNAL_INTEGRATIONS = [

@@ -50,6 +50,7 @@ const NAV_COLORS = {
   connect: 'var(--accent)',
   tools: 'var(--accent)',
   'metadata-creator': 'var(--accent)',
+  'pdf-tools': 'var(--accent)',
   google: '#4285F4',
   gmail: '#EA4335',
   blogger: '#FF8000',
@@ -64,6 +65,15 @@ const DROPDOWN_IDS = new Set(['projects', 'kanban', 'todo-list', 'private-note']
 // Dropdown "Tools" — berisi tautan ke tool khusus (static, bukan data).
 // Hanya dapat diakses lewat tombol dropdown ini.
 const TOOL_LINKS = [
+  {
+    key: 'tool-pdf-tools',
+    id: 'pdf-tools',
+    type: 'tool',
+    icon: FileText,
+    label: 'PDF Tools',
+    sub: 'Merge, split, compress, convert PDF',
+    page: 'pdf-tools',
+  },
   {
     key: 'tool-metadata-creator',
     id: 'metadata-creator',
