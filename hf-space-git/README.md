@@ -14,6 +14,7 @@ Backend API Rust (Axum) untuk aplikasi **Luxio - Project and Target Manager**.
 - Source: di-clone otomatis dari `https://github.com/lukris-98/Luxio-Project-Manager` (folder `backend/`)
 - Port: 7860 (default HF Docker)
 - Frontend: `https://luxio.web.id` (Firebase Hosting)
+- Last rebuild: 2026-09-15
 
 ## Alur Deploy — GitHub untuk Versioning, Dockerfile untuk Rebuild
 
