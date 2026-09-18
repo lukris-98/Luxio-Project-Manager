@@ -47,6 +47,36 @@ export const makeAppTheme = (family, mode) => {
 }
 export const toggleAppThemeMode = (theme) => makeAppTheme(getAppThemeFamily(theme), getAppThemeMode(theme) === 'dark' ? 'light' : 'dark')
 
+const WORKSPACE_SYNC_KEY = 'workspace-core'
+const WORKSPACE_SYNC_FIELDS = [
+  'projects',
+  'tasks',
+  'kanbanBoards',
+  'todoGroups',
+  'todoCollaboratorIds',
+  'privateNotes',
+  'researchTopics',
+  'projectProgressHistory',
+  'themes',
+]
+
+const workspaceSnapshotFromState = (state) =>
+  WORKSPACE_SYNC_FIELDS.reduce((snapshot, field) => {
+    snapshot[field] = state[field]
+    return snapshot
+  }, {})
+
+const normalizeWorkspaceSnapshot = (value) => {
+  const data = value && typeof value === 'object' && value.data ? value.data : value
+  const snapshot = {}
+  WORKSPACE_SYNC_FIELDS.forEach((field) => {
+    if (data && Object.prototype.hasOwnProperty.call(data, field)) {
+      snapshot[field] = data[field]
+    }
+  })
+  return snapshot
+}
+
 // Daftar badge gamification beserta ambang XP untuk membukanya.
 export const GAMIFICATION_BADGES = [
   { id: 'starter', name: 'Pemula', icon: '🌱', desc: 'Mulai perjalananmu di Luxio', requiresXp: 0 },
@@ -338,6 +368,55 @@ export const useStore = create(
       document.startViewTransition(() => set({ currentPage: page }))
     } else {
       set({ currentPage: page })
+    }
+  },
+
+  // =====================================================================
+  // ACTIONS — SINKRONISASI WORKSPACE KE NEON
+  // =====================================================================
+  // Menyimpan data inti halaman Project, Kanban, Todo, Catatan, dan Riset
+  // ke tabel `user_data_blobs` via endpoint /api/sync/blob/workspace-core.
+  workspaceSyncLoaded: false,
+  workspaceSyncSaving: false,
+  workspaceSyncError: '',
+  serializeWorkspaceSnapshot: () => JSON.stringify(workspaceSnapshotFromState(get())),
+  loadWorkspaceFromCloud: async () => {
+    if (!get().isAuthenticated) return false
+    set({ workspaceSyncError: '' })
+    try {
+      const res = await api.getSyncBlob(WORKSPACE_SYNC_KEY)
+      if (!res?.payload) {
+        set({ workspaceSyncLoaded: true })
+        return false
+      }
+      const parsed = JSON.parse(res.payload)
+      const snapshot = normalizeWorkspaceSnapshot(parsed)
+      if (Object.keys(snapshot).length) {
+        set({ ...snapshot, workspaceSyncLoaded: true })
+      } else {
+        set({ workspaceSyncLoaded: true })
+      }
+      return true
+    } catch (e) {
+      set({ workspaceSyncLoaded: true, workspaceSyncError: e?.message || 'Gagal memuat data workspace dari Neon' })
+      return false
+    }
+  },
+  saveWorkspaceToCloud: async (snapshotJson) => {
+    if (!get().isAuthenticated) return false
+    set({ workspaceSyncSaving: true, workspaceSyncError: '' })
+    try {
+      const data = snapshotJson ? JSON.parse(snapshotJson) : workspaceSnapshotFromState(get())
+      await api.putSyncBlob(WORKSPACE_SYNC_KEY, JSON.stringify({
+        version: 1,
+        savedAt: Date.now(),
+        data,
+      }))
+      set({ workspaceSyncSaving: false })
+      return true
+    } catch (e) {
+      set({ workspaceSyncSaving: false, workspaceSyncError: e?.message || 'Gagal menyimpan data workspace ke Neon' })
+      return false
     }
   },
 
@@ -750,7 +829,7 @@ export const useStore = create(
   // =====================================================================
   // ACTIONS — RISET KONTEN (per user)
   // =====================================================================
-  // researchTopics[userId] = [ { id, topic, category, notes, ideas: [], createdAt, updatedAt } ]
+  // researchTopics[userId] = [ { id, topic, category, notes, viewMode, tableSchema, tableRows, mindNodes, ideas: [], createdAt, updatedAt } ]
   researchTopics: {},
   addResearchTopic: (topic) => {
     const userId = get().modeUid()
@@ -764,6 +843,10 @@ export const useStore = create(
           topic: (topic.topic || '').trim(),
           category: topic.category || '',
           notes: topic.notes || '',
+          viewMode: topic.viewMode || 'table',
+          tableSchema: topic.tableSchema || [],
+          tableRows: topic.tableRows || [],
+          mindNodes: topic.mindNodes || [],
           ideas: topic.ideas || [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -2089,6 +2172,7 @@ export const useStore = create(
       partialize: (state) => {
         const {
           appState, currentPage, selectedProjectId, selectedBoardId,
+          workspaceSyncLoaded, workspaceSyncSaving, workspaceSyncError,
           ...persisted
         } = state
         return persisted
@@ -2098,6 +2182,7 @@ export const useStore = create(
       merge: (persistedState, currentState) => {
         const {
           appState, currentPage, selectedProjectId, selectedBoardId,
+          workspaceSyncLoaded, workspaceSyncSaving, workspaceSyncError,
           ...rest
         } = persistedState || {}
         const merged = { ...currentState, ...rest }

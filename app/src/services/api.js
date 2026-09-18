@@ -229,6 +229,11 @@ export const api = {
   // ---- Projects ----
   getProjects: (companyId) => get('/api/projects', { company_id: companyId }),
 
+  // ---- Workspace data sync (Neon user_data_blobs) ----
+  getSyncBlob: (key) => get(`/api/sync/blob/${encodeURIComponent(key)}`),
+  putSyncBlob: (key, payload) =>
+    writeOffline('PUT', `/api/sync/blob/${encodeURIComponent(key)}`, { payload }),
+
   // ---- Tools / AI Agent actions ----
   // Daftar tool + schema yang tersedia (kontrak agent).
   listTools: () => get('/api/tools'),

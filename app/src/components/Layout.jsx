@@ -11,7 +11,7 @@ import { subscribeToPush } from '../utils/push'
 import { useAutoHideNav } from '../utils/useAutoHideNav'
 import Logo from './Logo'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard, FileText
 } from 'lucide-react'
 import './Layout.css'
 

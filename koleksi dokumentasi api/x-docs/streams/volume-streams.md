@@ -1,0 +1,84 @@
+> This page location: X Developer Platform > x-api/posts/volume-streams/introduction
+> Full documentation index: https://docs.x.com/llms.txt
+> Source: https://docs.x.com/x-api/posts/volume-streams/introduction.md
+
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.x.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Volume streams (1% sampled and Decahose) on the X API v2
+
+> Stream sampled Posts in real time with the X API v2 1% sampled stream and 10% Decahose volume stream endpoints to track trends, sentiment, and events.
+
+export const Button = ({href, children}) => {
+  return <div className="not-prose">
+    <a href={href}>
+      <button className="x-btn">
+        <span>{children}</span>
+        <svg width="3" height="24" viewBox="0 -9 3 24" class="h-6 rotate-0 overflow-visible"><path d="M0 0L3 3L0 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>
+      </button>
+    </a>
+  </div>;
+};
+
+* 1% sampled stream.
+* 10% sampled stream. Commonly referred to as the "Decahose."
+
+These are referred to as "volume streams" because they both deliver large volumes of data. Even the 1% stream can emit many dozens of Posts every second. With these streams, you can identify and track trends, monitor general sentiment, monitor global events, and much more. 
+
+These streaming endpoints deliver [Post objects](/x-api/fundamentals/data-dictionary/reference#tweet) through a persistent HTTP GET connection and use [OAuth 2.0 App-Only](/resources/fundamentals/authentication#oauth-2-0) authentication. With Essential access, you can have one connection at a time. With all levels of access, connection requests can be made up to 50 times per 15-minute window.
+
+These volume stream endpoints support edited Posts. These endpoints will deliver edited Posts, along with its edit history, including an array of Post IDs. For Posts with no edit history, this array will hold a single ID. For Posts that have been edited, this array contains multiple IDs, arranged in ascending order reflecting the order of edits, with the most recent version in the last position of the array. To learn more about how Post edits work, see the [Post edits fundamentals](/x-api/fundamentals/edit-posts) page. 
+
+*To use these APIs, you must first set up an account with our enterprise sales team.*
+
+<Note>
+  **Account setup**
+
+  To access these endpoints, you will need:
+
+  * An approved [developer account](https://developer.x.com/en/portal/petition/essential/basic-info).
+  * To authenticate using the keys and tokens from a [developer App](/resources/fundamentals/developer-apps) that is located within a [Project](/resources/fundamentals/developer-apps). 
+
+  Learn more about getting access to the X API v2 endpoints in our [getting started guide](/x-api/getting-started/getting-access).
+</Note>
+
+<div class="flex space-x-2">
+  <Button href="/x-api/posts/volume-streams/quickstart">
+    Quick start
+  </Button>
+
+  <Button href="https://github.com/xdevplatform/Twitter-API-v2-sample-code">
+    Sample code
+  </Button>
+
+  <Button href="https://www.postman.com/xapidevelopers/x-api-public-workspace/collection/34902927-2efc5689-99c6-4ab6-8091-996f35c2fd80">
+    Run in Postman
+  </Button>
+
+  <Button href="https://developer.x.com/apitools/api?endpoint=/2/tweets/sample/stream&method=get">
+    Try with API Explorer
+  </Button>
+</div>
+
+***
+
+## Streaming fundamentals
+
+<CardGroup cols={2}>
+  <Card title="Consuming streaming data" icon="stream" href="/x-api/fundamentals/consuming-streaming-data">
+    Best practices for streaming clients
+  </Card>
+
+  <Card title="Handling disconnections" icon="plug" href="/x-api/fundamentals/handling-disconnections">
+    Reconnect gracefully
+  </Card>
+
+  <Card title="High volume capacity" icon="gauge-high" href="/x-api/fundamentals/high-volume-capacity">
+    Handle high throughput
+  </Card>
+
+  <Card title="Recovery and redundancy" icon="https://mintcdn.com/x-preview/cfyQtgCdwk8p69aa/icons/xds/icon-shield-keyhole.svg?fit=max&auto=format&n=cfyQtgCdwk8p69aa&q=85&s=a0e05514090c8a6af232297bfb9c4055" href="/x-api/fundamentals/recovery-and-redundancy" width="24" height="24" data-path="icons/xds/icon-shield-keyhole.svg">
+    Build resilient applications
+  </Card>
+</CardGroup>

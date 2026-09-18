@@ -1,0 +1,11 @@
+﻿const { Client } = require('pg')
+const fs = require('fs')
+const envRaw = fs.readFileSync('E:/Software/aplikasiku/aistudio/Luxio Project Manager/backend/.env', 'utf8')
+const dbUrl = (envRaw.match(/^DATABASE_URL=(.+)$/m) || [])[1].trim()
+;(async () => {
+  const c = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } })
+  await c.connect()
+  const sess = await c.query("SELECT s.expires_at, s.created_at, s.user_id FROM sessions WHERE expires_at > NOW() AND user_id IN (SELECT id FROM users WHERE role='owner') ORDER BY created_at DESC LIMIT 1")
+  console.log('latest owner session:', JSON.stringify(sess.rows))
+  await c.end()
+})().catch(e => console.log('ERR', e.message))

@@ -544,7 +544,7 @@
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .topbar {
   min-height: 60px;
   background: var(--sn-surface-dark) !important;
-  border-bottom: 1px solid var(--sn-hairline-dark) !important;
+  border-bottom: none !important;
   color: var(--sn-on-dark-mute);
 }
 
@@ -573,11 +573,12 @@
 
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar {
   background: var(--sn-surface-dark) !important;
-  border-right: 1px solid var(--sn-hairline-dark) !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar-header {
-  border-bottom: 1px solid var(--sn-hairline-dark);
+  border: none !important;
 }
 
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .logo-text {
@@ -615,7 +616,15 @@
 
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar-footer,
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar-bottom {
-  border-top: 1px solid var(--sn-hairline-dark);
+  border: none !important;
+}
+
+/* Tema Sanity: sidebar harus bersih tanpa garis; frame hanya di konten utama. */
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar *,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar *::before,
+:is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .sidebar *::after {
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .profile-btn {
@@ -667,12 +676,13 @@
 /* Dropdown navigasi di dalam sidebar (tetap keluarga gelap) */
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-dropdown {
   background: var(--sn-surface-deep) !important;
-  border: 1px solid var(--sn-hairline-dark) !important;
+  border: none !important;
   border-radius: 6px !important;
+  box-shadow: none !important;
 }
 
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-dropdown-head {
-  border-bottom: 1px solid var(--sn-hairline-dark);
+  border: none !important;
 }
 
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .nav-drop-item:hover {

@@ -1,0 +1,91 @@
+> This page location: X Developer Platform > fundamentals/authentication/overview
+> Full documentation index: https://docs.x.com/llms.txt
+> Source: https://docs.x.com/fundamentals/authentication/overview.md
+
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.x.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Authentication
+
+> X APIs handle enormous amounts of data. The way we ensure this data is secured for developers and users alike is through authentication.
+
+export const Button = ({href, children}) => {
+  return <div className="not-prose">
+    <a href={href}>
+      <button className="x-btn">
+        <span>{children}</span>
+        <svg width="3" height="24" viewBox="0 -9 3 24" class="h-6 rotate-0 overflow-visible"><path d="M0 0L3 3L0 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>
+      </button>
+    </a>
+  </div>;
+};
+
+X APIs handle enormous amounts of data, and authentication secures that data for developers and users alike. You can choose from several authentication methods, listed below.
+
+Most developers don't need to handle the complexities of authentication directly—client libraries take care of them automatically.
+
+You can find a list of available client libraries on our [Tools and libraries](/resources/tools-and-libraries) page.
+
+## Authentication methods
+
+<CardGroup cols={2}>
+  <Card title="OAuth 1.0a User Context" href="/resources/fundamentals/authentication/oauth-1-0a/api-key-and-secret">
+    OAuth 1.0a allows an authorized X developer App to access private account information or perform a X action on behalf of a X account.
+
+    <br />
+
+    [**Learn More**](/resources/fundamentals/authentication/oauth-1-0a/api-key-and-secret)
+  </Card>
+
+  <Card title="App only" href="/resources/fundamentals/authentication/oauth-2-0/overview">
+    App only Access Token allows a X developer app to access information publicly available on X.
+
+    <br />
+
+    [**Learn More**](/resources/fundamentals/authentication/oauth-2-0/overview)
+  </Card>
+
+  <Card title="Basic authentication" href="/resources/fundamentals/authentication/basic-auth">
+    Many of X's enterprise APIs require the use of HTTP Basic Authentication.
+
+    <br />
+
+    [**Learn More**](/resources/fundamentals/authentication/basic-auth)
+  </Card>
+
+  <Card title="OAuth 2.0 Authorization Code Flow with PKCE" href="/resources/fundamentals/authentication/oauth-2-0/authorization-code">
+    OAuth 2.0 User Context allows you to authenticate on behalf of another account with greater control over an application's scope, and authorization flows across multiple devices.
+
+    <br />
+
+    [**Learn More**](/resources/fundamentals/authentication/oauth-2-0/authorization-code)
+  </Card>
+</CardGroup>
+
+<Note>
+  **Note:**
+  You can get your App's API Keys, App-only Access Token, personal Access Token, and Access Token Secret from the [X developer Apps](/resources/fundamentals/developer-apps) section in the [Developer Console](/resources/fundamentals/developer-portal).
+
+  **To make requests on behalf of another user**, generate a separate set of Access Tokens for that user using the [3-legged OAuth flow](https://developer.x.com/resources/fundamentals/authentication/obtaining-user-access-tokens), then pass that user's tokens with your OAuth 1.0a User Context or OAuth 2.0 user context requests.
+</Note>
+
+## Additional resources
+
+<CardGroup cols={2}>
+  <Card title="Guides" href="/resources/fundamentals/authentication/guides">
+    Learn how to generate tokens and authenticate requests using our integration guides.
+  </Card>
+
+  <Card title="API reference" href="/resources/fundamentals/authentication/api-reference">
+    Review our reference guides for our authentication endpoints.
+  </Card>
+
+  <Card title="Best practices" href="/resources/fundamentals/authentication/guides/authentication-best-practices">
+    Make sure you protect yourself and understand the best practices for storing your keys and tokens.
+  </Card>
+
+  <Card title="FAQs" href="/resources/fundamentals/authentication/faq">
+    Have a question? Visit our FAQs.
+  </Card>
+</CardGroup>

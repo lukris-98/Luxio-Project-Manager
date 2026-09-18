@@ -66,7 +66,18 @@ const ADOBE_RULES = {
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'creator', label: 'Creator', icon: ImagePlus },
+  { id: 'prompt-metadata', label: 'Prompt + Metadata', icon: Sparkles },
   { id: 'history', label: 'Riwayat', icon: History },
+]
+
+const PROMPT_STYLES = [
+  { value: 'Realistic Photography', label: 'Fotografi Realistis (Realistic Photo)' },
+  { value: '3D Render / Digital Art', label: 'Seni Digital 3D (3D Render)' },
+  { value: 'Cinematic Fantasy', label: 'Sinematik / Fantasy (Cinematic)' },
+  { value: 'Cyberpunk / Futuristic', label: 'Futuristik / Cyberpunk' },
+  { value: 'Minimalist Vector Illustration', label: 'Vektor Minimalis (Vector Art)' },
+  { value: 'Watercolor Painting', label: 'Cat Air (Watercolor)' },
+  { value: 'Abstract Graphic & Texture', label: 'Abstrak & Tekstur Grafis' },
 ]
 
 const TIME_FILTERS = [
@@ -252,6 +263,150 @@ function parseAIResult(text) {
 }
 
 // =====================================================================
+// Panggil AI provider untuk menghasilkan Image Prompt + Metadata (English)
+// =====================================================================
+async function callAIGeneratePromptAndMetadata(cfg, { topic, style, count = 1 }) {
+  if (!cfg || !cfg.base_url.trim() || !cfg.api_key.trim() || !cfg.model.trim()) {
+    throw new Error('Konfigurasi AI belum lengkap (Base URL, API Key, Model).')
+  }
+
+  const base = normalizeBaseUrl(cfg.base_url)
+  const systemPrompt = `You are an expert AI Image Prompt Engineer and Stock Photo Metadata Specialist.
+Generate detailed AI image generation prompts along with matching stock metadata IN ENGLISH ONLY.
+
+REQUIREMENTS FOR EACH ITEM:
+1. imagePrompt: A detailed, highly descriptive text-to-image prompt in English for Midjourney/Flux/SDXL (describing subject, scene, lighting, mood, camera angle, color palette, details, composition).
+2. contentTitle: A concise, human-readable SEO title in English suitable for stock photo agencies or creative portfolios (under 70 characters).
+3. keywords: An array of EXACTLY 40 relevant, unique keywords in English (nouns, adjectives, concepts, atmosphere, colors, setting).
+
+Respond with ONLY valid JSON array containing object(s) with this exact shape (no markdown fences, no extra text):
+[
+  {
+    "imagePrompt": "Detailed AI image generation prompt in English...",
+    "contentTitle": "Concise Stock Title in English",
+    "keywords": ["keyword1", "keyword2", ..., "keyword40"]
+  }
+]`
+
+  const userPrompt = `Generate ${count} Prompt + Metadata set(s) in English for the following topic:
+Topic / Concept: ${topic}
+Visual Style / Vibe: ${style || 'Realistic Stock Photography'}
+
+Remember:
+- All outputs MUST be in English.
+- Exactly 40 unique keywords per item.`
+
+  let response
+  if (cfg.api_type === 'anthropic-messages') {
+    const res = await fetchWithTimeout(`${base}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': cfg.api_key.trim(),
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: cfg.model.trim(),
+        max_tokens: 2800,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    }, 120000)
+    if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`)
+    const data = await res.json()
+    response = data.content?.[0]?.text || data.content?.[0]?.content || ''
+  } else if (cfg.api_type === 'openai-responses') {
+    const res = await fetchWithTimeout(`${base}/responses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${cfg.api_key.trim()}`,
+      },
+      body: JSON.stringify({
+        model: cfg.model.trim(),
+        instructions: systemPrompt,
+        input: userPrompt,
+      }),
+    }, 120000)
+    if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`)
+    const data = await res.json()
+    response = data.output_text || data.output?.[0]?.content?.[0]?.text || JSON.stringify(data)
+  } else {
+    const res = await fetchWithTimeout(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${cfg.api_key.trim()}`,
+      },
+      body: JSON.stringify({
+        model: cfg.model.trim(),
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      }),
+    }, 120000)
+    if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`)
+    const data = await res.json()
+    response = data.choices?.[0]?.message?.content || ''
+  }
+
+  return parsePromptAndMetadataResult(response)
+}
+
+function parsePromptAndMetadataResult(text) {
+  if (!text) throw new Error('Respons AI kosong.')
+  let cleaned = String(text).trim()
+  cleaned = cleaned.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim()
+
+  let parsed
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    const startArr = cleaned.indexOf('[')
+    const endArr = cleaned.lastIndexOf(']')
+    if (startArr !== -1 && endArr !== -1) {
+      cleaned = cleaned.slice(startArr, endArr + 1)
+      parsed = JSON.parse(cleaned)
+    } else {
+      const startObj = cleaned.indexOf('{')
+      const endObj = cleaned.lastIndexOf('}')
+      if (startObj !== -1 && endObj !== -1) {
+        cleaned = cleaned.slice(startObj, endObj + 1)
+        parsed = JSON.parse(cleaned)
+      } else {
+        throw new Error('Respons AI tidak valid (bukan JSON).')
+      }
+    }
+  }
+
+  const list = Array.isArray(parsed) ? parsed : (parsed.items || [parsed])
+  return list.map((item) => {
+    const rawKw = Array.isArray(item.keywords)
+      ? item.keywords
+      : String(item.keywords || '').split(',').map((k) => k.trim())
+
+    const keywords = [...new Set(rawKw
+      .map((k) => String(k).replace(/[.,]/g, '').trim())
+      .filter(Boolean))].slice(0, 40)
+
+    // Setiap kata diakhiri koma dan setelah koma ada space (e.g. kw1, kw2, kw3, ...)
+    const formattedKeywords = keywords.join(', ')
+
+    return {
+      id: uid(),
+      imagePrompt: String(item.imagePrompt || item.prompt || '').trim() || 'Descriptive AI image generation prompt',
+      contentTitle: String(item.contentTitle || item.title || '').trim() || 'Untitled Content Title',
+      keywords,
+      formattedKeywords,
+      createdAt: Date.now(),
+    }
+  })
+}
+
+// =====================================================================
 // Validasi kepatuhan aturan Adobe Stock untuk sebuah hasil metadata.
 // Mengembalikan { errors: [], warnings: [] }.
 // =====================================================================
@@ -371,11 +526,66 @@ export default function MetadataCreator() {
   const [searchQuery, setSearchQuery] = useState('')
   const [viewItem, setViewItem] = useState(null)
 
+  // ---- Prompt + Metadata Tab State ----
+  const [promptTopic, setPromptTopic] = useState('')
+  const [promptStyle, setPromptStyle] = useState('Realistic Photography')
+  const [promptCount, setPromptCount] = useState(1)
+  const [promptGenerating, setPromptGenerating] = useState(false)
+  const [promptErr, setPromptErr] = useState('')
+  const [promptResults, setPromptResults] = useState([])
+
   const [toast, setToast] = useState('')
   const flash = useCallback((msg) => {
     setToast(msg)
     window.setTimeout(() => setToast(''), 2500)
   }, [])
+
+  const handleGeneratePromptAndMetadata = async () => {
+    if (!aiConfig.providerId && (!aiConfig.base_url.trim() || !aiConfig.api_key.trim() || !aiConfig.model.trim())) {
+      setAiConfigOpen(true)
+      setPromptErr('Lengkapi konfigurasi AI dulu (Base URL, API Key, Model).')
+      return
+    }
+    if (!promptTopic.trim()) return
+    setPromptGenerating(true)
+    setPromptErr('')
+    try {
+      const items = await callAIGeneratePromptAndMetadata(aiConfig, { topic: promptTopic, style: promptStyle, count: promptCount })
+      setPromptResults((prev) => [...items, ...prev])
+      flash(`${items.length} Prompt + Metadata berhasil dibuat!`)
+    } catch (err) {
+      setPromptErr(err.message || 'Gagal generate prompt & metadata.')
+    } finally {
+      setPromptGenerating(false)
+    }
+  }
+
+  const updatePromptResultItem = (id, patch) => {
+    setPromptResults((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+  }
+
+  const savePromptMetadataToHistory = (item) => {
+    const entry = {
+      id: uid(),
+      filename: `prompt-${Date.now()}.txt`,
+      size: 0,
+      preview: '',
+      subject: item.imagePrompt,
+      releases: '',
+      title: item.contentTitle,
+      description: item.imagePrompt,
+      contentType: 'Prompt + Metadata',
+      category: 'Graphic resources',
+      keywords: item.keywords || [],
+      createdAt: Date.now(),
+    }
+    setHistory((prev) => {
+      const next = [entry, ...prev].slice(0, 500)
+      saveHistory(next)
+      return next
+    })
+    flash('Prompt + Metadata tersimpan ke Riwayat')
+  }
 
   // Refs untuk auto-fetch model saat Base URL berubah.
   const lastFetchedUrl = useRef('')
@@ -1364,6 +1574,220 @@ export default function MetadataCreator() {
                     <button className="btn btn-ghost btn-sm" title="Hapus" onClick={() => removeFromHistory(h.id)}>
                       <Trash2 size={13} />
                     </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* ==================== PROMPT + METADATA TAB ==================== */}
+      {activeTab === 'prompt-metadata' && (
+        <motion.div className="metadata-prompt-tab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="metadata-ai-config-card">
+            <div className="metadata-ai-config-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Sparkles size={18} style={{ color: 'var(--accent)' }} />
+                <h3>Generate Prompt Gambar &amp; Metadata (English)</h3>
+                <span className="badge badge-accent">40 Keywords + Title + Prompt</span>
+              </div>
+            </div>
+
+            <div className="metadata-prompt-form" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+              <div className="input-group">
+                <label className="input-label">Topik / Subjek / Konsep Gambar</label>
+                <input
+                  className="input"
+                  placeholder="misal: Futuristic smart city with neon lights and flying drones"
+                  value={promptTopic}
+                  onChange={(e) => setPromptTopic(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !promptGenerating && promptTopic.trim()) {
+                      handleGeneratePromptAndMetadata()
+                    }
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                <div className="input-group">
+                  <label className="input-label">Visual Style / Vibe</label>
+                  <select
+                    className="input"
+                    value={promptStyle}
+                    onChange={(e) => setPromptStyle(e.target.value)}
+                  >
+                    {PROMPT_STYLES.map((st) => (
+                      <option key={st.value} value={st.value}>{st.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Jumlah Hasil</label>
+                  <select
+                    className="input"
+                    value={promptCount}
+                    onChange={(e) => setPromptCount(Number(e.target.value))}
+                  >
+                    <option value={1}>1 Set</option>
+                    <option value={3}>3 Set</option>
+                    <option value={5}>5 Set</option>
+                  </select>
+                </div>
+              </div>
+
+              {promptErr && <div className="metadata-ai-config-err">{promptErr}</div>}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  className="btn btn-primary"
+                  disabled={promptGenerating || !promptTopic.trim()}
+                  onClick={handleGeneratePromptAndMetadata}
+                >
+                  {promptGenerating ? (
+                    <>
+                      <Loader size={15} className="spin" /> Sedang Generate…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={15} /> Generate Prompt &amp; Metadata
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Prompt Results List */}
+          {promptResults.length > 0 && (
+            <div className="metadata-prompt-results" style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Hasil Generate ({promptResults.length})</h3>
+                <button
+                  className="btn btn-ghost btn-sm text-danger"
+                  onClick={() => setPromptResults([])}
+                >
+                  <Trash2 size={13} /> Bersihkan Hasil
+                </button>
+              </div>
+
+              {promptResults.map((item) => (
+                <div key={item.id} className="metadata-ai-config-card metadata-prompt-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <span className="badge badge-muted" style={{ fontSize: '0.75rem' }}>
+                      <Clock size={11} style={{ verticalAlign: -1, marginRight: 4 }} />
+                      {fmtDate(item.createdAt)}
+                    </span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        title="Simpan ke Riwayat"
+                        onClick={() => savePromptMetadataToHistory(item)}
+                      >
+                        <FolderOpen size={13} /> Simpan ke Riwayat
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        title="Download .txt"
+                        onClick={() => {
+                          const txt = `AI IMAGE PROMPT:\n${item.imagePrompt}\n\nCONTENT TITLE:\n${item.contentTitle}\n\nKEYWORDS (40):\n${item.formattedKeywords}`
+                          downloadFile(txt, `prompt-metadata-${item.id}.txt`)
+                        }}
+                      >
+                        <Download size={13} /> TXT
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Image Prompt */}
+                  <div className="metadata-prompt-box" style={{ marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <label className="input-label" style={{ margin: 0, fontWeight: 700, color: 'var(--accent)' }}>
+                        AI Image Generation Prompt (English)
+                      </label>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(item.imagePrompt)
+                          flash('Prompt disalin ke clipboard!')
+                        }}
+                      >
+                        <Copy size={12} /> Salin Prompt
+                      </button>
+                    </div>
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={item.imagePrompt}
+                      onChange={(e) => updatePromptResultItem(item.id, { imagePrompt: e.target.value })}
+                      style={{ width: '100%', resize: 'vertical' }}
+                    />
+                  </div>
+
+                  {/* Content Title */}
+                  <div className="metadata-prompt-box" style={{ marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <label className="input-label" style={{ margin: 0, fontWeight: 700 }}>
+                        Content Title (Stock SEO Title)
+                      </label>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(item.contentTitle)
+                          flash('Judul disalin ke clipboard!')
+                        }}
+                      >
+                        <Copy size={12} /> Salin Judul
+                      </button>
+                    </div>
+                    <input
+                      className="input"
+                      value={item.contentTitle}
+                      onChange={(e) => updatePromptResultItem(item.id, { contentTitle: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Keywords */}
+                  <div className="metadata-prompt-box">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <label className="input-label" style={{ margin: 0, fontWeight: 700 }}>
+                        40 Keywords ({item.keywords?.length || 0})
+                      </label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(item.formattedKeywords)
+                            flash('40 Keywords disalin ke clipboard!')
+                          }}
+                        >
+                          <Copy size={12} /> Salin 40 Keywords
+                        </button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            const fullText = `PROMPT:\n${item.imagePrompt}\n\nTITLE:\n${item.contentTitle}\n\nKEYWORDS:\n${item.formattedKeywords}`
+                            navigator.clipboard?.writeText(fullText)
+                            flash('Semua (Prompt, Title, Keywords) disalin!')
+                          }}
+                        >
+                          <Copy size={12} /> Salin Semua
+                        </button>
+                      </div>
+                    </div>
+                    <textarea
+                      className="input"
+                      rows={4}
+                      value={item.formattedKeywords}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        const kwArr = val.split(',').map((k) => k.trim()).filter(Boolean)
+                        updatePromptResultItem(item.id, { formattedKeywords: val, keywords: kwArr })
+                      }}
+                      style={{ width: '100%', resize: 'vertical', fontSize: '0.8125rem' }}
+                    />
                   </div>
                 </div>
               ))}

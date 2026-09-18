@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { flushSync } from 'react-dom'
 import { getAppThemeConfig, normalizeAppTheme, useStore, useEffectiveRole } from './store/useStore'
 import { initModalFocus } from './utils/modalFocus'
+import { initPreventZoomAndContextMenu } from './utils/preventZoomAndContextMenu'
 import UrlSync from './components/UrlSync'
 import Layout from './components/Layout'
 // =====================================================================
@@ -63,7 +64,7 @@ function PageLoader() {
 }
 
 function App() {
-  const { appState, currentPage, isAuthenticated, theme, setAppState } = useStore()
+  const { appState, currentPage, isAuthenticated, currentUser, theme, setAppState } = useStore()
   const effRole = useEffectiveRole()
 
   // Preload semua chunk halaman lazy DI AWAL, agar saat berpindah halaman
@@ -157,9 +158,56 @@ function App() {
   // dihapus — halaman publik (pricing/faq/checkout) BOLEH dibuka tamu via
   // deep-link. UrlSync menjadikan URL sumber kebenaran saat load.
 
+  // Sinkronisasi data inti workspace ke Neon:
+  // Project, Kanban, Todo, Catatan, dan Riset disimpan sebagai snapshot
+  // `workspace-core` di tabel user_data_blobs.
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser?.id) return undefined
+
+    let cancelled = false
+    let unsubscribe = null
+    let timer = null
+    let lastSnapshot = ''
+
+    const startSync = async () => {
+      const loadedRemote = await useStore.getState().loadWorkspaceFromCloud()
+      if (cancelled) return
+
+      lastSnapshot = useStore.getState().serializeWorkspaceSnapshot()
+      if (!loadedRemote) {
+        useStore.getState().saveWorkspaceToCloud(lastSnapshot)
+      }
+
+      unsubscribe = useStore.subscribe((state) => {
+        if (!state.isAuthenticated) return
+        const nextSnapshot = state.serializeWorkspaceSnapshot()
+        if (nextSnapshot === lastSnapshot) return
+        lastSnapshot = nextSnapshot
+        window.clearTimeout(timer)
+        timer = window.setTimeout(() => {
+          useStore.getState().saveWorkspaceToCloud(nextSnapshot)
+        }, 900)
+      })
+    }
+
+    startSync()
+
+    return () => {
+      cancelled = true
+      if (unsubscribe) unsubscribe()
+      window.clearTimeout(timer)
+    }
+  }, [isAuthenticated, currentUser?.id])
+
   // Fokus otomatis ke modal/pop-up saat muncul (scroll & keyboard focus).
   useEffect(() => {
     return initModalFocus()
+  }, [])
+
+  // Mencegah zoom in/out browser & klik kanan context menu di seluruh app
+  // (kecuali area/elemen yang diizinkan seperti mind board di riset konten atau input).
+  useEffect(() => {
+    return initPreventZoomAndContextMenu()
   }, [])
 
   const renderApp = () => {

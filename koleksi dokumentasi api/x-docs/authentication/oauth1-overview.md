@@ -1,0 +1,67 @@
+> This page location: X Developer Platform > fundamentals/authentication/oauth-1-0a/overview
+> Source: https://docs.x.com/fundamentals/authentication/oauth-1-0a/overview.md
+
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.x.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# OAuth 1.0a
+
+> Overview of OAuth 1.0a user context authentication on X, covering API keys, access tokens, request signing, and tools for making authorized API calls.
+
+export const Button = ({href, children}) => {
+  return <div className="not-prose">
+    <a href={href}>
+      <button className="x-btn">
+        <span>{children}</span>
+        <svg width="3" height="24" viewBox="0 -9 3 24" class="h-6 rotate-0 overflow-visible"><path d="M0 0L3 3L0 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>
+      </button>
+    </a>
+  </div>;
+};
+
+## OAuth 1.0a
+
+Many endpoints on the X developer platform use the OAuth 1.0a method to act, or make API requests, on behalf of a X account. For example, if you have a X developer app, you can make API requests on behalf of any X account as long as that user authenticates your app.
+
+Please note: if you aren’t familiar with concepts such as HMAC-SHA1 and percent encoding, we recommend that you check out the "useful tools" section below that lists some API clients that greatly simplify the authentication process.
+
+### Key concepts
+
+#### Signing a request with keys and tokens
+
+You have to sign each API request by passing several generated keys and tokens in an authorization header. To start, you can generate several keys and tokens in your [X developer app’s](/resources/fundamentals/developer-apps) details page, including the following:
+
+|                                                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API key and secret:<br /><br />`oauth_consumer_key`<br /><br />`oauth_consumer_secret` | Think of these as the user name and password that represents your X developer app when making API requests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Access token and secret:<br /><br />`oauth_token`<br /><br />`oauth_token_secret`      | An access token and access token secret are user-specific credentials used to authenticate OAuth 1.0a API requests. They specify the X account the request is made on behalf of.<br /><br />You can generate your own access token and token secret if you would like your app to make requests on behalf of the same X account associated with your developer account on the [X developer app's](/resources/fundamentals/developer-apps) details page.<br /><br />If you'd like to generate access tokens for a different user, see "Making requests on behalf of users" below. |
+
+#### Making requests on behalf of users
+
+When creating a signature, you need a set of access tokens that represent the user that you are going to make a request on behalf of.
+
+You can generate a set of access tokens that represents the X account that owns the X developer app from the [app’s details page,](https://developer.x.com/content/developer-twitter/en/apps) but if you are wanting to make a request on behalf of a different X account, that account’s owner must grant access to you by signing in to their account as part of the [3-legged OAuth flow](/resources/fundamentals/authentication#obtaining-access-tokens-using-3-legged-oauth-flow). The output of this process is a set of access tokens (oauth\_token and oauth\_token\_secret) that can be used to make an OAuth 1.0a request.
+
+Once you have these keys and tokens, you can either [create a signature](/resources/fundamentals/authentication#creating-a-signature) from scratch. We don't recommend this unless you know what you are doing, or if you're using one of the tools mentioned below to make a request to an endpoint that requires OAuth 1.0a.
+
+For reference, here is an example of a signed cURL request with all of the generated tokens passed in an authorization header:
+
+```bash theme={null}
+curl --request POST \
+  --url 'https://api.x.com/1.1/statuses/update.json?status=Hello%20world' \
+  --header 'authorization: OAuth oauth_consumer_key="CONSUMER_API_KEY", oauth_nonce="OAUTH_NONCE", oauth_signature="OAUTH_SIGNATURE", oauth_signature_method="HMAC-SHA1", oauth_timestamp="OAUTH_TIMESTAMP", oauth_token="ACCESS_TOKEN", oauth_version="1.0"' \
+```
+
+<Note>
+  **Note:** User access tokens are sensitive and should be guarded very carefully. When access tokens are generated, the user they represent is trusting your application to keep them secure. If the security of both API keys and user access tokens are compromised, your application would potentially expose access to private information and account functionality. We encourage you to learn more about [securing keys and access tokens](/resources/fundamentals/developer-apps).
+</Note>
+
+### Useful tools
+
+The process of [signing a request](/resources/fundamentals/authentication#creating-a-signature) is complicated. We recommend that you use an API client library that automatically generates a lot of the authentication token:
+
+|                                        |                                                                                                                                                                                     |
+| :------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Postman](https://www.getpostman.com/) | An API client that lets you build and send REST API requests. Read our “[Getting started with Postman](/tutorials/postman-getting-started)” tutorial to learn more about this tool. |
+| [Insomnia](https://insomnia.rest/)     | Insomnia is a REST API Client with cookie management, environment variables, code generation, and authentication for Mac, Window, and Linux.                                        |
