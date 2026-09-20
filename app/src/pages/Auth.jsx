@@ -135,19 +135,14 @@ if (result.success) {
     }
 
     // Popup OAuth token client (jalur utama � selalu membuka jendela Google).
-    let fallbackTimer = null
-    let tokenRequested = false
     const startTokenClient = () => {
-      if (tokenRequested) return
-      tokenRequested = true
-      clearTimeout(fallbackTimer)
       try {
         const tc = window.google?.accounts?.oauth2?.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
-          scope: 'openid email profile',
+          scope: "openid email profile",
           callback: async (resp) => {
             if (resp?.error) {
-              setError('Login Google dibatalkan.')
+              setError("Login Google dibatalkan.")
               setGoogleLoading(false)
               return
             }
@@ -155,36 +150,18 @@ if (result.success) {
             await finish(result)
           },
           error_callback: () => {
-            setError('Login Google dibatalkan.')
+            setError("Login Google dibatalkan.")
             setGoogleLoading(false)
           },
         })
         tc?.requestAccessToken()
       } catch {
-        setError('Gagal memulai login Google. Coba lagi.')
+        setError("Gagal memulai login Google. Coba lagi.")
         setGoogleLoading(false)
       }
     }
 
-    // Jalur 1 (opsional): One Tap / FedCM � kalau tidak muncul dalam 1.2s,
-    // popup token client tetap dibuka otomatis.
-    try {
-      window.google?.accounts?.id?.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: async (response) => {
-          const result = await googleLogin(response.credential)
-          await finish(result)
-        },
-        cancel_on_tap_outside: false,
-      })
-      window.google?.accounts?.id?.prompt((n) => {
-        const reason = n?.getNotDisplayedReason?.() || ''
-        if (reason && reason !== 'displayed') startTokenClient()
-      })
-      fallbackTimer = setTimeout(startTokenClient, 1200)
-    } catch {
-      startTokenClient()
-    }
+    startTokenClient()
   }, [googleLogin, setAppState])
 
   const handleSubmit = async (e) => {

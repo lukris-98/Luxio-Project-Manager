@@ -38,7 +38,7 @@ export default function TodoList() {
   const [uploadingGroup, setUploadingGroup] = useState(null)
   const fileInputRef = useRef(null)
 
-  const canCreate = role === 'owner' || role === 'super_admin' || role === 'admin'
+  const canCreate = role === 'owner' || role === 'super_admin' || role === 'admin' || role === 'user'
 
   const uid = currentUser?.id != null ? String(currentUser.id) : null
   const groups = uid ? (todoGroups[uid] || []) : []

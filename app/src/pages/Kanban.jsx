@@ -36,7 +36,7 @@ export default function Kanban() {
   const [templateData, setTemplateData] = useState(null)
   const [editingBoard, setEditingBoard] = useState(null)
 
-  const canCreateBoard = role === 'owner' || role === 'super_admin' || role === 'admin'
+  const canCreateBoard = role === 'owner' || role === 'super_admin' || role === 'admin' || role === 'user'
 
   const isBoardOverdue = (b) => {
     if (!b.deadline) return false

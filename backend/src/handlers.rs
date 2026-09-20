@@ -745,8 +745,8 @@ pub async fn login(
     // Owner: skip 2FA email, pakai PIN (khusus owner).
     let owner_role: String = row.get("role");
     if owner_role == "owner" {
-        let pin_hash: String = row.get("pin_hash");
-        let has_pin = !pin_hash.is_empty();
+        let pin_hash: Option<String> = row.try_get("pin_hash").ok().flatten();
+        let has_pin = pin_hash.as_deref().map(|h| !h.is_empty()).unwrap_or(false);
         let company_id: Option<String> = row.get("company_id");
         // Challenge sekali-pakai untuk langkah verify-pin (bukti password sudah benar).
         let owner_email_db: String = row.get("email");

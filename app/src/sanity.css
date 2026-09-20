@@ -37,9 +37,9 @@
   --warning: #F59E0B;
   --error: #DC2626;
 
-  --border: #EDEDED;
+  --border: #D6D6D6;
   --border-hover: #D6D6D6;
-  --border-strong: #D6D6D6;
+  --border-strong: #3D3D3D;
 
   --font-body: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
@@ -91,9 +91,9 @@
   --warning: #F59E0B;
   --error: #F87171;
 
-  --border: #212121;
+  --border: #353535;
   --border-hover: #353535;
-  --border-strong: #797979;
+  --border-strong: #B9B9B9;
 
   --font-body: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
@@ -486,6 +486,26 @@
 /* =====================================================================
    10. MODAL — surface gelap, radius md, scrim deep 60%
    ===================================================================== */
+/* Modal Global � diperlebar untuk PC & Tablet */
+.modal,
+.vault-modal,
+.board-modal,
+.target-modal,
+.vault-form-sheet {
+  width: 100%;
+  max-width: 680px;
+}
+
+@media (max-width: 768px) {
+  .modal,
+  .vault-modal,
+  .board-modal,
+  .target-modal,
+  .vault-form-sheet {
+    max-width: 100%;
+  }
+}
+
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .modal,
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .pin-modal,
 :is([data-theme="sanity-light"], [data-theme="sanity-dark"]) .gp-modal {
@@ -939,9 +959,9 @@
   --bg-secondary: #FFFFFF;
   --bg-tertiary: #EDEDED;
   --bg-elevated: #FFFFFF;
-  --border: #EDEDED;
+  --border: #D6D6D6;
   --border-hover: #D6D6D6;
-  --border-strong: #D6D6D6;
+  --border-strong: #3D3D3D;
   --accent-muted: rgba(0, 82, 239, 0.1);
   color: #0B0B0B;
 }

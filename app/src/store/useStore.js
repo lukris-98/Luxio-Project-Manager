@@ -18,34 +18,17 @@ import { getItem as idbGet, setItem as idbSet, removeItem as idbRemove } from '.
 import { clearStorageSession } from '../services/storageSession'
 
 export const APP_THEME_CONFIG = {
-  dark: { scheme: 'dark', color: '#0C0C0E' },
-  light: { scheme: 'light', color: '#F1F1F3' },
-  'main-white-light': { scheme: 'light', color: '#FFFFFF' },
-  'main-white-dark': { scheme: 'dark', color: '#000000' },
-  'luxio-new-light': { scheme: 'light', color: '#F4F4FB' },
-  'luxio-new-dark': { scheme: 'dark', color: '#101014' },
-  'sanity-light': { scheme: 'light', color: '#F7F7F7' },
-  'sanity-dark': { scheme: 'dark', color: '#0B0B0B' },
+  "sanity-dark": { scheme: "dark", color: "#0B0B0B" },
+  "sanity-light": { scheme: "light", color: "#F7F7F7" },
 }
 
 export const APP_THEME_VALUES = Object.keys(APP_THEME_CONFIG)
-export const normalizeAppTheme = (theme) => APP_THEME_VALUES.includes(theme) ? theme : 'sanity-dark'
+export const normalizeAppTheme = (theme) => APP_THEME_VALUES.includes(theme) ? theme : "sanity-dark"
 export const getAppThemeConfig = (theme) => APP_THEME_CONFIG[normalizeAppTheme(theme)]
-export const getAppThemeFamily = (theme) => {
-  const t = normalizeAppTheme(theme)
-  if (t.startsWith('main-white')) return 'main-white'
-  if (t.startsWith('luxio-new')) return 'luxio-new'
-  if (t.startsWith('sanity')) return 'sanity'
-  return 'luxio'
-}
-export const getAppThemeMode = (theme) => normalizeAppTheme(theme).endsWith('light') ? 'light' : 'dark'
-export const makeAppTheme = (family, mode) => {
-  if (family === 'main-white') return `main-white-${mode === 'light' ? 'light' : 'dark'}`
-  if (family === 'luxio-new') return `luxio-new-${mode === 'light' ? 'light' : 'dark'}`
-  if (family === 'sanity') return `sanity-${mode === 'light' ? 'light' : 'dark'}`
-  return mode === 'light' ? 'light' : 'dark'
-}
-export const toggleAppThemeMode = (theme) => makeAppTheme(getAppThemeFamily(theme), getAppThemeMode(theme) === 'dark' ? 'light' : 'dark')
+export const getAppThemeFamily = () => "sanity"
+export const getAppThemeMode = (theme) => normalizeAppTheme(theme) === "sanity-light" ? "light" : "dark"
+export const makeAppTheme = (family, mode) => mode === "light" ? "sanity-light" : "sanity-dark"
+export const toggleAppThemeMode = (theme) => normalizeAppTheme(theme) === "sanity-dark" ? "sanity-light" : "sanity-dark"
 
 const WORKSPACE_SYNC_KEY = 'workspace-core'
 const WORKSPACE_SYNC_FIELDS = [
