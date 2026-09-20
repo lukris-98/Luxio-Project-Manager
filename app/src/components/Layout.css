@@ -1285,6 +1285,11 @@
   box-shadow: 18px 0 45px rgba(43, 32, 111, 0.03);
 }
 
+[data-theme="sanity-light"] .sidebar.collapsed,
+[data-theme="sanity-dark"] .sidebar.collapsed {
+  width: 56px;
+}
+
 [data-theme="sanity-dark"] .sidebar {
   border-right-color: var(--border);
 }
