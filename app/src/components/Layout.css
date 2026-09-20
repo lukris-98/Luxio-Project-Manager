@@ -41,8 +41,7 @@
   justify-content: flex-start;
   flex-direction: row;
   gap: 10px;
-  padding-left: 10px;
-  padding-right: 6px;
+  padding: 6px 7px;
 }
 
 .logo-text,
@@ -71,7 +70,7 @@
 /* Saat sidebar terlipat: header & footer tetap rata kiri (ikon stabil) */
 .sidebar.collapsed .sidebar-header {
   justify-content: flex-start;
-  padding-left: 10px;
+  padding-left: 12px;
 }
 
 .sidebar.collapsed .sidebar-close {
@@ -80,20 +79,12 @@
 
 .sidebar.collapsed .profile-btn {
   justify-content: flex-start;
-  padding-left: 10px;
+  padding-left: 12px;
 }
 
 .sidebar.collapsed .sidebar-bottom {
   justify-content: flex-start;
-  padding-left: 6px;
-}
-
-.sidebar.collapsed .nav-item svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  min-width: 14px;
-  min-height: 14px;
+  padding-left: 12px;
 }
 
 .sidebar.collapsed .sidebar-collapse-btn {
@@ -1297,7 +1288,7 @@
   [data-theme="sanity-light"] .sidebar-header,
   [data-theme="sanity-dark"] .sidebar-header {
   height: 44px;
-  padding: 0 14px;
+  padding: 0 12px;
   border-bottom: none;
   }
 
@@ -1320,7 +1311,7 @@
 
 [data-theme="sanity-light"] .sidebar-nav,
 [data-theme="sanity-dark"] .sidebar-nav {
-  padding: 6px 10px 12px;
+  padding: 6px 12px 12px;
   gap: 2px;
 }
 
@@ -1328,7 +1319,7 @@
 [data-theme="sanity-dark"] .nav-item {
   min-height: 30px;
   margin: 0;
-  padding: 5px 10px;
+  padding: 6px 7px;
   border-radius: 8px;
   color: #111540;
   font-size: 0.78rem;
