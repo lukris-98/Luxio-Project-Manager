@@ -732,8 +732,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-3);
-  min-height: 44px;
+  padding: 0 var(--space-4);
+  height: 48px;
+  min-height: 48px;
   gap: var(--space-2);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
@@ -1367,22 +1368,24 @@
 }
 
 [data-theme="sanity-light"] .sidebar-bottom,
+[data-theme="sanity-light"] .sidebar-bottom,
 [data-theme="sanity-dark"] .sidebar-bottom {
   display: none;
 }
 
 [data-theme="sanity-light"] .main-content,
 [data-theme="sanity-dark"] .main-content {
-  margin: 10px 10px 10px 240px;
+  margin: 0 0 0 230px;
 }
 
-  [data-theme="sanity-light"] .topbar,
-  [data-theme="sanity-dark"] .topbar {
+[data-theme="sanity-light"] .topbar,
+[data-theme="sanity-dark"] .topbar {
+  height: 48px;
   min-height: 48px;
-  padding: 0 12px;
+  padding: 0 16px;
   background: var(--bg-secondary);
-  border-bottom-color: #ebeaf6;
-  }
+  border-bottom: 1px solid var(--border);
+}
 
 [data-theme="sanity-dark"] .topbar {
   border-bottom-color: var(--border);
@@ -1442,7 +1445,7 @@
 
 [data-theme="sanity-light"] .app-layout.sidebar-collapsed .main-content,
 [data-theme="sanity-dark"] .app-layout.sidebar-collapsed .main-content {
-  margin: 10px 10px 10px 66px;
+  margin: 0 0 0 56px;
 }
 
 /* Modal PIN Akun (wajib setelah login) */
