@@ -16,7 +16,7 @@
 }
 
 :root,
-[data-theme="dark"] {
+[data-theme="sanity-dark"] {
   color-scheme: dark;
 
   /* Color Palette - Dark */
@@ -79,7 +79,7 @@
 }
 
 /* Light Theme */
-[data-theme="light"] {
+[data-theme="sanity-light"] {
   color-scheme: light;
 
   --bg-primary: #FFFFFF;
@@ -115,7 +115,7 @@
 }
 
 /* Main White Theme */
-[data-theme="main-white-light"] {
+[data-theme="sanity-light"] {
   color-scheme: light;
 
   --bg-primary: #FFFFFF;
@@ -159,7 +159,7 @@
   --card-shadow: rgba(0, 0, 0, 0) 0 0 10px 0;
 }
 
-[data-theme="main-white-dark"] {
+[data-theme="sanity-dark"] {
   color-scheme: dark;
 
   --bg-primary: #000000;
@@ -205,7 +205,7 @@
 
 /* Luxio New — tema baru dari desain folder /ui:
    kartu rounded lembut, aksen indigo-ungu, field terang bersih. */
-[data-theme="luxio-new-light"] {
+[data-theme="sanity-light"] {
   color-scheme: light;
 
   --bg-primary: #FFFFFF;
@@ -244,7 +244,7 @@
   --card-shadow: 0 4px 16px rgba(108, 46, 242, 0.07);
 }
 
-[data-theme="luxio-new-dark"] {
+[data-theme="sanity-dark"] {
   color-scheme: dark;
 
   --bg-primary: #0F0E16;
@@ -369,14 +369,14 @@ a:hover {
 }
 
 /* Tema Luxio New: tombol primary solid indigo-ungu (sesuai mockup /ui). */
-[data-theme="luxio-new-light"] .btn-primary,
-[data-theme="luxio-new-dark"] .btn-primary {
+[data-theme="sanity-light"] .btn-primary,
+[data-theme="sanity-dark"] .btn-primary {
   background: var(--accent);
   color: #fff;
 }
 
-[data-theme="luxio-new-light"] .btn-primary:hover,
-[data-theme="luxio-new-dark"] .btn-primary:hover {
+[data-theme="sanity-light"] .btn-primary:hover,
+[data-theme="sanity-dark"] .btn-primary:hover {
   background: var(--accent-hover);
 }
 
@@ -640,63 +640,63 @@ textarea.input {
    tombol pill, kontainer rounded + border tipis & shadow lembut,
    badge pill pastel, panel dengan header terpisah, dsb.
    ===================================================================== */
-[data-theme="luxio-new-light"].luxio-new,
-[data-theme="luxio-new-dark"].luxio-new,
-[data-theme="luxio-new-light"] body,
-[data-theme="luxio-new-dark"] body {
+[data-theme="sanity-light"].luxio-new,
+[data-theme="sanity-dark"].luxio-new,
+[data-theme="sanity-light"] body,
+[data-theme="sanity-dark"] body {
   letter-spacing: 0.005em;
 }
 
 /* Tombol pill & typography lebih besar */
-[data-theme="luxio-new-light"] .btn,
-[data-theme="luxio-new-dark"] .btn {
+[data-theme="sanity-light"] .btn,
+[data-theme="sanity-dark"] .btn {
   border-radius: 999px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
-[data-theme="luxio-new-light"] .btn-primary,
-[data-theme="luxio-new-dark"] .btn-primary {
+[data-theme="sanity-light"] .btn-primary,
+[data-theme="sanity-dark"] .btn-primary {
   box-shadow: 0 6px 16px rgba(108, 46, 242, 0.28);
 }
 
-[data-theme="luxio-new-light"] .btn-primary:hover,
-[data-theme="luxio-new-dark"] .btn-primary:hover {
+[data-theme="sanity-light"] .btn-primary:hover,
+[data-theme="sanity-dark"] .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 20px rgba(108, 46, 242, 0.32);
 }
 
 /* Input rounded penuh & background terang */
-[data-theme="luxio-new-light"] .input,
-[data-theme="luxio-new-dark"] .input{
+[data-theme="sanity-light"] .input,
+[data-theme="sanity-dark"] .input{
   border-radius: 3px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-strong);
 }
 
-[data-theme="luxio-new-light"] .input:focus,
-[data-theme="luxio-new-dark"] .input:focus {
+[data-theme="sanity-light"] .input:focus,
+[data-theme="sanity-dark"] .input:focus {
   background: var(--bg-secondary);
   border-color: var(--accent);
 }
 
-[data-theme="luxio-new-light"] textarea.input,
-[data-theme="luxio-new-dark"] textarea.input,
-[data-theme="luxio-new-light"] select.input,
-[data-theme="luxio-new-dark"] select.input {
+[data-theme="sanity-light"] textarea.input,
+[data-theme="sanity-dark"] textarea.input,
+[data-theme="sanity-light"] select.input,
+[data-theme="sanity-dark"] select.input {
   border-radius: 3px;
 }
 
 /* Kartu: border konsisten 1px sesuai aturan global */
-[data-theme="luxio-new-light"] .card,
-[data-theme="luxio-new-dark"] .card {
+[data-theme="sanity-light"] .card,
+[data-theme="sanity-dark"] .card {
   border-radius: var(--radius-lg);
   border-width: 1px;
 }
 
 /* Badge jadi pill lembut */
-[data-theme="luxio-new-light"] .badge,
-[data-theme="luxio-new-dark"] .badge {
+[data-theme="sanity-light"] .badge,
+[data-theme="sanity-dark"] .badge {
   border-radius: 999px;
   padding: 4px 12px;
   text-transform: none;
@@ -705,36 +705,36 @@ textarea.input {
 }
 
 /* Sidebar: item menu rounded + icon berwarna; active = pill indigo lembut */
-[data-theme="luxio-new-light"] .nav-item,
-[data-theme="luxio-new-dark"] .nav-item {
+[data-theme="sanity-light"] .nav-item,
+[data-theme="sanity-dark"] .nav-item {
   border-radius: 12px;
   margin: 2px var(--space-2);
   padding: var(--space-2) var(--space-3);
   font-weight: 500;
 }
 
-[data-theme="luxio-new-light"] .nav-item svg,
-[data-theme="luxio-new-dark"] .nav-item svg {
+[data-theme="sanity-light"] .nav-item svg,
+[data-theme="sanity-dark"] .nav-item svg {
   color: var(--accent);
   opacity: 0.85;
 }
 
-[data-theme="luxio-new-light"] .nav-item.active,
-[data-theme="luxio-new-dark"] .nav-item.active {
+[data-theme="sanity-light"] .nav-item.active,
+[data-theme="sanity-dark"] .nav-item.active {
   background: var(--accent-muted);
   color: var(--accent);
   font-weight: 600;
 }
 
-[data-theme="luxio-new-light"] .nav-item.active svg,
-[data-theme="luxio-new-dark"] .nav-item.active svg {
+[data-theme="sanity-light"] .nav-item.active svg,
+[data-theme="sanity-dark"] .nav-item.active svg {
   color: var(--accent);
   opacity: 1;
 }
 
 /* Topbar search */
-[data-theme="luxio-new-light"] .searchbar,
-[data-theme="luxio-new-dark"] .searchbar {
+[data-theme="sanity-light"] .searchbar,
+[data-theme="sanity-dark"] .searchbar {
   border-radius: 999px;
 }
 
@@ -809,36 +809,36 @@ img {
 }
 
 /* Semua dropdown/menu/panel: putih di tema terang, kontras di tema gelap */
-[data-theme="light"] .notifications-panel,
-[data-theme="light"] .select-menu,
-[data-theme="light"] .nav-dropdown,
-[data-theme="light"] .dropdown-menu,
-[data-theme="light"] .mobile-menu,
-[data-theme="light"] .notif-toast,
-[data-theme="light"] .notifications-panel-header,
-[data-theme="light"] .notification-item {
+[data-theme="sanity-light"] .notifications-panel,
+[data-theme="sanity-light"] .select-menu,
+[data-theme="sanity-light"] .nav-dropdown,
+[data-theme="sanity-light"] .dropdown-menu,
+[data-theme="sanity-light"] .mobile-menu,
+[data-theme="sanity-light"] .notif-toast,
+[data-theme="sanity-light"] .notifications-panel-header,
+[data-theme="sanity-light"] .notification-item {
   background: #FFFFFF !important;
   color: var(--text-primary);
 }
 
-[data-theme="light"] .select-option,
-[data-theme="light"] .dropdown-menu button,
-[data-theme="light"] .notification-item-title,
-[data-theme="light"] .notification-item-body {
+[data-theme="sanity-light"] .select-option,
+[data-theme="sanity-light"] .dropdown-menu button,
+[data-theme="sanity-light"] .notification-item-title,
+[data-theme="sanity-light"] .notification-item-body {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .select-option:hover,
-[data-theme="light"] .dropdown-menu button:hover {
+[data-theme="sanity-light"] .select-option:hover,
+[data-theme="sanity-light"] .dropdown-menu button:hover {
   background: #FFFFFF;
   color: var(--text-primary);
 }
 
-[data-theme="light"] .notification-item.unread {
+[data-theme="sanity-light"] .notification-item.unread {
   background: #FFFFFF;
 }
 
-[data-theme="light"] .notifications-list {
+[data-theme="sanity-light"] .notifications-list {
   background: #FFFFFF;
 }
 

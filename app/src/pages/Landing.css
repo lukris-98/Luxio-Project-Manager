@@ -37,15 +37,15 @@
   transform: translateY(-100%);
 }
 
-[data-theme="light"] .main-nav {
+[data-theme="sanity-light"] .main-nav {
   background: rgba(241, 241, 243, 0.9);
 }
 
-[data-theme="main-white-light"] .main-nav {
+[data-theme="sanity-light"] .main-nav {
   background: rgba(255, 255, 255, 0.92);
 }
 
-[data-theme="main-white-dark"] .main-nav {
+[data-theme="sanity-dark"] .main-nav {
   background: rgba(0, 0, 0, 0.9);
 }
 
@@ -77,7 +77,7 @@
   justify-content: center;
 }
 
-[data-theme="light"] .logo-mark {
+[data-theme="sanity-light"] .logo-mark {
   color: #000;
 }
 
@@ -777,7 +777,7 @@
   z-index: 1;
 }
 
-[data-theme="light"] .landing-footer {
+[data-theme="sanity-light"] .landing-footer {
   background: var(--bg-tertiary);
 }
 
@@ -955,7 +955,7 @@
   box-shadow: 0 6px 14px rgba(0,0,0,0.22), inset 0 -2px 0 rgba(0,0,0,0.08);
 }
 
-[data-theme="light"] .btn-primary {
+[data-theme="sanity-light"] .btn-primary {
   color: #fff;
 }
 

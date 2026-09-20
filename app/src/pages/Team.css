@@ -1113,9 +1113,9 @@
 }
 
 .dark-theme .team-member,
-[data-theme="dark"] .team-member,
-[data-theme="main-white-dark"] .team-member,
-[data-theme="luxio-new-dark"] .team-member {
+[data-theme="sanity-dark"] .team-member,
+[data-theme="sanity-dark"] .team-member,
+[data-theme="sanity-dark"] .team-member {
   background: var(--bg-secondary);
 }
 

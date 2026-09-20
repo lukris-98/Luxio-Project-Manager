@@ -493,7 +493,17 @@
 .target-modal,
 .vault-form-sheet {
   width: 100%;
-  max-width: 680px;
+  max-width: 960px;
+}
+
+@media (max-width: 1024px) {
+  .modal,
+  .vault-modal,
+  .board-modal,
+  .target-modal,
+  .vault-form-sheet {
+    max-width: 680px;
+  }
 }
 
 @media (max-width: 768px) {
