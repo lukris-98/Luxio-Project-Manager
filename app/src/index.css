@@ -2,12 +2,12 @@
 
 /* Logo image — menggantikan kotak "L" lama di semua halaman */
 .logo-img {
-  width: 32px;
-  height: 32px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
   flex-shrink: 0;
   display: block;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .footer-brand-section .logo-img {

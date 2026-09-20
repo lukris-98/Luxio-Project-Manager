@@ -677,12 +677,12 @@ export default function Layout({ children }) {
               onClick={toggleTheme}
               aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
             >
-              {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
+              {isDarkTheme ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
             <div className="notif-wrap">
               <button className="notification-btn" onClick={handleNotifClick} aria-label="Notifikasi">
-                <Bell size={18} />
+                <Bell size={20} />
                 {unreadCount > 0 && <span className="notification-dot">{unreadCount > 99 ? '99+' : unreadCount}</span>}
               </button>
 
