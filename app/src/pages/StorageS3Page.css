@@ -1,0 +1,29 @@
+.s3page { max-width: 920px; margin: 0 auto; padding: 16px; font-size: 14px; }
+.s3page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.s3page-title { display: flex; align-items: center; gap: 12px; color: var(--text); }
+.s3page-title h3 { margin: 0; font-size: 18px; }
+.s3page-title p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.s3page-title code { background: var(--bg-soft); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+.s3page-actions { display: flex; gap: 8px; align-items: center; }
+.s3page-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+.s3page-warn, .s3page-error, .s3page-notice { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; }
+.s3page-warn { background: rgba(255, 193, 7, 0.12); color: #b8860b; }
+.s3page-error { background: rgba(231, 76, 60, 0.12); color: #c0392b; }
+.s3page-notice { background: rgba(46, 204, 113, 0.14); color: #1e8449; }
+.s3page-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.s3page-search { display: flex; align-items: center; gap: 8px; background: var(--bg-soft); border-radius: 8px; padding: 6px 10px; flex: 1; max-width: 320px; }
+.s3page-search input { border: none; background: transparent; outline: none; width: 100%; color: var(--text); font-size: 13px; }
+.s3page-count { font-size: 12px; color: var(--muted); }
+.s3page-table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg); }
+.s3page-table-head, .s3page-row { display: grid; grid-template-columns: 1fr 90px 160px 90px; gap: 8px; align-items: center; padding: 10px 14px; }
+.s3page-table-head { background: var(--bg-soft); font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); font-weight: 600; }
+.s3page-row { border-top: 1px solid var(--border); font-size: 13px; }
+.s3page-row:hover { background: var(--bg-soft); }
+.s3page-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.s3page-name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s3page-actions-col { display: flex; gap: 6px; justify-content: flex-end; }
+.s3page-actions-col .btn-icon { padding: 5px; border-radius: 6px; background: transparent; border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+.s3page-actions-col .btn-icon:hover { background: var(--bg-soft); }
+.s3page-actions-col .btn-icon.danger:hover { color: #c0392b; border-color: rgba(231,76,60,.5); }
+.s3page-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 16px; color: var(--muted); font-size: 13px; text-align: center; }
+.s3page-foot { margin-top: 14px; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }

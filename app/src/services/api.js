@@ -304,6 +304,36 @@ export const api = {
   },
   // Konfigurasi Neon aktif (dari .env, owner).
   neonActiveConfig: () => get('/api/owner/neon/active'),
+
+  // ---- Neon Object Storage (S3-compatible) ----
+  s3Status: () => get('/api/owner/s3/status'),
+  s3List: (prefix) => get('/api/owner/s3/list', prefix ? { prefix } : {}),
+  // Upload file ke S3 folder luxio/ (multipart). category opsional.
+  s3Upload: (formData) => {
+    const token = getToken()
+    return fetch(`${API_BASE}/api/owner/s3/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(await res.text())
+      const json = await res.json()
+      if (json && json.key) {
+        json.downloadUrl = `${API_BASE}/api/owner/s3/download?key=${encodeURIComponent(json.key)}`
+      }
+      return json
+    })
+  },
+  s3Delete: (key) => post('/api/owner/s3/delete', { key }),
+  // Unduh objek dari S3 (mengembalikan blob).
+  s3Download: (key) => {
+    const token = getToken()
+    const url = `${API_BASE}/api/owner/s3/download?key=${encodeURIComponent(key)}`
+    return fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} }).then((res) => {
+      if (!res.ok) throw new Error('Gagal mengunduh file')
+      return res.blob()
+    })
+  },
   // Tes kirim email (owner).
   mailTest: (email) => post('/api/owner/mail/test', { email }),
 

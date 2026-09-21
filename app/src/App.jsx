@@ -32,6 +32,7 @@ const TodoList = lazy(() => import('./pages/TodoList'))
 const PrivateNote = lazy(() => import('./pages/PrivateNote'))
 const Vault = lazy(() => import('./pages/Vault'))
 const StoragePage = lazy(() => import('./pages/StoragePage'))
+const StorageS3Page = lazy(() => import('./pages/StorageS3Page'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const Team = lazy(() => import('./pages/Team'))
 const Settings = lazy(() => import('./pages/Settings'))
@@ -48,6 +49,8 @@ const MetadataCreator = lazy(() => import('./pages/MetadataCreator'))
 const BangMotion = lazy(() => import('./pages/BangMotion'))
 const PdfTools = lazy(() => import('./pages/PdfTools'))
 const GmailPage = lazy(() => import('./pages/GmailPage'))
+const Analytics = lazy(() => import('./pages/Analytics'))
+const AIProviders = lazy(() => import('./pages/AIProviders'))
 const BloggerPage = lazy(() => import('./pages/BloggerPage'))
 // Grup "Google" di sidebar — satu halaman per layanan API Google.
 const DrivePage = lazy(() => import('./pages/DrivePage'))
@@ -85,6 +88,7 @@ function App() {
       import('./pages/PrivateNote'),
       import('./pages/Vault'),
       import('./pages/StoragePage'),
+      import('./pages/StorageS3Page'),
       import('./pages/Calendar'),
       import('./pages/Team'),
       import('./pages/Settings'),
@@ -105,6 +109,7 @@ function App() {
       import('./pages/DrivePage'),
       import('./pages/GCalendarPage'),
       import('./pages/YouTubePage'),
+      import('./pages/AIProviders'),
     ]
     chunks.forEach((p) => p.catch(() => {}))
   }, [])
@@ -230,6 +235,8 @@ function App() {
         return <Vault />
       case 'storage':
         return effRole === 'owner' ? <StoragePage /> : <Dashboard />
+      case 'storage-s3':
+        return effRole === 'owner' ? <StorageS3Page /> : <Dashboard />
       case 'calendar':
         return <Calendar />
       case 'team':
@@ -260,6 +267,8 @@ function App() {
         return <BangMotion />
       case 'pdf-tools':
         return <PdfTools />
+      case 'analytics':
+        return <Analytics />
       case 'gmail':
         return <GmailPage />
       case 'blogger':
@@ -270,6 +279,8 @@ function App() {
         return <GCalendarPage />
       case 'youtube':
         return <YouTubePage />
+      case 'ai-providers':
+        return <AIProviders />
       default:
         return <Dashboard />
     }

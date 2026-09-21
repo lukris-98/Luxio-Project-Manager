@@ -11,7 +11,7 @@ import { subscribeToPush } from '../utils/push'
 import { useAutoHideNav } from '../utils/useAutoHideNav'
 import Logo from './Logo'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard, FileText
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard, FileText, BarChart3, Cpu, FolderOpen
 } from 'lucide-react'
 import './Layout.css'
 
@@ -42,6 +42,7 @@ const NAV_COLORS = {
   agent: 'var(--accent)',
   upgrade: 'var(--accent)',
   'admin-users': 'var(--accent)',
+  analytics: 'var(--accent)',
   'owner-dashboard': 'var(--accent)',
   attendance: 'var(--accent)',
   'attendance-admin': 'var(--accent)',
@@ -300,16 +301,22 @@ export default function Layout({ children }) {
     { id: 'vault', icon: KeyRound, label: 'Brankas' },
     // Penyimpanan cloud (Neon + Backblaze B2) — khusus owner.
     ...(effRole === 'owner' ? [{ id: 'storage', icon: HardDrive, label: 'Penyimpanan' }] : []),
+    // File Manager Neon Object Storage (S3) — khusus owner.
+    ...(effRole === 'owner' ? [{ id: 'storage-s3', icon: FolderOpen, label: 'File S3' }] : []),
     { id: 'calendar', icon: Calendar, label: 'Kalender' },
     { id: 'my-tasks', icon: CheckSquare, label: 'Task Saya' },
     // Super Admin / Owner => Divisi (CRUD divisi+tim), Admin/User => Tim.
     { id: 'team', icon: isDivisiMode ? Building2 : Users, label: isDivisiMode ? 'Divisi' : 'Tim' },
     // AI Agent (Item 8) — owner/super_admin.
     ...(effRole === 'owner' || effRole === 'super_admin' ? [{ id: 'agent', icon: Bot, label: 'AI Agent' }] : []),
+    // AI Providers (Item baru) — owner/super_admin.
+    { id: 'ai-providers', icon: Cpu, label: 'AI Providers' },
     // Upgrade akun (Item 4) — khusus role user.
     ...(effRole === 'user' ? [{ id: 'upgrade', icon: Rocket, label: 'Upgrade Akun' }] : []),
     // Kelola Akun khusus pemilik (role efektif owner).
     ...(effRole === 'owner' ? [{ id: 'admin-users', icon: Crown, label: 'Kelola Akun' }] : []),
+    // Analytics dashboard (Umami) — khusus owner.
+    ...(effRole === 'owner' ? [{ id: 'analytics', icon: BarChart3, label: 'Analytics' }] : []),
     // Pemantauan owner (analytics, database, storage, log) — khusus owner.
     ...(effRole === 'owner' ? [{ id: 'owner-dashboard', icon: Activity, label: 'Pemantauan' }] : []),
     // Absen masuk kerja (semua role).
@@ -339,7 +346,7 @@ export default function Layout({ children }) {
 
   // Kalau role diganti dan sedang di halaman khusus owner, lempar ke dashboard.
   useEffect(() => {
-    if ((currentPage === 'admin-users' || currentPage === 'owner-dashboard') && effRole !== 'owner') {
+    if ((currentPage === 'admin-users' || currentPage === 'analytics' || currentPage === 'owner-dashboard') && effRole !== 'owner') {
       setCurrentPage('dashboard')
     }
   }, [effRole, currentPage, setCurrentPage])
@@ -489,7 +496,6 @@ export default function Layout({ children }) {
         onMouseLeave={() => setSidebarHover(false)}
       >
           <div className="sidebar-header">
-            <Logo onClick={() => setCurrentPage('dashboard')} />
             <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
               <X size={18} />
             </button>
@@ -620,12 +626,14 @@ export default function Layout({ children }) {
       <main className="main-content">
         {/* Top Bar */}
         <header className={`topbar ${topbarHidden ? 'hidden' : ''}`}>
-          <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
-            <Menu size={20} />
-          </button>
-
-          <div className="mobile-topbar-brand">
-            <Logo onClick={() => setCurrentPage('dashboard')} />
+          <div className="topbar-left">
+            <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
+              <Menu size={20} />
+            </button>
+            
+            <div className="topbar-brand">
+              <Logo onClick={() => setCurrentPage('dashboard')} />
+            </div>
           </div>
 
           <div className="topbar-search" role="search">

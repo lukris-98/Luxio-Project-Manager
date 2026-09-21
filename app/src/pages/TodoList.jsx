@@ -128,22 +128,36 @@ export default function TodoList() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadingGroup(groupId)
+    let s3Url = ''
+    let b2Url = ''
     try {
+      // 1) Simpan permanen ke Neon S3 folder luxio/todo-files (diutamakan).
       const formData = new FormData()
       formData.append('file', file)
-      const res = await api.b2Upload(formData)
-      addTodoGroupFile(groupId, {
-        name: res.file_name || file.name,
-        size: res.size || file.size,
-        url: res.url || '',
-        uploadedAt: Date.now(),
-      })
-    } catch (err) {
-      // Fallback: simpan metadata lokal saja (tanpa URL B2).
+      formData.append('category', 'todo')
+      const s3res = await api.s3Upload(formData)
+      s3Url = s3res.downloadUrl || s3res.url || ''
+      // 2) Tetap kirim ke B2 (kompatibilitas lama) bila kredensial ada.
+      try {
+        const b2fd = new FormData()
+        b2fd.append('file', file)
+        const b2res = await api.b2Upload(b2fd)
+        b2Url = b2res.url || ''
+      } catch (_) { /* B2 opsional */ }
       addTodoGroupFile(groupId, {
         name: file.name,
         size: file.size,
-        url: '',
+        url: s3Url || b2Url,
+        s3Key: (s3res && s3res.key) || '',
+        uploadedAt: Date.now(),
+      })
+    } catch (err) {
+      // Fallback: simpan metadata lokal saja (tanpa URL).
+      addTodoGroupFile(groupId, {
+        name: file.name,
+        size: file.size,
+        url: b2Url || '',
+        s3Key: '',
         uploadedAt: Date.now(),
       })
     } finally {

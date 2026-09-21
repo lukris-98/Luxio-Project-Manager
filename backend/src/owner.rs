@@ -2,7 +2,7 @@ use axum::{
     extract::{Query, State},
     http::HeaderMap,
     http::StatusCode,
-    response::Json,
+    response::{IntoResponse, Json},
 };
 use chrono::Utc;
 use serde_json::{json, Value};
@@ -1548,6 +1548,187 @@ pub async fn b2_upload_file(
         "size": file_data.len(),
         "content_type": content_type,
     })))
+}
+
+// =====================================================================
+// NEON OBJECT STORAGE (S3-COMPATIBLE) — ENDPOINTS
+// =====================================================================
+// File disimpan ke bucket `luxio` prefix `luxio/`. Kredensial dibaca dari
+// env (AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+// AWS_REGION) — lihat `crate::s3`.
+
+/// GET /api/owner/s3/status — status koneksi & kredensial Neon S3.
+pub async fn s3_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    if !is_owner(&state.db, &user_id).await? {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    if !crate::s3::is_configured() {
+        return Ok(Json(json!({ "configured": false, "ok": false, "message": "Kredensial Neon S3 belum diatur di env." })));
+    }
+
+    let (endpoint, _, _, region) = crate::s3::s3_credentials();
+    // Cek koneksi: list bucket pada endpoint.
+    match crate::s3::s3_request("GET", "/", &[], b"", None).await {
+        Ok((bytes, status, _)) => {
+            let ok = status < 300;
+            let body = String::from_utf8_lossy(&bytes).to_string();
+            Ok(Json(json!({
+                "configured": true,
+                "ok": ok,
+                "status": status,
+                "endpoint": endpoint,
+                "region": region,
+                "message": if ok { "Koneksi Neon S3 berhasil." } else { "Response tidak sukses dari endpoint." },
+                "sample": body.chars().take(500).collect::<String>(),
+            })))
+        }
+        Err(e) => Ok(Json(json!({ "configured": true, "ok": false, "message": e }))),
+    }
+}
+
+/// GET /api/owner/s3/list?prefix=luxio/ — daftar file di folder `luxio/`.
+pub async fn s3_list(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = require_auth(&state, &headers).await
+        .map_err(|e| (e, Json(json!({ "error": "Unauthorized" }))))?;
+    let _ = user_id;
+
+    let prefix = params.get("prefix").cloned().unwrap_or_else(|| "luxio/".to_string());
+    if !crate::s3::is_configured() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Kredensial Neon S3 belum diatur di env." }))));
+    }
+
+    match crate::s3::list_files(&state, &prefix).await {
+        Ok(v) => Ok(Json(v)),
+        Err(e) => Err((StatusCode::BAD_GATEWAY, Json(json!({ "error": e })))),
+    }
+}
+
+/// POST /api/owner/s3/upload — upload file apapun (pdf, word, excel, ppt,
+/// teks, dll) ke folder `luxio/` di Neon S3. Menerima multipart `file`
+/// + field opsional `category`. Mengembalikan { url, key, size }.
+pub async fn s3_upload_file(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    multipart: axum::extract::Multipart,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = require_auth(&state, &headers).await
+        .map_err(|e| (e, Json(json!({ "error": "Unauthorized" }))))?;
+
+    if !crate::s3::is_configured() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Kredensial Neon S3 belum diatur di env." }))));
+    }
+
+    let mut file_data: Vec<u8> = Vec::new();
+    let mut file_name = String::new();
+    let mut content_type = String::from("application/octet-stream");
+    let mut category = String::from("documents");
+    let mut field_found = false;
+
+    let mut mp = multipart;
+    while let Some(f) = mp.next_field().await.map_err(|_| (StatusCode::BAD_REQUEST, Json(json!({ "error": "Gagal membaca file" }))))? {
+        let name = f.name().unwrap_or("").to_string();
+        if name == "file" {
+            file_name = f.file_name().unwrap_or("upload").to_string();
+            content_type = f.content_type().unwrap_or("application/octet-stream").to_string();
+            file_data = f.bytes().await.map_err(|_| (StatusCode::BAD_REQUEST, Json(json!({ "error": "Gagal membaca data file" }))))?.to_vec();
+            field_found = true;
+        } else if name == "category" {
+            category = f.text().await.unwrap_or_else(|_| "documents".to_string());
+        }
+    }
+
+    if !field_found || file_data.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Tidak ada file yang dikirim" }))));
+    }
+    if file_data.len() > 50 * 1024 * 1024 {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "File terlalu besar (maks 50MB)" }))));
+    }
+
+    // Kategorikan otomatis bila kosong berdasarkan ekstensi.
+    if category.is_empty() || category == "documents" {
+        let lower = file_name.to_lowercase();
+        category = if lower.ends_with(".pdf") { "pdf".into() }
+            else if lower.ends_with(".txt") { "text".into() }
+            else if lower.ends_with(".doc") || lower.ends_with(".docx") { "word".into() }
+            else if lower.ends_with(".xls") || lower.ends_with(".xlsx") || lower.ends_with(".csv") { "excel".into() }
+            else if lower.ends_with(".ppt") || lower.ends_with(".pptx") { "powerpoint".into() }
+            else if lower.ends_with(".png") || lower.ends_with(".jpg") || lower.ends_with(".jpeg") || lower.ends_with(".gif") || lower.ends_with(".webp") { "images".into() }
+            else { "documents".into() };
+    }
+
+    match crate::s3::upload_file(&state, &category, &user_id, &file_name, &content_type, &file_data).await {
+        Ok(v) => {
+            let mut result = v;
+            let key = result.get("key").and_then(|k| k.as_str()).unwrap_or("").to_string();
+            result["category"] = json!(category);
+            result["uploaded_by"] = json!(user_id);
+            result["file_name"] = json!(file_name);
+            result["downloadUrl"] = json!(format!("/api/owner/s3/download?key={}", key));
+            Ok(Json(result))
+        }
+        Err(e) => Err((StatusCode::BAD_GATEWAY, Json(json!({ "error": e })))),
+    }
+}
+
+/// POST /api/owner/s3/delete — hapus objek dari Neon S3.
+/// Body: { key: "luxio/..." }
+pub async fn s3_delete_file(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = require_auth(&state, &headers).await
+        .map_err(|e| (e, Json(json!({ "error": "Unauthorized" }))))?;
+    let _ = user_id;
+
+    if !crate::s3::is_configured() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Kredensial Neon S3 belum diatur di env." }))));
+    }
+
+    let key = payload.get("key").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if key.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Field key wajib diisi" }))));
+    }
+
+    match crate::s3::delete_file(&key).await {
+        Ok(()) => Ok(Json(json!({ "ok": true, "key": key }))),
+        Err(e) => Err((StatusCode::BAD_GATEWAY, Json(json!({ "error": e })))),
+    }
+}
+
+/// GET /api/owner/s3/download?key=luxio/... — unduh objek dari Neon S3.
+pub async fn s3_download_file(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<axum::response::Response, StatusCode> {
+    let user_id = require_auth(&state, &headers).await?;
+    let _ = user_id;
+
+    let key = params.get("key").cloned().unwrap_or_default();
+    if key.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    match crate::s3::download_file(&key).await {
+        Ok((bytes, content_type)) => Ok((
+            [
+                (axum::http::header::CONTENT_TYPE, content_type),
+                (axum::http::header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", key.rsplit('/').next().unwrap_or("file"))),
+            ],
+            bytes,
+        ).into_response()),
+        Err(_) => Err(StatusCode::BAD_GATEWAY),
+    }
 }
 
 /// POST /api/storage/proxy — proxy API eksternal untuk halaman Penyimpanan

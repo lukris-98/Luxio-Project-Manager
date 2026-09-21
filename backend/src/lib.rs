@@ -7,6 +7,7 @@ pub mod mail;
 pub mod models;
 pub mod owner;
 pub mod push;
+pub mod s3;
 pub mod tools;
 
 use axum::{
@@ -159,6 +160,12 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/credentials/import", post(credentials::import_credentials))
         .route("/api/owner/b2/status", get(owner::b2_status))
         .route("/api/owner/b2/upload", post(owner::b2_upload_file))
+        // Neon Object Storage (S3-compatible)
+        .route("/api/owner/s3/status", get(owner::s3_status))
+        .route("/api/owner/s3/list", get(owner::s3_list))
+        .route("/api/owner/s3/upload", post(owner::s3_upload_file))
+        .route("/api/owner/s3/delete", post(owner::s3_delete_file))
+        .route("/api/owner/s3/download", get(owner::s3_download_file))
         // Profil views (TikTok-style)
         .route("/api/profile/:id/view", post(owner::record_profile_view))
         .route("/api/profile/:id/views", get(owner::profile_views))

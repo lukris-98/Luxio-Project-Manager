@@ -22,6 +22,13 @@ WORKDIR /app
 COPY --from=builder /app/backend/target/release/luxio-server /app/luxio-server
 
 ENV PORT=3000
+# Neon Object Storage (S3-compatible) — diisi lewat env saat deploy/run.
+# Build Docker otomatis memakai Cargo.lock + src, jadi penambahan crate
+# (hmac, hex) ikut ter-rebuild tanpa perubahan manual.
+ENV AWS_ENDPOINT_URL_S3=""
+ENV AWS_ACCESS_KEY_ID=""
+ENV AWS_SECRET_ACCESS_KEY=""
+ENV AWS_REGION=""
 EXPOSE 3000
 
 CMD ["./luxio-server"]
