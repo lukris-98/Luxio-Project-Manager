@@ -44,7 +44,7 @@ export default defineConfig({
     headers: {
       // Allow unsafe-eval for PDF.js worker (local worker)
       // blob: added for object URLs (backup, primary method uses ArrayBuffer)
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://lukris-umami-1.hf.space https://www.googletagmanager.com https://www.google-analytics.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' blob: https://lukris-umami-1.hf.space https://lukris-n8n.hf.space https://firebase.googleapis.com https://www.google-analytics.com https://www.google.com wss:; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com;"
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://lukris-umami-1.hf.space https://www.googletagmanager.com https://www.google-analytics.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' blob: https://lukris-umami-1.hf.space https://lukris-n8n.hf.space https://firebase.googleapis.com https://www.google-analytics.com https://www.google.com wss:; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com; frame-src 'self' https://lnkiai.github.io https:;"
     }
   },
   build: {

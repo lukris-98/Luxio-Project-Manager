@@ -123,7 +123,8 @@ export default function M3ECanvas() {
             src="https://lnkiai.github.io/m3e-canvas/"
             className="m3e-canvas-iframe"
             title="M3E Canvas - Material 3 Expressive UI Builder"
-            allow="clipboard-write"
+            allow="clipboard-write; clipboard-read; storage-access"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-presentation"
           />
         </div>
 
