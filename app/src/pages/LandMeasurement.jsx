@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   MapPin, Navigation, PenLine, RotateCcw, Copy, Download,
   Ruler, Maximize2, ChevronRight, AlertTriangle, Loader2,
-  Play, Square, X, Check,
+  Play, Square, X, Check, Globe,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import './LandMeasurement.css'
@@ -590,10 +590,218 @@ function CanvasTab({ onResult }) {
 }
 
 // ============================================================
+// Tab 3: Satelit 3D (CesiumJS)
+// ============================================================
+const CESIUM_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IkRTSEFNRDdKVVFDWGtkdWsiLCJqdGkiOiI1MDI3Yzg3OC02MDQwLTQzMjQtODgzYi1mMmQ1YjgwOWNlMjkiLCJpZCI6NTA1NTIxLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3OTAxNTE4NDd9.6SgSBSZA9Tmh3Z9r9cthoENlxQFgcEIq25OK5rLF5Ng'
+
+function CesiumTab({ onResult }) {
+  const containerRef = useRef(null)
+  const viewerRef = useRef(null)
+  const handlerRef = useRef(null)
+  const [points, setPoints] = useState([])
+  const [closed, setClosed] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [cesiumReady, setCesiumReady] = useState(!!window.Cesium)
+
+  // Inject CesiumJS CDN
+  useEffect(() => {
+    if (window.Cesium) { setCesiumReady(true); setLoading(false); return }
+    const css = document.createElement('link')
+    css.rel = 'stylesheet'
+    css.href = 'https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css'
+    document.head.appendChild(css)
+
+    const script = document.createElement('script')
+    script.src = 'https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js'
+    script.onload = () => { setCesiumReady(true); setLoading(false) }
+    script.onerror = () => { setError('Gagal memuat CesiumJS CDN.'); setLoading(false) }
+    document.head.appendChild(script)
+
+    return () => {
+      css.remove(); script.remove()
+    }
+  }, [])
+
+  // Init Cesium Viewer
+  useEffect(() => {
+    if (!cesiumReady || !containerRef.current || viewerRef.current) return
+    const Cesium = window.Cesium
+    try {
+      Cesium.Ion.defaultAccessToken = CESIUM_TOKEN
+      const viewer = new Cesium.Viewer(containerRef.current, {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: true,
+        geocoder: true,
+        homeButton: true,
+        infoBox: false,
+        selectionIndicator: false,
+        navigationHelpButton: false,
+        sceneModePicker: true,
+      })
+      viewerRef.current = viewer
+
+      // Fly to Indonesia default
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(106.8456, -6.2088, 3000),
+      })
+
+      // Click handler
+      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+      handlerRef.current = handler
+
+      handler.setInputAction((click) => {
+        const cartesian = viewer.scene.pickPosition(click.position) || viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid)
+        if (!cartesian) return
+
+        const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
+        const lat = Cesium.Math.toDegrees(cartographic.latitude)
+        const lng = Cesium.Math.toDegrees(cartographic.longitude)
+
+        setPoints((prev) => {
+          if (closed) return prev
+          const next = [...prev, { lat, lng, cartesian }]
+          return next
+        })
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+
+    } catch (err) {
+      setError(`Gagal inisialisasi Cesium: ${err.message}`)
+    }
+
+    return () => {
+      if (handlerRef.current) handlerRef.current.destroy()
+      if (viewerRef.current && !viewerRef.current.isDestroyed()) viewerRef.current.destroy()
+      viewerRef.current = null
+    }
+  }, [cesiumReady]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Render entities when points change
+  useEffect(() => {
+    const viewer = viewerRef.current
+    const Cesium = window.Cesium
+    if (!viewer || !Cesium) return
+
+    viewer.entities.removeAll()
+    if (points.length === 0) return
+
+    // Add point markers
+    points.forEach((p, i) => {
+      viewer.entities.add({
+        position: p.cartesian || Cesium.Cartesian3.fromDegrees(p.lng, p.lat, 0),
+        point: {
+          pixelSize: 10,
+          color: Cesium.Color.fromCssColorString('#FF6B35'),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+        },
+        label: {
+          text: `${i + 1}`,
+          font: 'bold 12px sans-serif',
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          pixelOffset: new Cesium.Cartesian2(0, -16),
+        },
+      })
+    })
+
+    // Add polyline / polygon
+    if (points.length >= 2) {
+      const positions = points.map((p) => p.cartesian || Cesium.Cartesian3.fromDegrees(p.lng, p.lat, 0))
+      if (closed && points.length >= 3) {
+        positions.push(positions[0])
+      }
+
+      viewer.entities.add({
+        polyline: {
+          positions,
+          width: 3,
+          material: Cesium.Color.fromCssColorString('#FF6B35'),
+        },
+      })
+
+      if (closed && points.length >= 3) {
+        viewer.entities.add({
+          polygon: {
+            hierarchy: points.map((p) => p.cartesian || Cesium.Cartesian3.fromDegrees(p.lng, p.lat, 0)),
+            material: Cesium.Color.fromCssColorString('#FF6B35').withAlpha(0.25),
+          },
+        })
+      }
+    }
+  }, [points, closed])
+
+  const closePoly = () => {
+    if (points.length < 3) return
+    setClosed(true)
+    const area = gpsPolygonArea(points)
+    const sides = gpsPerimeterSides(points)
+    const perimeter = sides.reduce((a, b) => a + b, 0)
+    onResult({ area, perimeter, sides })
+  }
+
+  const resetAll = () => {
+    const viewer = viewerRef.current
+    if (viewer) viewer.entities.removeAll()
+    setPoints([]); setClosed(false); onResult(null)
+  }
+
+  const flyToMyLocation = () => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords
+      const viewer = viewerRef.current
+      const Cesium = window.Cesium
+      if (viewer && Cesium) {
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(lng, lat, 1000),
+        })
+      }
+    })
+  }
+
+  return (
+    <div className="lm-cesium-tab">
+      <div className="lm-map-toolbar">
+        <button className="lm-btn-primary" onClick={flyToMyLocation}>
+          <Navigation size={13} /> Lokasi Saya
+        </button>
+        <button
+          className="lm-btn-secondary"
+          onClick={closePoly}
+          disabled={points.length < 3 || closed}
+        >
+          <Check size={13} /> Tutup Poligon
+        </button>
+        <button className="lm-btn-ghost" onClick={resetAll}>
+          <RotateCcw size={13} /> Reset
+        </button>
+        <span className="lm-point-count">{points.length} titik</span>
+      </div>
+      {loading && (
+        <div className="lm-loading"><Loader2 size={18} className="spin" /> Memuat Satelit 3D Cesium…</div>
+      )}
+      {error && (
+        <div className="lm-error"><AlertTriangle size={13} /> {error}</div>
+      )}
+      <div ref={containerRef} className="lm-cesium-container" />
+      {!closed && points.length > 0 && (
+        <div className="lm-map-hint">
+          Klik permukaan Satelit 3D untuk menaruh titik sudut · atau <strong>Tutup Poligon</strong> jika sudah ≥3 titik
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
 // Main component
 // ============================================================
 export default function LandMeasurement() {
-  const [tab, setTab] = useState('map') // 'map' | 'canvas'
+  const [tab, setTab] = useState('map') // 'map' | 'canvas' | 'cesium'
   const [result, setResult] = useState(null)
 
   const copyResult = async () => {
@@ -616,7 +824,7 @@ export default function LandMeasurement() {
           <Ruler size={20} className="lm-header-icon" />
           <div>
             <h1>Land Measurement</h1>
-            <p>Ukur luas tanah, bangunan &amp; poligon via GPS, peta, atau gambar bebas</p>
+            <p>Ukur luas tanah, bangunan &amp; poligon via GPS, peta 2D/3D Satelit, atau gambar bebas</p>
           </div>
         </div>
       </div>
@@ -625,13 +833,19 @@ export default function LandMeasurement() {
       <div className="lm-tabs">
         <button
           className={`lm-tab ${tab === 'map' ? 'active' : ''}`}
-          onClick={() => setTab('map')}
+          onClick={() => { setTab('map'); setResult(null) }}
         >
-          <MapPin size={14} /> Peta + GPS
+          <MapPin size={14} /> Peta 2D + GPS
+        </button>
+        <button
+          className={`lm-tab ${tab === 'cesium' ? 'active' : ''}`}
+          onClick={() => { setTab('cesium'); setResult(null) }}
+        >
+          <Globe size={14} /> Satelit 3D (Cesium)
         </button>
         <button
           className={`lm-tab ${tab === 'canvas' ? 'active' : ''}`}
-          onClick={() => setTab('canvas')}
+          onClick={() => { setTab('canvas'); setResult(null) }}
         >
           <PenLine size={14} /> Poligon Canvas
         </button>
@@ -641,6 +855,7 @@ export default function LandMeasurement() {
       <div className="lm-body">
         <div className="lm-main">
           {tab === 'map' && <MapTab onResult={setResult} />}
+          {tab === 'cesium' && <CesiumTab onResult={setResult} />}
           {tab === 'canvas' && <CanvasTab onResult={setResult} />}
         </div>
 
@@ -659,8 +874,9 @@ export default function LandMeasurement() {
               <Maximize2 size={32} className="lm-result-empty-icon" />
               <p>Gambar poligon di peta atau canvas untuk melihat luas &amp; ukuran.</p>
               <ul>
-                <li><strong>Peta + GPS:</strong> Klik peta untuk taruh titik, atau aktifkan GPS Autotrack saat berjalan mengelilingi area.</li>
-                <li><strong>Poligon Canvas:</strong> Klik/tap untuk menggambar bebas, lalu set skala (1 px = X meter).</li>
+                <li><strong>Peta 2D + GPS:</strong> Klik peta untuk taruh titik, atau aktifkan GPS Autotrack saat berjalan mengelilingi area.</li>
+                <li><strong>Satelit 3D (Cesium):</strong> Citra satelit 3D Cesium Ion resolusi tinggi &amp; terrain permukaan bumi.</li>
+                <li><strong>Poligon Canvas:</strong> Klik/tap untuk menggambar bebas, lalu set skala rasio ($1\text{ cm} = X\text{ m}$).</li>
               </ul>
             </div>
           )}
@@ -669,3 +885,4 @@ export default function LandMeasurement() {
     </div>
   )
 }
+
