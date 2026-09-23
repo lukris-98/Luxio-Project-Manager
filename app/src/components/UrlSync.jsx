@@ -66,7 +66,8 @@ export default function UrlSync() {
       if (parts[0] === 'app') {
         const page = parts[1] || 'dashboard'
         const param = parts[2] || ''
-        if (isAuthenticated && appState !== 'app') setAppState('app')
+        const tokenExists = !!localStorage.getItem('luxio-token')
+        if ((isAuthenticated || tokenExists) && appState !== 'app') setAppState('app')
         if (currentPage !== page) setCurrentPage(page)
         if (param && page === 'project-detail' && typeof openProject === 'function') {
           openProject(Number(param) || param)
