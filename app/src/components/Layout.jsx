@@ -11,7 +11,7 @@ import { subscribeToPush } from '../utils/push'
 import { useAutoHideNav } from '../utils/useAutoHideNav'
 import Logo from './Logo'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard, FileText, BarChart3, Cpu, FolderOpen, Palette
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard, FileText, BarChart3, Cpu, FolderOpen, Palette, Ruler, Home
 } from 'lucide-react'
 import './Layout.css'
 
@@ -53,6 +53,8 @@ const NAV_COLORS = {
   'metadata-creator': 'var(--accent)',
   'pdf-tools': 'var(--accent)',
   'm3e-canvas': 'var(--accent)',
+  'land-measurement': 'var(--accent)',
+  blueprint3d: 'var(--accent)',
   google: '#4285F4',
   gmail: '#EA4335',
   blogger: '#FF8000',
@@ -67,6 +69,24 @@ const DROPDOWN_IDS = new Set(['projects', 'kanban', 'todo-list', 'private-note']
 // Dropdown "Tools" — berisi tautan ke tool khusus (static, bukan data).
 // Hanya dapat diakses lewat tombol dropdown ini.
 const TOOL_LINKS = [
+  {
+    key: 'tool-land-measurement',
+    id: 'land-measurement',
+    type: 'tool',
+    icon: Ruler,
+    label: 'Land Measurement',
+    sub: 'Ukur luas tanah, bangunan & poligon via GPS/peta',
+    page: 'land-measurement',
+  },
+  {
+    key: 'tool-blueprint3d',
+    id: 'blueprint3d',
+    type: 'tool',
+    icon: Home,
+    label: 'Blueprint3D',
+    sub: 'Desain denah ruangan 2D/3D interaktif',
+    page: 'blueprint3d',
+  },
   {
     key: 'tool-m3e-canvas',
     id: 'm3e-canvas',

@@ -49,6 +49,8 @@ const MetadataCreator = lazy(() => import('./pages/MetadataCreator'))
 const BangMotion = lazy(() => import('./pages/BangMotion'))
 const PdfTools = lazy(() => import('./pages/PdfTools'))
 const M3ECanvas = lazy(() => import('./pages/M3ECanvas'))
+const LandMeasurement = lazy(() => import('./pages/LandMeasurement'))
+const Blueprint3D = lazy(() => import('./pages/Blueprint3D'))
 const GmailPage = lazy(() => import('./pages/GmailPage'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const AIProviders = lazy(() => import('./pages/AIProviders'))
@@ -106,6 +108,8 @@ function App() {
       import('./pages/BangMotion'),
       import('./pages/PdfTools'),
       import('./pages/M3ECanvas'),
+      import('./pages/LandMeasurement'),
+      import('./pages/Blueprint3D'),
       import('./pages/GmailPage'),
       import('./pages/BloggerPage'),
       import('./pages/DrivePage'),
@@ -271,6 +275,10 @@ function App() {
         return <PdfTools />
       case 'm3e-canvas':
         return <M3ECanvas />
+      case 'land-measurement':
+        return <LandMeasurement />
+      case 'blueprint3d':
+        return <Blueprint3D />
       case 'analytics':
         return <Analytics />
       case 'gmail':
