@@ -1591,6 +1591,49 @@ pub async fn s3_status(
     }
 }
 
+/// GET /api/owner/s3/filters — metadata agregat untuk filter halaman S3:
+/// daftar kategori (folder level-1 di bawah luxio/) + daftar user.
+pub async fn s3_filters(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = require_auth(&state, &headers).await
+        .map_err(|e| (e, Json(json!({ "error": "Unauthorized" }))))?;
+    let _ = user_id;
+
+    if !crate::s3::is_configured() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Kredensial Neon S3 belum diatur di env." }))));
+    }
+
+    let files = crate::s3::list_files(&state, "luxio/").await
+        .map_err(|e| (StatusCode::BAD_GATEWAY, Json(json!({ "error": e }))))?;
+
+    let mut categories: Vec<String> = Vec::new();
+    let mut users: Vec<String> = Vec::new();
+    if let Some(items) = files.get("items").and_then(|v| v.as_array()) {
+        for it in items {
+            let key = it.get("key").and_then(|k| k.as_str()).unwrap_or("");
+            // format key: luxio/{category}/{user_id}/{timestamp}_{name}
+            let rest = key.strip_prefix("luxio/").unwrap_or("");
+            let mut parts = rest.splitn(3, '/');
+            if let Some(cat) = parts.next() {
+                if !cat.is_empty() && !categories.contains(&cat.to_string()) {
+                    categories.push(cat.to_string());
+                }
+            }
+            if let Some(usr) = parts.next() {
+                if !usr.is_empty() && !users.contains(&usr.to_string()) {
+                    users.push(usr.to_string());
+                }
+            }
+        }
+    }
+    categories.sort();
+    users.sort();
+
+    Ok(Json(json!({ "ok": true, "categories": categories, "users": users })))
+}
+
 /// GET /api/owner/s3/list?prefix=luxio/ — daftar file di folder `luxio/`.
 pub async fn s3_list(
     State(state): State<AppState>,
@@ -1701,6 +1744,73 @@ pub async fn s3_delete_file(
 
     match crate::s3::delete_file(&key).await {
         Ok(()) => Ok(Json(json!({ "ok": true, "key": key }))),
+        Err(e) => Err((StatusCode::BAD_GATEWAY, Json(json!({ "error": e })))),
+    }
+}
+
+/// POST /api/owner/s3/folder — buat folder (marker key berakhiran `/`).
+/// Body: { prefix: "luxio/sub/folder" }
+pub async fn s3_create_folder(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = require_auth(&state, &headers).await
+        .map_err(|e| (e, Json(json!({ "error": "Unauthorized" }))))?;
+    let _ = user_id;
+
+    if !crate::s3::is_configured() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Kredensial Neon S3 belum diatur di env." }))));
+    }
+
+    let prefix = payload.get("prefix").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if prefix.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Field prefix wajib diisi" }))));
+    }
+    // Wajib di dalam luxio/ (dan larang path traversal).
+    let p = prefix.trim_matches('/');
+    if !p.starts_with("luxio/") || p.contains("..") {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Prefix harus di dalam luxio/" }))));
+    }
+
+    match crate::s3::create_folder(&p).await {
+        Ok(key) => Ok(Json(json!({ "ok": true, "key": key }))),
+        Err(e) => Err((StatusCode::BAD_GATEWAY, Json(json!({ "error": e })))),
+    }
+}
+
+/// POST /api/owner/s3/move — pindah/rename objek (file atau folder marker).
+/// Body: { source: "luxio/a.txt", destination: "luxio/sub/a.txt" }
+pub async fn s3_move_object(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let user_id = require_auth(&state, &headers).await
+        .map_err(|e| (e, Json(json!({ "error": "Unauthorized" }))))?;
+    let _ = user_id;
+
+    if !crate::s3::is_configured() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Kredensial Neon S3 belum diatur di env." }))));
+    }
+
+    let source = payload.get("source").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let destination = payload.get("destination").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if source.is_empty() || destination.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Field source & destination wajib diisi" }))));
+    }
+    let s = source.trim_matches('/');
+    let d = destination.trim_matches('/');
+    if !s.starts_with("luxio/") || !d.starts_with("luxio/") || s.contains("..") || d.contains("..") {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Path harus di dalam luxio/" }))));
+    }
+    // Sumber harus berada di dalam tujuan dilarang (tujuan = sumber atau parent-nya).
+    if d == s || s.starts_with(&format!("{}/", d)) {
+        return Err((StatusCode::BAD_REQUEST, Json(json!({ "error": "Tujuan tidak valid" }))));
+    }
+
+    match crate::s3::move_object(s, d).await {
+        Ok(()) => Ok(Json(json!({ "ok": true, "source": s, "destination": d }))),
         Err(e) => Err((StatusCode::BAD_GATEWAY, Json(json!({ "error": e })))),
     }
 }

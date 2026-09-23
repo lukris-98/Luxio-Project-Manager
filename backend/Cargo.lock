@@ -1695,6 +1695,8 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dotenv",
+ "hex",
+ "hmac",
  "lettre",
  "reqwest",
  "serde",

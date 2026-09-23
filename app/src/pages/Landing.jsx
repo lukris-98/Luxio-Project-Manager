@@ -143,7 +143,7 @@ const pricingPlans = [
             >
               {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button className="nav-link desktop-only" onClick={() => setAppState('auth')}>Log in</button>
+            
             <button className="btn btn-primary desktop-only" onClick={() => setAppState('auth')}>
               Mulai Gratis
             </button>
@@ -170,12 +170,7 @@ const pricingPlans = [
                   {isDarkTheme ? <Sun size={16} /> : <Moon size={16} />}
                   {isDarkTheme ? 'Mode Terang' : 'Mode Gelap'}
                 </button>
-                <button
-                  className="mobile-login-btn"
-                  onClick={() => { setAppState('auth'); setMobileMenuOpen(false) }}
-                >
-                  <LogIn size={16} /> Log in
-                </button>
+                
                 <button
                   className="mobile-cta-btn"
                   onClick={() => { setAppState('auth'); setMobileMenuOpen(false) }}

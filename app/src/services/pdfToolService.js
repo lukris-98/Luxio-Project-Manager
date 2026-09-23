@@ -50,6 +50,68 @@ async function fileToBytes(file) {
 // =====================================================================
 
 /**
+ * Edit PDF — all-in-one editor: rotate, delete, reorder pages.
+ * @param {File} file - PDF file
+ * @param {Array} operations - Array of page operations
+ * operations format: [{ pageNum, rotation, deleted }, ...]
+ * Final order determined by array order
+ */
+export async function editPdf(file, operations, onProgress) {
+  const src = await loadPdf(file)
+  const total = src.getPageCount()
+  
+  // Filter out deleted pages and get operations in order
+  const activePages = operations.filter(op => !op.deleted)
+  
+  if (activePages.length === 0) {
+    throw new Error('Tidak ada halaman yang tersisa setelah edit.')
+  }
+  
+  onProgress?.(20)
+  
+  const out = await PDFDocument.create()
+  const totalActive = activePages.length
+  
+  // Copy pages in new order with rotation applied
+  for (let i = 0; i < totalActive; i++) {
+    const op = activePages[i]
+    const pageIndex = op.originalPageNum - 1 // Convert to 0-indexed
+    
+    if (pageIndex < 0 || pageIndex >= total) continue
+    
+    const [copiedPage] = await out.copyPages(src, [pageIndex])
+    
+    // Apply rotation if specified
+    if (op.rotation && op.rotation !== 0) {
+      const currentRotation = copiedPage.getRotation().angle
+      copiedPage.setRotation(degrees((currentRotation + op.rotation) % 360))
+    }
+    
+    out.addPage(copiedPage)
+    onProgress?.(20 + Math.round((i / totalActive) * 60))
+  }
+  
+  onProgress?.(85)
+  const bytes = await out.save()
+  onProgress?.(100)
+  
+  const baseName = file.name.replace(/\.pdf$/i, '')
+  return {
+    success: true,
+    file: new Blob([bytes], { type: 'application/pdf' }),
+    fileName: `${baseName}-edited.pdf`,
+    pageCount: out.getPageCount(),
+    size: bytes.byteLength,
+    sizeFormatted: fmtSize(bytes.byteLength),
+    operationsApplied: {
+      rotated: operations.filter(op => op.rotation !== 0).length,
+      deleted: operations.filter(op => op.deleted).length,
+      reordered: true,
+    }
+  }
+}
+
+/**
  * Merge PDF — gabungkan beberapa file PDF.
  */
 export async function mergePdf(files, onProgress) {
@@ -79,31 +141,96 @@ export async function mergePdf(files, onProgress) {
 }
 
 /**
- * Split PDF — pisahkan berdasarkan rentang halaman.
+ * Split PDF — pisahkan berdasarkan mode.
+ * - mode: 'default' → setiap halaman jadi file terpisah
+ * - mode: 'custom' → gunakan pageAssignments untuk mengelompokkan halaman
  */
-export async function splitPdf(file, ranges, onProgress) {
+export async function splitPdf(file, options, onProgress) {
   const src = await loadPdf(file)
   const total = src.getPageCount()
-  const pageIndices = parseRanges(ranges, total)
-
-  if (pageIndices.length === 0) throw new Error('Tidak ada halaman yang dipilih.')
-
-  const out = await PDFDocument.create()
-  const copied = await out.copyPages(src, pageIndices)
-  copied.forEach(p => out.addPage(p))
-
-  onProgress?.(80)
-  const bytes = await out.save()
-  onProgress?.(100)
-
+  const mode = options?.mode || 'default'
+  const pageAssignments = options?.pageAssignments || {}
+  const fileCount = options?.fileCount || total
+  
   const baseName = file.name.replace(/\.pdf$/i, '')
-  return {
-    success: true,
-    file: new Blob([bytes], { type: 'application/pdf' }),
-    fileName: `${baseName}-split.pdf`,
-    pageCount: pageIndices.length,
-    size: bytes.byteLength,
-    sizeFormatted: fmtSize(bytes.byteLength),
+  
+  if (mode === 'default') {
+    // Default mode: setiap halaman jadi 1 file
+    const results = []
+    for (let i = 0; i < total; i++) {
+      const out = await PDFDocument.create()
+      const [copied] = await out.copyPages(src, [i])
+      out.addPage(copied)
+      
+      const bytes = await out.save()
+      results.push({
+        file: new Blob([bytes], { type: 'application/pdf' }),
+        fileName: `${baseName}_split_${i + 1}.pdf`,
+        pageCount: 1,
+        size: bytes.byteLength,
+        sizeFormatted: fmtSize(bytes.byteLength),
+      })
+      
+      onProgress?.(Math.round(((i + 1) / total) * 100))
+    }
+    
+    return {
+      success: true,
+      mode: 'default',
+      files: results,
+      totalFiles: results.length,
+      message: `PDF berhasil dipisah menjadi ${results.length} file`,
+    }
+  } else {
+    // Custom mode: group pages by file assignment
+    const fileGroups = {}
+    
+    // Initialize file groups
+    for (let i = 1; i <= fileCount; i++) {
+      fileGroups[i] = []
+    }
+    
+    // Assign pages to file groups
+    for (let pageNum = 1; pageNum <= total; pageNum++) {
+      const assignedFile = pageAssignments[pageNum] || 1
+      if (fileGroups[assignedFile]) {
+        fileGroups[assignedFile].push(pageNum - 1) // 0-indexed
+      }
+    }
+    
+    // Create PDF for each group
+    const results = []
+    let processedGroups = 0
+    
+    for (let fileNum = 1; fileNum <= fileCount; fileNum++) {
+      const pages = fileGroups[fileNum]
+      
+      if (pages.length === 0) continue // Skip empty groups
+      
+      const out = await PDFDocument.create()
+      const copied = await out.copyPages(src, pages)
+      copied.forEach(p => out.addPage(p))
+      
+      const bytes = await out.save()
+      results.push({
+        file: new Blob([bytes], { type: 'application/pdf' }),
+        fileName: `${baseName}_part_${fileNum}.pdf`,
+        pageCount: pages.length,
+        size: bytes.byteLength,
+        sizeFormatted: fmtSize(bytes.byteLength),
+      })
+      
+      processedGroups++
+      onProgress?.(Math.round((processedGroups / fileCount) * 100))
+    }
+    
+    return {
+      success: true,
+      mode: 'custom',
+      files: results,
+      totalFiles: results.length,
+      message: `PDF berhasil dipisah menjadi ${results.length} file custom`,
+    }
   }
 }
 
@@ -379,7 +506,13 @@ export async function executeTool(toolName, params, onProgress) {
     case 'merge_pdf':
       return mergePdf(params.files, onProgress)
     case 'split_pdf':
-      return splitPdf(params.file, params.ranges, onProgress)
+      return splitPdf(params.file, {
+        mode: params.splitMode || 'default',
+        pageAssignments: params.pageAssignments || {},
+        fileCount: params.splitFileCount || 0
+      }, onProgress)
+    case 'edit_pdf':
+      return editPdf(params.file, params.operations || [], onProgress)
     case 'rotate_pdf':
       return rotatePdf(params.file, Number(params.degrees), params.pages, onProgress)
     case 'extract_pdf_pages':
@@ -404,6 +537,7 @@ export async function executeTool(toolName, params, onProgress) {
 
 export default {
   executeTool,
+  editPdf,
   mergePdf,
   splitPdf,
   rotatePdf,

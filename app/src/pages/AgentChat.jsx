@@ -140,8 +140,15 @@ PENTING:
 - Selalu bahasa Indonesia kecuali user minta bahasa lain.`
 
 // =====================================================================
-// Helper JSON + copy
+// Helper JSON + copy + strip thoughts
 // =====================================================================
+function stripThoughts(text) {
+  return String(text || '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/ thinking[\s\S]*?<\/?response>/gi, '')
+    .trim()
+}
+
 function extractJSON(text) {
   const cleaned = String(text || '').replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim()
   const start = cleaned.indexOf('{')
@@ -423,6 +430,7 @@ export default function AgentChat() {
   const [showSlashMenu, setShowSlashMenu] = useState(false)
   const [showInputMenu, setShowInputMenu] = useState(false)
   const [showModelSwitcher, setShowModelSwitcher] = useState(false)
+  const [showProviderSwitcher, setShowProviderSwitcher] = useState(false)
   const [attachments, setAttachments] = useState([])
   // Wizard slash-command (/project, /kanban, /todo-list, /private-note) — null = nonaktif.
   // kind = perintah asal; stage = 'name' saat berjalan, 'done' saat siap dibuat.
@@ -456,9 +464,11 @@ export default function AgentChat() {
         setProviders(list)
         const act = list.find((p) => p.is_active) || list[0] || null
         setActiveProvider(act)
-        // Provider tersimpan (Neon per user) → panggil AI via proxy backend.
         if (act) {
-          setAiConfig((c) => ({ ...(c || DEFAULT_AI_CONFIG), providerId: act.id }))
+          const providerModels = act.model ? act.model.split(',').map((m) => m.trim()).filter(Boolean) : []
+          setAiModels(providerModels.length ? providerModels : [])
+          const selectedModel = act.model ? act.model.split(',')[0].trim() : ''
+          setAiConfig((c) => ({ ...(c || DEFAULT_AI_CONFIG), providerId: act.id, model: selectedModel }))
         }
       })
       .catch(() => {})
@@ -578,7 +588,7 @@ export default function AgentChat() {
   const supportsImage = Boolean(aiConfig.model) && modelLooksVision()
   const supportsFile = Boolean(aiConfig.model)
 
-  // Tutup menu titik tiga / model bila klik di luar.
+  // Tutup menu titik tiga / model / provider bila klik di luar.
   useEffect(() => {
     const onClick = (ev) => {
       const inModel = modelSwitcherRef.current && modelSwitcherRef.current.contains(ev.target)
@@ -586,6 +596,7 @@ export default function AgentChat() {
       if (!inModel && !inMenu) {
         setShowInputMenu(false)
         setShowModelSwitcher(false)
+        setShowProviderSwitcher(false)
       }
     }
     document.addEventListener('mousedown', onClick)
@@ -596,6 +607,50 @@ export default function AgentChat() {
     setAiConfig((c) => ({ ...c, model: m }))
     saveAiConfig({ ...aiConfig, model: m })
     setShowModelSwitcher(false)
+  }
+
+  const pickProvider = async (p) => {
+    setActiveProvider(p)
+    setShowProviderSwitcher(false)
+    const providerModels = p.model ? p.model.split(',').map((m) => m.trim()).filter(Boolean) : []
+    if (providerModels.length) {
+      setAiModels(providerModels)
+    } else if (p.base_url && p.api_type) {
+      try {
+        setFetchingModels(true)
+        const base = p.base_url.replace(/\/+$/, '').replace(/\/models$/, '')
+        let models = []
+        try {
+          const headers = { 'Content-Type': 'application/json' }
+          if (p.api_type === 'anthropic-messages') {
+            headers['x-api-key'] = (p.api_key || '').trim()
+            headers['anthropic-version'] = '2023-06-01'
+          } else {
+            headers['Authorization'] = `Bearer ${(p.api_key || '').trim()}`
+          }
+          const res = await fetch(`${base}/models`, { method: 'GET', headers })
+          if (res.ok) {
+            const body = await res.json()
+            if (Array.isArray(body.data)) models = body.data.map((m) => (m && (m.id || m.model)) || null).filter(Boolean)
+            else if (Array.isArray(body)) models = body.map((m) => (m && (m.id || m.name)) || null).filter(Boolean)
+            else if (body.models && Array.isArray(body.models)) models = body.models.map((m) => (typeof m === 'string' ? m : (m && m.id) || null)).filter(Boolean)
+            models = models.map(String)
+          }
+        } catch {}
+        if (models.length === 0) {
+          const res = await api.fetchAIModels({ api_type: p.api_type, base_url: base, api_key: (p.api_key || '').trim() })
+          models = res.models || []
+        }
+        setAiModels(models)
+      } catch {}
+      setFetchingModels(false)
+    }
+    const selectedModel = p.model ? p.model.split(',')[0].trim() : (providerModels[0] || '')
+    setAiConfig((c) => ({ ...c, providerId: p.id, model: selectedModel }))
+    try {
+      await api.updateAIProvider(p.id, { is_active: true })
+      api.getAIProviders().then((res) => setProviders(res.providers || [])).catch(() => {})
+    } catch {}
   }
 
   // ---- Jalankan aksi CRUD dari AI (mode action) ----
@@ -1413,6 +1468,40 @@ ATURAN:
             <div ref={chatEndRef} />
           </div>
           <div className="agent-chat-input-row">
+            {/* Provider switcher */}
+            <div className="agent-model-switcher" style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="agent-model-chip"
+                onClick={() => { setShowProviderSwitcher((v) => !v); setShowModelSwitcher(false) }}
+                title="Ganti provider"
+                style={activeProvider ? { background: 'var(--accent-soft)', borderColor: 'var(--accent)' } : {}}
+              >
+                <Bot size={12} />
+                <span className="agent-model-chip-name">{activeProvider?.display_name || activeProvider?.provider_id || 'Provider'}</span>
+                <span className="agent-model-chip-arrow">{showProviderSwitcher ? '▼' : '▲'}</span>
+              </button>
+              {showProviderSwitcher && (
+                <div className="agent-model-dropdown">
+                  <div className="agent-model-dropdown-title">Provider ({providers.length})</div>
+                  {providers.length > 0 ? (
+                    providers.map((p) => (
+                      <button key={p.id} type="button" className={`agent-model-opt ${p.id === activeProvider?.id ? 'active' : ''}`} onClick={() => pickProvider(p)}>
+                        {p.id === activeProvider?.id && <Check size={12} />}
+                        <span>{p.display_name || p.provider_id}</span>
+                        {p.is_active && <span style={{ fontSize: 10, opacity: 0.6 }}> (aktif)</span>}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="agent-model-opt-empty">Belum ada provider</div>
+                  )}
+                  <button className="agent-model-opt" style={{ color: 'var(--accent)', borderTop: '1px solid var(--border)', marginTop: 4, paddingTop: 8 }} onClick={() => { setShowProviderSwitcher(false); setCurrentPage('ai-providers') }}>
+                    Kelola Provider →
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Model switcher */}
             <div className="agent-model-switcher" ref={modelSwitcherRef}>
               <button

@@ -598,8 +598,7 @@ export default function MetadataCreator() {
     if (cfg) setAiConfig(cfg)
   }, [])
 
-  // Muat daftar provider AI (sama seperti halaman AI Agent) untuk menandai
-  // provider aktif & memudahkan prefill konfigurasi.
+  // Muat daftar provider AI untuk menandai provider aktif & mengupdate model.
   useEffect(() => {
     api.getAIProviders()
       .then((res) => {
@@ -607,9 +606,11 @@ export default function MetadataCreator() {
         setProviders(list)
         const act = list.find((p) => p.is_active) || list[0] || null
         setActiveProvider(act)
-        // Provider tersimpan (Neon per user) → panggil AI via proxy backend.
         if (act) {
-          setAiConfig((c) => ({ ...(c || DEFAULT_AI_CONFIG), providerId: act.id }))
+          const providerModels = act.model ? act.model.split(',').map((m) => m.trim()).filter(Boolean) : []
+          setAiModels(providerModels.length ? providerModels : [])
+          const selectedModel = act.model ? act.model.split(',')[0].trim() : ''
+          setAiConfig((c) => ({ ...(c || DEFAULT_AI_CONFIG), providerId: act.id, model: selectedModel }))
         }
       })
       .catch(() => {})

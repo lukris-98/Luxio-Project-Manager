@@ -131,10 +131,10 @@
 
 .sidebar-header {
   padding: 6px 12px;
-  min-height: 44px;
+  min-height: 32px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   flex-shrink: 0;
 }
 
@@ -732,10 +732,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-3);
-  height: 36px;
-  min-height: 36px;
-  gap: var(--space-2);
+  padding: 0;
+  height: 32px;
+  min-height: 32px;
+  gap: 0;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -748,38 +748,56 @@
   transform: translateY(-100%);
 }
 
+/* Topbar Left - Logo area dengan background accent */
+.topbar-left {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  padding: 0 var(--space-2);
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+}
+
+/* Override logo styling di topbar */
+.topbar-brand .logo {
+  gap: var(--space-2);
+}
+
+.topbar-brand .logo-text {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.topbar-left .menu-btn {
+  display: none;
+  color: #fff;
+  padding: var(--space-1);
+}
+
 /* Saat sidebar dilipat, konten geser mengikuti lebar sidebar */
 .app-layout.sidebar-collapsed .main-content {
   margin-left: 66px;
 }
 
-.menu-btn {
-  display: none;
-  background: none;
-  border: none;
-  color: var(--text-primary);
-  cursor: pointer;
-  padding: var(--space-2);
-}
-
-.topbar-right {
+.topbar-search {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-left: auto;
-}
-
-.topbar-search {
-  display: none;
-  align-items: center;
-  gap: 10px;
-  width: min(390px, 42vw);
-  min-height: 42px;
-  padding: 0 16px;
+  gap: 8px;
+  width: min(360px, 40vw);
+  min-height: 28px;
+  padding: 0 12px;
   color: var(--text-muted);
   background: var(--bg-tertiary);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
+  margin: 0 var(--space-2);
 }
 
 .topbar-search input {
@@ -797,8 +815,12 @@
   color: var(--text-muted);
 }
 
-.mobile-topbar-brand {
-  display: none;
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+  padding: 0 var(--space-3);
 }
 
 /* Role switch (khusus owner) */
@@ -1315,7 +1337,7 @@
 
 [data-theme="sanity-light"] .sidebar-nav,
 [data-theme="sanity-dark"] .sidebar-nav {
-  padding: 6px 12px 12px;
+  padding: 0;
   gap: 2px;
 }
 
@@ -1547,8 +1569,12 @@
     margin: 8px;
   }
   
-  .menu-btn {
+  .topbar-left .menu-btn {
     display: flex;
+  }
+  
+  .topbar-search {
+    display: none;
   }
 
 [data-theme="sanity-light"] .main-content,
@@ -1565,8 +1591,9 @@
     padding: var(--space-3);
   }
 
-  .topbar {
-    padding: var(--space-2) var(--space-3);
+  .topbar-right {
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
   }
 
   .notifications-panel {
@@ -1579,7 +1606,7 @@
 
   [data-theme="sanity-light"] .topbar,
   [data-theme="sanity-dark"] .topbar {
-    min-height: 64px;
+    min-height: 47px;
     padding: 0 16px;
     justify-content: flex-start;
     gap: 14px;

@@ -7,7 +7,6 @@
   object-fit: contain;
   flex-shrink: 0;
   display: block;
-  border-radius: 4px;
 }
 
 .footer-brand-section .logo-img {

@@ -24,6 +24,7 @@ import {
   Plug,
   Zap,
   FileText,
+  Palette,
 } from 'lucide-react'
 import './Apps.css'
 
@@ -38,6 +39,7 @@ const INTERNAL_APPS = [
   { id: 'my-tasks', name: 'Task Saya', icon: CheckSquare, color: '#34D399', desc: 'Tugas yang ditugaskan ke kamu' },
   { id: 'attendance', name: 'Absen', icon: Clock, color: '#4ADE80', desc: 'Presensi & kehadiran tim' },
   { id: 'research', name: 'Riset Konten', icon: Search, color: '#34D399', desc: 'Riset topik & kata kunci' },
+  { id: 'm3e-canvas', name: 'M3E Canvas', icon: Palette, color: '#6750A4', desc: 'Sketsa Material 3 Expressive & prompt vibe-coding' },
   { id: 'gmail', name: 'Gmail', icon: Mail, color: '#EA4335', desc: 'Baca, balas & kirim email via Google' },
   { id: 'blogger', name: 'Blogger', icon: BookOpen, color: '#FF8000', desc: 'Kelola post & komentar blog kamu' },
   { id: 'drive', name: 'Drive', icon: HardDrive, color: '#1A73E8', desc: 'Unggah & bagikan file via Google Drive' },

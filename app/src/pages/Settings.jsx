@@ -3,7 +3,7 @@ import { getAppThemeFamily, getAppThemeMode, makeAppTheme, useStore } from '../s
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import PinInput from '../components/PinInput'
 import { motion } from 'framer-motion'
-import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, EyeOff, Download, Upload, Zap, Palette, Trash2, Plus, Cloud, CloudOff, RefreshCw, Database } from 'lucide-react'
+import { User, Bell, Shield, HelpCircle, Lock, KeyRound, Save, Users, Briefcase, Phone, MapPin, Calendar, GraduationCap, Wallet, Pencil, AlertTriangle, Bot, Eye, EyeOff, Download, Upload, Zap, Palette, Trash2, Plus, Cloud, CloudOff, RefreshCw, Database, Cpu } from 'lucide-react'
 import { api } from '../services/api'
 import useSyncStatus, { STORAGE_SOFT_LIMIT_BYTES } from '../hooks/useSyncStatus'
 import './Settings.css'
@@ -1444,38 +1444,7 @@ export default function Settings() {
               <h2>Tampilan</h2>
             </div>
             <div className="settings-card">
-              <div className="settings-item column-item">
-                <div>
-                  <span className="item-label">Tema aplikasi</span>
-                  <p className="item-desc">Pilih keluarga tema dan mode warna untuk seluruh aplikasi.</p>
-                </div>
-                <div className="settings-theme-controls">
-                  <div className="input-group">
-                    <label className="input-label">Tema</label>
-                    <select
-                      className="input settings-theme-select"
-                      value={themeFamily}
-                      onChange={(e) => setThemeFamily(e.target.value)}
-                    >
-                      {THEME_FAMILY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="input-group">
-                    <label className="input-label">Mode</label>
-                    <select
-                      className="input settings-theme-select"
-                      value={themeMode}
-                      onChange={(e) => setThemeMode(e.target.value)}
-                    >
-                      {THEME_MODE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
+              
             </div>
           </motion.div>
 
@@ -1704,7 +1673,7 @@ export default function Settings() {
             </div>
           </motion.div>
 
-          {/* AI Agent (Item 8) — khusus owner/super_admin */}
+          {/* AI Agent — dialihkan ke halaman AI Providers */}
           {(role === 'owner' || role === 'super_admin') && (
             <motion.div className="settings-section" variants={itemVariants}>
               <div className="section-header">
@@ -1715,42 +1684,12 @@ export default function Settings() {
                 <div className="settings-item column-item">
                   <div>
                     <span className="item-label">Penyedia AI</span>
-                    <p className="item-desc">Kelola banyak provider (OpenAI, Anthropic, Ollama, dll). Aktifkan satu sebagai default.</p>
+                    <p className="item-desc">Kelola provider AI (OpenAI, Anthropic, Ollama, dll) di halaman dedicated.</p>
                   </div>
-                  <button className="btn btn-primary btn-sm" onClick={openAiForm}>
-                    <Plus size={14} /> Tambah Provider
+                  <button className="btn btn-primary btn-sm" onClick={() => setCurrentPage('ai-providers')}>
+                    <Cpu size={14} /> Buka AI Providers
                   </button>
                 </div>
-
-                {providers.length === 0 ? (
-                  <p className="ai-providers-empty">Belum ada provider. Tambahkan satu untuk menghubungkan AI Agent.</p>
-                ) : (
-                  <div className="ai-provider-list">
-                    {providers.map((p) => (
-                      <div key={p.id} className={`ai-provider-item ${p.is_active ? 'active' : ''}`}>
-                        <div className="ai-provider-main">
-                          <span className="ai-provider-name">{p.display_name || p.provider_id || 'Provider'}</span>
-                          <span className="ai-provider-meta">
-                            {p.api_type} Â· {p.model || 'tanpa model'}{p.is_active ? ' Â· aktif' : ''}
-                          </span>
-                        </div>
-                        <div className="ai-provider-actions">
-                          {!p.is_active && (
-                            <button className="btn btn-secondary btn-sm" onClick={() => activateProvider(p.id)} title="Jadikan aktif">
-                              Aktifkan
-                            </button>
-                          )}
-                          <button className="btn btn-secondary btn-sm" onClick={() => openAiForm(p)}>
-                            <Pencil size={13} /> Edit
-                          </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => deleteProvider(p.id)} title="Hapus">
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </motion.div>
           )}

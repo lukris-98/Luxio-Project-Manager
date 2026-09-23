@@ -306,6 +306,71 @@ pub async fn delete_file(key: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Buat "folder" (marker objek key berakhiran `/`). S3 tidak punya folder
+/// sejati; marker kosong cukup agar tampil sebagai folder di listing.
+pub async fn create_folder(prefix: &str) -> Result<String, String> {
+    let clean = prefix.trim_matches('/');
+    if clean.is_empty() {
+        return Err("Nama folder kosong".to_string());
+    }
+    let key = format!("{}/", clean.trim_start_matches('/'));
+    let (bytes, status, _ct) = s3_request(
+        "PUT",
+        &format!("/luxio/{}", uri_escape(&key)),
+        &[],
+        b"",
+        Some("application/x-directory"),
+    )
+    .await?;
+    let _ = bytes;
+    if status >= 300 {
+        return Err(format!("Buat folder S3 gagal (status {})", status));
+    }
+    Ok(key)
+}
+
+/// Pindah (rename path) satu objek: GET source → PUT dest → DELETE source.
+/// Untuk marker folder cukup salin marker-nya saja.
+pub async fn move_object(src: &str, dest: &str) -> Result<(), String> {
+    let src_clean = src.trim_start_matches('/');
+    let dest_clean = dest.trim_start_matches('/');
+    if src_clean == dest_clean || src_clean.is_empty() || dest_clean.is_empty() {
+        return Err("Key sumber/tujuan tidak valid".to_string());
+    }
+    if src_clean.ends_with('/') {
+        // Marker folder: buat marker tujuan, hapus marker lama.
+        create_folder(dest_clean).await?;
+        let (bytes, status, _ct) = s3_request(
+            "DELETE",
+            &format!("/luxio/{}", uri_escape(src_clean)),
+            &[],
+            b"",
+            None,
+        )
+        .await?;
+        let _ = bytes;
+        if status >= 300 {
+            return Err(format!("Hapus marker folder lama gagal (status {})", status));
+        }
+        return Ok(());
+    }
+    let (data, ct) = download_file(src_clean).await?;
+    let (bytes, status, _ct) = s3_request(
+        "PUT",
+        &format!("/luxio/{}", uri_escape(dest_clean)),
+        &[],
+        &data,
+        Some(&ct),
+    )
+    .await?;
+    let _ = bytes;
+    if status >= 300 {
+        return Err(format!("Upload tujuan move gagal (status {})", status));
+    }
+    delete_file(src_clean).await?;
+    Ok(())
+}
+
 /// URL publik objek (endpoint + path).
 pub fn public_url(key: &str) -> String {
     let (endpoint, _, _, _) = s3_credentials();

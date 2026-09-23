@@ -11,7 +11,7 @@ import { subscribeToPush } from '../utils/push'
 import { useAutoHideNav } from '../utils/useAutoHideNav'
 import Logo from './Logo'
 import { 
-  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard, FileText, BarChart3, Cpu, FolderOpen
+  LayoutDashboard, Target, CheckSquare, Users, Settings, LogOut, Menu, X, Bell, Calendar, Sun, Moon, BellRing, CheckCheck, Trash2, Crown, PanelLeftClose, PanelLeftOpen, Lock, CreditCard, ChevronDown, Building2, ChevronUp, ShieldCheck, Check, Bot, Rocket, UserPlus, KeyRound, Activity, Clock, ClipboardList, ChevronRight, StickyNote, KanbanSquare, ListTodo, Search, UserRound, AppWindow, Plug2, Plus, Wrench, Tags, Mail, Rss, Chrome, HardDrive, CalendarDays, Youtube, Clapperboard, FileText, BarChart3, Cpu, FolderOpen, Palette
 } from 'lucide-react'
 import './Layout.css'
 
@@ -52,6 +52,7 @@ const NAV_COLORS = {
   tools: 'var(--accent)',
   'metadata-creator': 'var(--accent)',
   'pdf-tools': 'var(--accent)',
+  'm3e-canvas': 'var(--accent)',
   google: '#4285F4',
   gmail: '#EA4335',
   blogger: '#FF8000',
@@ -66,6 +67,15 @@ const DROPDOWN_IDS = new Set(['projects', 'kanban', 'todo-list', 'private-note']
 // Dropdown "Tools" — berisi tautan ke tool khusus (static, bukan data).
 // Hanya dapat diakses lewat tombol dropdown ini.
 const TOOL_LINKS = [
+  {
+    key: 'tool-m3e-canvas',
+    id: 'm3e-canvas',
+    type: 'tool',
+    icon: Palette,
+    label: 'M3E Canvas',
+    sub: 'Sketsa Material 3 Expressive & prompt vibe-coding',
+    page: 'm3e-canvas',
+  },
   {
     key: 'tool-pdf-tools',
     id: 'pdf-tools',

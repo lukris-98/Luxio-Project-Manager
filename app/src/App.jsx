@@ -48,6 +48,7 @@ const Connect = lazy(() => import('./pages/Connect'))
 const MetadataCreator = lazy(() => import('./pages/MetadataCreator'))
 const BangMotion = lazy(() => import('./pages/BangMotion'))
 const PdfTools = lazy(() => import('./pages/PdfTools'))
+const M3ECanvas = lazy(() => import('./pages/M3ECanvas'))
 const GmailPage = lazy(() => import('./pages/GmailPage'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const AIProviders = lazy(() => import('./pages/AIProviders'))
@@ -104,6 +105,7 @@ function App() {
       import('./pages/MetadataCreator'),
       import('./pages/BangMotion'),
       import('./pages/PdfTools'),
+      import('./pages/M3ECanvas'),
       import('./pages/GmailPage'),
       import('./pages/BloggerPage'),
       import('./pages/DrivePage'),
@@ -267,6 +269,8 @@ function App() {
         return <BangMotion />
       case 'pdf-tools':
         return <PdfTools />
+      case 'm3e-canvas':
+        return <M3ECanvas />
       case 'analytics':
         return <Analytics />
       case 'gmail':

@@ -386,8 +386,8 @@ export default function BangMotion() {
                         {p.id === providerId && <Check size={13} />}
                       </button>
                     ))}
-                    <button className="bm-model-manage" onClick={() => { setModelOpen(false); setCurrentPage('settings') }}>
-                      <Wand2 size={13} /> Kelola di Pengaturan
+                    <button className="bm-model-manage" onClick={() => { setModelOpen(false); setCurrentPage('ai-providers') }}>
+                      <Wand2 size={13} /> Kelola Provider AI
                     </button>
                   </div>
                 </>

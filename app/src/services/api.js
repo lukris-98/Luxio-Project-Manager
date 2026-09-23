@@ -308,6 +308,8 @@ export const api = {
   // ---- Neon Object Storage (S3-compatible) ----
   s3Status: () => get('/api/owner/s3/status'),
   s3List: (prefix) => get('/api/owner/s3/list', prefix ? { prefix } : {}),
+  // Metadata filter: daftar kategori & user yang ada di folder luxio/.
+  s3Filters: () => get('/api/owner/s3/filters'),
   // Upload file ke S3 folder luxio/ (multipart). category opsional.
   s3Upload: (formData) => {
     const token = getToken()
@@ -325,6 +327,10 @@ export const api = {
     })
   },
   s3Delete: (key) => post('/api/owner/s3/delete', { key }),
+  // Buat folder baru (marker S3 berakhiran '/').
+  s3CreateFolder: (prefix) => post('/api/owner/s3/folder', { prefix }),
+  // Pindah/rename objek (file atau folder) ke path tujuan.
+  s3Move: (source, destination) => post('/api/owner/s3/move', { source, destination }),
   // Unduh objek dari S3 (mengembalikan blob).
   s3Download: (key) => {
     const token = getToken()
@@ -333,6 +339,22 @@ export const api = {
       if (!res.ok) throw new Error('Gagal mengunduh file')
       return res.blob()
     })
+  },
+  // Unduh objek dari S3 sebagai stream (dipakai antrian transfer untuk
+  // menampilkan progress). signal opsional untuk cancel.
+  s3DownloadStream: async (key, signal) => {
+    const token = getToken()
+    const url = `${API_BASE}/api/owner/s3/download?key=${encodeURIComponent(key)}`
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal,
+    })
+    return { res, token }
+  },
+  // Endpoint & token untuk XHR upload (progress event di s3TransferQueue).
+  s3UploadXhr: {
+    url: () => `${API_BASE}/api/owner/s3/upload`,
+    token: getToken,
   },
   // Tes kirim email (owner).
   mailTest: (email) => post('/api/owner/mail/test', { email }),

@@ -381,7 +381,15 @@ export const useStore = create(
       }
       return true
     } catch (e) {
-      set({ workspaceSyncLoaded: true, workspaceSyncError: e?.message || 'Gagal memuat data workspace dari Neon' })
+      // Handle 401 gracefully - masih bisa gunakan data local
+      const is401 = e?.status === 401 || e?.message?.includes('401')
+      if (is401) {
+        console.warn('[AUTH] Workspace sync 401 - using local data')
+      }
+      set({ 
+        workspaceSyncLoaded: true, 
+        workspaceSyncError: is401 ? '' : (e?.message || 'Gagal memuat data workspace dari Neon')
+      })
       return false
     }
   },
@@ -398,7 +406,15 @@ export const useStore = create(
       set({ workspaceSyncSaving: false })
       return true
     } catch (e) {
-      set({ workspaceSyncSaving: false, workspaceSyncError: e?.message || 'Gagal menyimpan data workspace ke Neon' })
+      // Handle 401 gracefully - data tetap tersimpan local
+      const is401 = e?.status === 401 || e?.message?.includes('401')
+      if (is401) {
+        console.warn('[AUTH] Workspace sync save 401 - data saved locally')
+      }
+      set({ 
+        workspaceSyncSaving: false, 
+        workspaceSyncError: is401 ? '' : (e?.message || 'Gagal menyimpan data workspace ke Neon')
+      })
       return false
     }
   },
@@ -522,6 +538,11 @@ export const useStore = create(
       const local = get().notifications.filter((n) => !String(n.id).startsWith('srv-'))
       set({ notifications: [...serverNotifs, ...local].slice(0, 50) })
     } catch (e) {
+      // Handle 401 gracefully - notifikasi lokal tetap jalan
+      const is401 = e?.status === 401 || e?.message?.includes('401')
+      if (is401) {
+        console.warn('[AUTH] Notifications 401 - using local notifications only')
+      }
       // Abaikan error jaringan — notifikasi lokal tetap jalan.
     }
   },
