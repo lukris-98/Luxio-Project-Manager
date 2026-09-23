@@ -87,8 +87,8 @@ function fmtArea(m2) {
 }
 
 function fmtLen(m) {
-  if (m >= 1000) return `${(m / 1000).toFixed(3)} km`
-  return `${m.toLocaleString('id-ID', { maximumFractionDigits: 2 })} m`
+  if (m >= 1000) return `${(m / 1000).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`
+  return `${m.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`
 }
 
 // ============================================================
@@ -189,6 +189,44 @@ function MapTab({ onResult }) {
       leafletMapRef.current = null
     }
   }, [leafletReady]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activePolylineRef = useRef(null)
+  const activeTooltipRef = useRef(null)
+
+  // Track mousemove for live rubber-band distance
+  useEffect(() => {
+    const map = leafletMapRef.current
+    const L = window.L
+    if (!map || !L || closed || points.length === 0) {
+      if (activePolylineRef.current && map) map.removeLayer(activePolylineRef.current)
+      if (activeTooltipRef.current && map) map.removeLayer(activeTooltipRef.current)
+      activePolylineRef.current = null
+      activeTooltipRef.current = null
+      return
+    }
+
+    const onMouseMove = (e) => {
+      const last = points[points.length - 1]
+      const dist = haversineDistance(last.lat, last.lng, e.latlng.lat, e.latlng.lng)
+
+      if (activePolylineRef.current) map.removeLayer(activePolylineRef.current)
+      activePolylineRef.current = L.polyline([[last.lat, last.lng], [e.latlng.lat, e.latlng.lng]], {
+        color: '#FF6B35', weight: 2, dashArray: '4,4', opacity: 0.8
+      }).addTo(map)
+
+      if (activeTooltipRef.current) map.removeLayer(activeTooltipRef.current)
+      activeTooltipRef.current = L.tooltip({
+        permanent: true, direction: 'top', className: 'lm-marker-label'
+      }).setLatLng(e.latlng).setContent(fmtLen(dist)).addTo(map)
+    }
+
+    map.on('mousemove', onMouseMove)
+    return () => {
+      map.off('mousemove', onMouseMove)
+      if (activePolylineRef.current && map) map.removeLayer(activePolylineRef.current)
+      if (activeTooltipRef.current && map) map.removeLayer(activeTooltipRef.current)
+    }
+  }, [points, closed])
 
   const addGpsPoint = useCallback((lat, lng) => {
     const L = window.L
@@ -322,6 +360,7 @@ function CanvasTab({ onResult }) {
   const [dragging, setDragging] = useState(null)
   const [hoverClose, setHoverClose] = useState(false)
 
+  const [mousePos, setMousePos] = useState(null)
   const scale = cmMeters / PX_PER_CM // meters per pixel
   const CLOSE_RADIUS = 14
 
@@ -407,7 +446,50 @@ function CanvasTab({ onResult }) {
     ctx.stroke()
     ctx.setLineDash([])
 
-    // 4. Titik-titik sudut
+    // 4. Garis rubber-band live ke kursor mouse saat menggambar
+    if (!closed && points.length > 0 && mousePos && dragging === null) {
+      const lastP = points[points.length - 1]
+      ctx.strokeStyle = 'rgba(255, 107, 53, 0.85)'
+      ctx.lineWidth = 2
+      ctx.setLineDash([4, 4])
+      ctx.beginPath()
+      ctx.moveTo(lastP.x, lastP.y)
+      ctx.lineTo(mousePos.x, mousePos.y)
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      // Realtime distance calculation
+      const dx = mousePos.x - lastP.x
+      const dy = mousePos.y - lastP.y
+      const distLen = Math.sqrt(dx * dx + dy * dy) * scale
+      const mx = (lastP.x + mousePos.x) / 2
+      const my = (lastP.y + mousePos.y) / 2
+
+      // Draw floating live distance badge
+      const label = fmtLen(distLen)
+      ctx.font = 'bold 11px sans-serif'
+      const tw = ctx.measureText(label).width
+      const bw = tw + 16
+      const bh = 20
+      const bx = mx - bw / 2
+      const by = my - 10
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'
+      ctx.beginPath()
+      if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 5)
+      else ctx.rect(bx, by, bw, bh)
+      ctx.fill()
+      ctx.strokeStyle = '#FF6B35'
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      ctx.fillStyle = '#FF6B35'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(label, mx, by + 10)
+    }
+
+    // 5. Titik-titik sudut
     points.forEach((p, i) => {
       ctx.beginPath()
       ctx.arc(p.x, p.y, i === 0 && !closed ? CLOSE_RADIUS : 6, 0, Math.PI * 2)
@@ -425,7 +507,7 @@ function CanvasTab({ onResult }) {
       ctx.fillText(i + 1, p.x, p.y)
     })
 
-    // 5. Label panjang tiap sisi
+    // 6. Label panjang tiap sisi yang sudah selesai
     for (let i = 0; i < points.length; i++) {
       const j = (i + 1) % (closed ? points.length : Math.max(points.length - 1, 1))
       if (!closed && i === points.length - 1) break
@@ -442,7 +524,7 @@ function CanvasTab({ onResult }) {
       ctx.fillText(fmtLen(len), mx, my - 12)
       ctx.shadowBlur = 0
     }
-  }, [points, closed, scale, hoverClose, showGrid, cmMeters])
+  }, [points, closed, scale, hoverClose, showGrid, cmMeters, mousePos, dragging])
 
   useEffect(() => { draw() }, [draw])
 
@@ -495,6 +577,7 @@ function CanvasTab({ onResult }) {
 
   const handleMouseMove = (e) => {
     const pos = getPos(e)
+    if (!closed) setMousePos(pos)
     if (dragging !== null) {
       setPoints((prev) => {
         const next = prev.map((p, i) => i === dragging ? pos : p)
@@ -661,8 +744,7 @@ function CesiumTab({ onResult }) {
 
         setPoints((prev) => {
           if (closed) return prev
-          const next = [...prev, { lat, lng, cartesian }]
-          return next
+          return [...prev, { lat, lng, cartesian }]
         })
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
@@ -676,6 +758,69 @@ function CesiumTab({ onResult }) {
       viewerRef.current = null
     }
   }, [cesiumReady]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeEntityRef = useRef(null)
+
+  // Live 3D distance label on mouse move
+  useEffect(() => {
+    const handler = handlerRef.current
+    const viewer = viewerRef.current
+    const Cesium = window.Cesium
+    if (!handler || !viewer || !Cesium || closed || points.length === 0) {
+      if (activeEntityRef.current && viewer) {
+        viewer.entities.remove(activeEntityRef.current)
+        activeEntityRef.current = null
+      }
+      return
+    }
+
+    handler.setInputAction((movement) => {
+      if (closed || points.length === 0) return
+      const cartesian = viewer.scene.pickPosition(movement.endPosition) || viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid)
+      if (!cartesian) return
+
+      const lastP = points[points.length - 1]
+      const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
+      const curLat = Cesium.Math.toDegrees(cartographic.latitude)
+      const curLng = Cesium.Math.toDegrees(cartographic.longitude)
+      const dist = haversineDistance(lastP.lat, lastP.lng, curLat, curLng)
+
+      if (activeEntityRef.current) viewer.entities.remove(activeEntityRef.current)
+
+      activeEntityRef.current = viewer.entities.add({
+        polyline: {
+          positions: [lastP.cartesian || Cesium.Cartesian3.fromDegrees(lastP.lng, lastP.lat, 0), cartesian],
+          width: 2,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: Cesium.Color.fromCssColorString('#FF6B35'),
+          }),
+        },
+        label: {
+          position: cartesian,
+          text: fmtLen(dist),
+          font: 'bold 12px sans-serif',
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          backgroundColor: Cesium.Color.fromCssColorString('#FF6B35'),
+          showBackground: true,
+          backgroundPadding: new Cesium.Cartesian2(6, 4),
+          pixelOffset: new Cesium.Cartesian2(0, -20),
+        },
+      })
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE)
+
+    return () => {
+      if (handler && !handler.isDestroyed()) {
+        handler.removeInputAction(Cesium.ScreenSpaceEventType.MOUSE_MOVE)
+      }
+      if (activeEntityRef.current && viewer && !viewer.isDestroyed()) {
+        viewer.entities.remove(activeEntityRef.current)
+        activeEntityRef.current = null
+      }
+    }
+  }, [points, closed])
 
   // Render entities when points change
   useEffect(() => {
