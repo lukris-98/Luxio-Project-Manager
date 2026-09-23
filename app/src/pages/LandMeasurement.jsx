@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   MapPin, Navigation, PenLine, RotateCcw, Copy, Download,
   Ruler, Maximize2, ChevronRight, AlertTriangle, Loader2,
@@ -310,34 +310,93 @@ function MapTab({ onResult }) {
 // ============================================================
 // Tab 2: Canvas Poligon (tanpa GPS)
 // ============================================================
+const PX_PER_CM = 37.795 // 96 DPI / 2.54 cm
+
 function CanvasTab({ onResult }) {
+  const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const [points, setPoints] = useState([])
   const [closed, setClosed] = useState(false)
-  const [scale, setScale] = useState(0.1) // 1 pixel = X meter
+  const [cmMeters, setCmMeters] = useState(1) // 1 cm di layar = X meter
+  const [showGrid, setShowGrid] = useState(true)
   const [dragging, setDragging] = useState(null)
   const [hoverClose, setHoverClose] = useState(false)
 
+  const scale = cmMeters / PX_PER_CM // meters per pixel
   const CLOSE_RADIUS = 14
+
+  // Sync canvas width/height with actual container dimensions
+  useEffect(() => {
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return
+
+    const updateSize = () => {
+      const rect = container.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        canvas.width = Math.round(rect.width)
+        canvas.height = Math.round(rect.height)
+      }
+    }
+
+    updateSize()
+    const observer = new ResizeObserver(() => updateSize())
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    const w = canvas.width
+    const h = canvas.height
+    ctx.clearRect(0, 0, w, h)
+
+    // 1. Draw Grid 1 cm (37.8 px)
+    if (showGrid) {
+      const gridPx = PX_PER_CM
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)'
+      ctx.lineWidth = 1
+
+      // Vertical grid lines
+      for (let x = gridPx; x < w; x += gridPx) {
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, h)
+        ctx.stroke()
+      }
+      // Horizontal grid lines
+      for (let y = gridPx; y < h; y += gridPx) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(w, y)
+        ctx.stroke()
+      }
+
+      // Grid meter indicators on top & left
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
+      ctx.font = '9px sans-serif'
+      ctx.textAlign = 'left'
+      for (let x = gridPx; x < w; x += gridPx * 2) {
+        const cm = Math.round(x / gridPx)
+        ctx.fillText(`${cm * cmMeters}m (${cm}cm)`, x + 3, 12)
+      }
+    }
+
     if (points.length === 0) return
 
-    // Fill polygon jika sudah closed
+    // 2. Fill polygon jika sudah closed
     if (closed && points.length >= 3) {
       ctx.beginPath()
       ctx.moveTo(points[0].x, points[0].y)
       points.forEach((p) => ctx.lineTo(p.x, p.y))
       ctx.closePath()
-      ctx.fillStyle = 'rgba(255, 107, 53, 0.12)'
+      ctx.fillStyle = 'rgba(255, 107, 53, 0.15)'
       ctx.fill()
     }
 
-    // Garis
+    // 3. Garis penghubung
     ctx.strokeStyle = '#FF6B35'
     ctx.lineWidth = 2
     ctx.setLineDash(closed ? [] : [6, 4])
@@ -348,7 +407,7 @@ function CanvasTab({ onResult }) {
     ctx.stroke()
     ctx.setLineDash([])
 
-    // Titik-titik
+    // 4. Titik-titik sudut
     points.forEach((p, i) => {
       ctx.beginPath()
       ctx.arc(p.x, p.y, i === 0 && !closed ? CLOSE_RADIUS : 6, 0, Math.PI * 2)
@@ -357,7 +416,8 @@ function CanvasTab({ onResult }) {
       ctx.strokeStyle = '#fff'
       ctx.lineWidth = 2
       ctx.stroke()
-      // Label
+
+      // Nomor titik
       ctx.fillStyle = '#fff'
       ctx.font = 'bold 11px sans-serif'
       ctx.textAlign = 'center'
@@ -365,7 +425,7 @@ function CanvasTab({ onResult }) {
       ctx.fillText(i + 1, p.x, p.y)
     })
 
-    // Label panjang sisi
+    // 5. Label panjang tiap sisi
     for (let i = 0; i < points.length; i++) {
       const j = (i + 1) % (closed ? points.length : Math.max(points.length - 1, 1))
       if (!closed && i === points.length - 1) break
@@ -373,24 +433,50 @@ function CanvasTab({ onResult }) {
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
       const dx = b.x - a.x, dy = b.y - a.y
       const len = Math.sqrt(dx * dx + dy * dy) * scale
-      ctx.fillStyle = 'var(--text-primary, #fff)'
-      ctx.font = '10px sans-serif'
+      ctx.fillStyle = '#ffffff'
+      ctx.shadowColor = 'rgba(0,0,0,0.8)'
+      ctx.shadowBlur = 4
+      ctx.font = 'bold 11px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(fmtLen(len), mx, my - 10)
+      ctx.fillText(fmtLen(len), mx, my - 12)
+      ctx.shadowBlur = 0
     }
-  }, [points, closed, scale, hoverClose])
+  }, [points, closed, scale, hoverClose, showGrid, cmMeters])
 
   useEffect(() => { draw() }, [draw])
 
+  // Akurat 100%: Menghitung posisi mouse relatif terhadap resolusi canvas internal
   const getPos = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect()
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+    const rect = canvas.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    return { x: clientX - rect.left, y: clientY - rect.top }
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    }
   }
 
   const distToPoint = (a, b) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+
+  const recalculate = useCallback((pts = points) => {
+    if (pts.length < 3) { onResult(null); return }
+    const realArea = shoelaceArea(pts) * scale * scale
+    const sides = canvasPerimeterSides(pts, scale)
+    const perimeter = sides.reduce((a, b) => a + b, 0)
+    onResult({ area: realArea, perimeter, sides })
+  }, [scale, onResult, points])
+
+  // Update hasil jika cmMeters / scale berubah saat poligon sudah tertutup
+  useEffect(() => {
+    if (closed && points.length >= 3) {
+      recalculate(points)
+    }
+  }, [closed, cmMeters, recalculate, points])
 
   const handleCanvasClick = (e) => {
     if (closed) return
@@ -398,35 +484,33 @@ function CanvasTab({ onResult }) {
     // Cek apakah klik dekat titik pertama (untuk tutup)
     if (points.length >= 3 && distToPoint(pos, points[0]) < CLOSE_RADIUS) {
       setClosed(true)
-      const area = shoelaceArea(points.map((p) => ({ x: p.x * scale, y: p.y * scale }))) / (scale * scale) * scale * scale
-      const realArea = shoelaceArea(points) * scale * scale
-      const sides = canvasPerimeterSides(points, scale)
-      const perimeter = sides.reduce((a, b) => a + b, 0)
-      onResult({ area: realArea, perimeter, sides })
+      recalculate(points)
       return
     }
     // Cek apakah klik di titik lama (drag)
-    const hitIdx = points.findIndex((p) => distToPoint(pos, p) < 10)
+    const hitIdx = points.findIndex((p) => distToPoint(pos, p) < 12)
     if (hitIdx >= 0) return
     setPoints((prev) => [...prev, pos])
   }
 
   const handleMouseMove = (e) => {
-    if (closed) return
     const pos = getPos(e)
     if (dragging !== null) {
-      setPoints((prev) => prev.map((p, i) => i === dragging ? pos : p))
-      if (closed) recalculate()
+      setPoints((prev) => {
+        const next = prev.map((p, i) => i === dragging ? pos : p)
+        if (closed) recalculate(next)
+        return next
+      })
       return
     }
-    if (points.length >= 3) {
+    if (!closed && points.length >= 3) {
       setHoverClose(distToPoint(pos, points[0]) < CLOSE_RADIUS)
     }
   }
 
   const handleMouseDown = (e) => {
     const pos = getPos(e)
-    const hitIdx = points.findIndex((p) => distToPoint(pos, p) < 12)
+    const hitIdx = points.findIndex((p) => distToPoint(pos, p) < 14)
     if (hitIdx >= 0) setDragging(hitIdx)
   }
 
@@ -437,13 +521,6 @@ function CanvasTab({ onResult }) {
     }
   }
 
-  const recalculate = () => {
-    const realArea = shoelaceArea(points) * scale * scale
-    const sides = canvasPerimeterSides(points, scale)
-    const perimeter = sides.reduce((a, b) => a + b, 0)
-    onResult({ area: realArea, perimeter, sides })
-  }
-
   const resetAll = () => {
     setPoints([]); setClosed(false); onResult(null)
   }
@@ -451,36 +528,40 @@ function CanvasTab({ onResult }) {
   const closePoly = () => {
     if (points.length < 3) return
     setClosed(true)
-    const realArea = shoelaceArea(points) * scale * scale
-    const sides = canvasPerimeterSides(points, scale)
-    const perimeter = sides.reduce((a, b) => a + b, 0)
-    onResult({ area: realArea, perimeter, sides })
+    recalculate(points)
   }
 
   return (
-    <div className="lm-canvas-tab">
+    <div className="lm-canvas-tab" ref={containerRef}>
       <div className="lm-canvas-toolbar">
         <label className="lm-scale-label">
-          Skala: 1 px =
+          Rasio: 1 cm layar =
           <input
             type="number"
             className="lm-scale-input"
-            value={scale}
-            step="0.01"
-            min="0.001"
+            value={cmMeters}
+            step="0.1"
+            min="0.01"
             onChange={(e) => {
               const v = parseFloat(e.target.value)
-              if (!isNaN(v) && v > 0) { setScale(v); if (closed) recalculate() }
+              if (!isNaN(v) && v > 0) setCmMeters(v)
             }}
           />
-          m
+          meter
         </label>
+        <button
+          className={`lm-btn-secondary ${showGrid ? 'active' : ''}`}
+          onClick={() => setShowGrid((g) => !g)}
+          title="Tampilkan / sembunyikan grid 1 cm"
+        >
+          Grid {showGrid ? 'ON' : 'OFF'}
+        </button>
         <button
           className="lm-btn-secondary"
           onClick={closePoly}
           disabled={points.length < 3 || closed}
         >
-          <Check size={13} /> Tutup
+          <Check size={13} /> Tutup Poligon
         </button>
         <button className="lm-btn-ghost" onClick={resetAll}>
           <RotateCcw size={13} /> Reset
@@ -496,14 +577,12 @@ function CanvasTab({ onResult }) {
       <canvas
         ref={canvasRef}
         className="lm-canvas"
-        width={800}
-        height={520}
         onClick={handleCanvasClick}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
-        onTouchStart={(e) => { handleMouseDown(e); e.preventDefault() }}
-        onTouchMove={(e) => { handleMouseMove(e); e.preventDefault() }}
+        onTouchStart={(e) => { handleMouseDown(e) }}
+        onTouchMove={(e) => { handleMouseMove(e) }}
         onTouchEnd={() => handleMouseUp()}
       />
     </div>
